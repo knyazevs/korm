@@ -1,0 +1,14 @@
+headers = libpq-fe.h
+headerFilter = *
+package = libpq
+#staticLibraries = libpq.a
+#libraryPaths = /opt/homebrew/opt/libpq/lib
+
+compilerOpts.osx = -I/opt/homebrew/opt/libpq/include -I/usr/local/opt/libpq/include -lpq
+linkerOpts.osx = -L/opt/homebrew/opt/libpq/lib -L/usr/local/opt/libpq/lib -lpq
+
+compilerOpts.linux = -I/usr/include/postgresql/ -I/home/linuxbrew/.linuxbrew/opt/libpq/include -I/opt/homebrew/opt/libpq/include -I/usr/local/opt/libpq/include -lpq
+linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -L/usr/lib/postgresql/13/lib -L/home/linuxbrew/.linuxbrew/opt/libpq/libpkg-config -L/opt/homebrew/opt/libpq/lib -L/usr/local/opt/libpq/lib -lpq
+
+compilerOpts.mingw = -I"C:\Program Files\PostgreSQL\15\include"
+linkerOpts.mingw = -L"%ProgramFiles%/PostgreSQL/15/lib"
