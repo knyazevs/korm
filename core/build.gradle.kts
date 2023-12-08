@@ -27,25 +27,16 @@ publishing {
 kotlin {
     val hostOs = System.getProperty("os.name")
     println("Host os: $hostOs")
-    //if(!hostOs.contains("windows", ignoreCase = true)) {
-        val arch = System.getProperty("os.arch")
-        val nativeTarget = when {
-            hostOs == "Mac OS X" && arch == "x86_64" -> macosX64("native")
-            hostOs == "Mac OS X" && arch == "aarch64" -> macosArm64("native")
-            hostOs == "Linux" -> linuxX64("native")
-            hostOs.contains("windows", ignoreCase = true) -> mingwX64("native")
-            // Other supported targets are listed here: https://ktor.io/docs/native-server.html#targets
-            else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
-        }
-
-        nativeTarget.apply {
-            binaries {
-                executable {
-                    entryPoint = "com.mrs.saasshop.main"
-                }
-            }
-        }
-    //}
+    val arch = System.getProperty("os.arch")
+    val nativeTarget = when {
+        hostOs == "Mac OS X" && arch == "x86_64" -> macosX64("native")
+        hostOs == "Mac OS X" && arch == "aarch64" -> macosArm64("native")
+        hostOs == "Linux" -> linuxX64("native")
+        hostOs.contains("windows", ignoreCase = true) -> mingwX64 { }
+        // Other supported targets are listed here: https://ktor.io/docs/native-server.html#targets
+        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
+    }
+    nativeTarget
 
     jvm {
         jvmToolchain(17)
@@ -82,12 +73,12 @@ kotlin {
             }
         }
 
-        //if(!hostOs.contains("windows", ignoreCase = true)) {
+        if(!hostOs.contains("windows", ignoreCase = true)) {
             val nativeMain by getting {
                 dependencies {
                     implementation(project(":pgkn"))
                 }
             }
-        //}
+        }
     }
 }
