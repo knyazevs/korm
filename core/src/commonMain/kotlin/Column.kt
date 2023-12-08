@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KProperty
 
 
-sealed class Column<Z, T: Table<N>, N: Entity>(val table: T, open var name: String, open var nullable: kotlin.Boolean = false, val columnType: ColumnNameEnum):
+sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var name: String, open var nullable: kotlin.Boolean = false, val columnType: ColumnNameEnum):
     Expression {
     operator fun getValue(n: N, property: KProperty<*>): Z? {
         println("Get value ${name}")

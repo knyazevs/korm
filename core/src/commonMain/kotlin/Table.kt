@@ -1,5 +1,6 @@
 package s.knyazev
 
+import kotlinx.uuid.UUID
 import s.knyazev.database.Database
 import s.knyazev.resultset.ResultSet
 import s.knyazev.sql.getJson
@@ -53,9 +54,9 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
         return this.factory(fieldToValue)
     }
 
-    private fun generateFieldToMap(dao: T): List<Pair<String, String>> {
+    private fun generateFieldToMap(dao: T): List<Pair<String, Any?>> {
         return this.fieldDisplayName.map {
-            it.value.name to dao.fields[it.key].toString()
+            it.value.name to dao.fields[it.key]
         }
     }
 
@@ -97,7 +98,14 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     fun new(entity: T) {
         val generatedFields = this.generateFieldToMap(entity)
         val columns = generatedFields.joinToString(", ") { "\"${it.first}\"" }
-        val values = generatedFields.joinToString(", ") { "'${it.second}'" }
+        val values = generatedFields.joinToString(", ") {
+            when(it.second) {
+                null -> "null"
+                is UUID -> "'${it.second.toString()}'::uuid"
+                is Boolean -> it.second.toString()
+                else -> "'${it.second.toString()}'"
+            }
+        }
 
         val sql = """
             INSERT INTO ${this.meta.schema}.${this.meta.tableName}
@@ -109,8 +117,15 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     }
 
     fun update(query: Query, entity: T) {
-        val generatedUpdateFields = this.generateFieldToMap(entity).filter{ it.second != "null" }.joinToString(", ") {
-            "\"${it.first}\"='${it.second}'"
+        val generatedUpdateFields = this.generateFieldToMap(entity)
+            .filter{ it.second != null }.joinToString(", ") {
+                val second = when(it.second) {
+                    null -> "null"
+                    is UUID -> "'${it.second.toString()}'::uuid"
+                    is Boolean -> it.second.toString()
+                    else -> "'${it.second.toString()}'"
+                }
+                "\"${it.first}\"=$second"
         }
         val sql = """
             UPDATE ${this.meta.schema}.${this.meta.tableName}
