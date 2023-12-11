@@ -1,10 +1,10 @@
-package s.knyazev
+package com.github.knyazevs.korm
 
 import kotlinx.uuid.UUID
-import s.knyazev.database.Database
-import s.knyazev.resultset.ResultSet
-import s.knyazev.sql.getJson
-import s.knyazev.sql.getUUID
+import com.github.knyazevs.korm.database.Database
+import com.github.knyazevs.korm.resultset.ResultSet
+import com.github.knyazevs.korm.sql.getJson
+import com.github.knyazevs.korm.sql.getUUID
 
 
 abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T, private val database: Database) {

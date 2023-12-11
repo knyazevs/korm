@@ -1,4 +1,4 @@
-package s.knyazev
+package com.github.knyazevs.korm
 
 
 data class Query(

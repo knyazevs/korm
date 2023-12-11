@@ -1,4 +1,4 @@
-package s.knyazev.resultset
+package com.github.knyazevs.korm.resultset
 
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate

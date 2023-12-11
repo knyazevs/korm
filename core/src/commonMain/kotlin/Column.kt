@@ -1,4 +1,4 @@
-package s.knyazev
+package com.github.knyazevs.korm
 
 import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KProperty

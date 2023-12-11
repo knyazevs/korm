@@ -1,8 +1,8 @@
-package s.knyazev.database
+package com.github.knyazevs.korm.database
 
-import s.knyazev.PostgresDriver
-import s.knyazev.SqlParameterSource
-import s.knyazev.resultset.ResultSet
+import com.github.knyazevs.korm.PostgresDriver
+import com.github.knyazevs.korm.SqlParameterSource
+import com.github.knyazevs.korm.resultset.ResultSet
 
 
 interface Database {

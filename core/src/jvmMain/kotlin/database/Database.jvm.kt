@@ -1,4 +1,4 @@
-package s.knyazev.database
+package com.github.knyazevs.korm.database
 
 actual fun createDatabase(
     host: String,
@@ -6,4 +6,4 @@ actual fun createDatabase(
     database: String,
     user: String,
     password: String,
-) = s.knyazev.FPostgresDriver(host, port, database, user, password)
+) = com.github.knyazevs.korm.FPostgresDriver(host, port, database, user, password)

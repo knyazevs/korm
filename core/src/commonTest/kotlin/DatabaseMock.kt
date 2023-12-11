@@ -1,6 +1,6 @@
-import s.knyazev.SqlParameterSource
-import s.knyazev.database.Database
-import s.knyazev.resultset.ResultSet
+import com.github.knyazevs.korm.SqlParameterSource
+import com.github.knyazevs.korm.database.Database
+import com.github.knyazevs.korm.resultset.ResultSet
 
 class DatabaseMock: Database {
 

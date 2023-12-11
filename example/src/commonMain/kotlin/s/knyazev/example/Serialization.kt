@@ -1,4 +1,4 @@
-package s.knyazev.example
+package com.github.knyazevs.korm.example
 
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*

@@ -1,6 +1,6 @@
-package s.knyazev
+package com.github.knyazevs.korm
 
-import s.knyazev.resultset.ResultSet
+import com.github.knyazevs.korm.resultset.ResultSet
 import java.sql.Connection
 import java.sql.DriverManager
 

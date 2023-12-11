@@ -1,4 +1,4 @@
-package s.knyazev.example
+package com.github.knyazevs.korm.example
 
 import kotlin.jvm.JvmStatic
 

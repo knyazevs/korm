@@ -1,8 +1,8 @@
-package s.knyazev.example.product
+package com.github.knyazevs.korm.example.product
 
-import s.knyazev.Column
-import s.knyazev.Table
-import s.knyazev.example.Database
+import com.github.knyazevs.korm.Column
+import com.github.knyazevs.korm.Table
+import com.github.knyazevs.korm.example.Database
 
 object ProductTable: Table<ProductEntity>(Meta("products"), ::ProductEntity, Database) {
     val id by Column.UUID()

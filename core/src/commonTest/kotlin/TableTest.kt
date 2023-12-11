@@ -1,6 +1,6 @@
 import kotlinx.uuid.UUID
 import kotlinx.uuid.generateUUID
-import s.knyazev.*
+import com.github.knyazevs.korm.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
