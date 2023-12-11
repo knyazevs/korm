@@ -1,6 +1,6 @@
-package com.github.knyazevs.korm
+package io.github.knyazevs.korm
 
-import com.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.resultset.ResultSet
 
 /**
  * Executes given query with given named parameters.

@@ -1,7 +1,7 @@
 package io.github.moreirasantos.pgkn.sql
 
 import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
-import com.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.SqlParameterSource
 
 /**
  * Convert a Map of named parameter values to a corresponding array.

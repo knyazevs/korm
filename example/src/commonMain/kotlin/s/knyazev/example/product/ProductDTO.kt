@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm.example.product
+package io.github.knyazevs.korm.example.product
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement

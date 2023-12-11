@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm.example
+package io.github.knyazevs.korm.example
 
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -6,11 +6,11 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.uuid.UUID
 import kotlinx.uuid.generateUUID
-import com.github.knyazevs.korm.Query
-import com.github.knyazevs.korm.eq
-import com.github.knyazevs.korm.example.product.ProductDTO
-import com.github.knyazevs.korm.example.product.ProductTable
-import com.github.knyazevs.korm.example.product.toDto
+import io.github.knyazevs.korm.Query
+import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.example.product.ProductDTO
+import io.github.knyazevs.korm.example.product.ProductTable
+import io.github.knyazevs.korm.example.product.toDto
 
 fun Application.configureRouting() {
     routing {

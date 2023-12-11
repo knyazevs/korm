@@ -1,8 +1,8 @@
-package com.github.knyazevs.korm
+package io.github.knyazevs.korm
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toInstant
-import com.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.resultset.ResultSet
 import java.sql.ResultSetMetaData
 import java.text.DateFormat
 import java.text.SimpleDateFormat

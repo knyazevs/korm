@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm
+package io.github.knyazevs.korm
 
 
 interface Expression

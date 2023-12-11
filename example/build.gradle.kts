@@ -6,7 +6,7 @@ plugins {
     java
 }
 
-group = "com.github.knyazevs.korm.korm.example"
+group = "io.github.knyazevs.korm.korm.example"
 version = "1.0"
 
 repositories {
@@ -35,7 +35,7 @@ kotlin {
         nativeTarget.apply {
             binaries {
                 executable {
-                    entryPoint = "com.github.knyazevs.korm.example.main"
+                    entryPoint = "io.github.knyazevs.korm.example.main"
                 }
             }
         }
@@ -98,7 +98,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("com.github.knyazevs.korm.example.MainKt")
+    mainClass.set("io.github.knyazevs.korm.example.MainKt")
 }
 
 tasks.named<JavaExec>("run") {

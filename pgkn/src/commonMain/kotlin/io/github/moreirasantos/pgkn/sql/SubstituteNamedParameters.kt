@@ -1,6 +1,6 @@
 package io.github.moreirasantos.pgkn.sql
 
-import com.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.SqlParameterSource
 
 
 /**

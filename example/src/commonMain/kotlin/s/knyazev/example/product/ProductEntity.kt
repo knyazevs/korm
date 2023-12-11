@@ -1,6 +1,6 @@
-package com.github.knyazevs.korm.example.product
+package io.github.knyazevs.korm.example.product
 
-import com.github.knyazevs.korm.Entity
+import io.github.knyazevs.korm.Entity
 
 class ProductEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()): Entity(fields) {
     var id by ProductTable.id

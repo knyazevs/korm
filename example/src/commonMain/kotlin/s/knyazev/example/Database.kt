@@ -1,9 +1,9 @@
-package com.github.knyazevs.korm.example
+package io.github.knyazevs.korm.example
 
-import com.github.knyazevs.korm.SqlParameterSource
-import com.github.knyazevs.korm.database.Database
-import com.github.knyazevs.korm.database.createDatabase
-import com.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.resultset.ResultSet
 
 object Database: Database {
     private val driver = createDatabase(

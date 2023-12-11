@@ -7,9 +7,9 @@ import io.github.moreirasantos.pgkn.sql.substituteNamedParameters
 import io.github.moreirasantos.pgkn.resultset.PostgresResultSet
 import kotlinx.cinterop.*
 import libpq.*
-import com.github.knyazevs.korm.PostgresDriver
-import com.github.knyazevs.korm.SqlParameterSource
-import com.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.PostgresDriver
+import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.resultset.ResultSet
 
 @OptIn(ExperimentalForeignApi::class)
 fun FPostgresDriver(

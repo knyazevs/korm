@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm.sql
+package io.github.knyazevs.korm.sql
 
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlinx.datetime.Instant
@@ -6,7 +6,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.uuid.UUID
-import com.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.resultset.ResultSet
 
 fun ResultSet.getUUID(columnIndex: Int): UUID? {
     return getString(columnIndex)?.let { UUID(it) }

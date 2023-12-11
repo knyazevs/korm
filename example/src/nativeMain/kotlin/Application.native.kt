@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm.example
+package io.github.knyazevs.korm.example
 
 import io.ktor.server.application.*
 import io.ktor.server.engine.*

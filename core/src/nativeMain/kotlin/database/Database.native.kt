@@ -1,4 +1,4 @@
-package com.github.knyazevs.korm.database
+package io.github.knyazevs.korm.database
 
 actual fun createDatabase(
     host: String,
