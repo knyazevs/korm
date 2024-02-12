@@ -25,6 +25,7 @@ sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var na
     }
 
     class UUIDType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.uuid.UUID, T, N>(table, name, nullable, ColumnNameEnum.UUID)
+    class BigDecimalType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<com.ionspin.kotlin.bignum.decimal.BigDecimal, T, N>(table, name, nullable, ColumnNameEnum.BigDecimal)
     class DoubleType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Double, T, N>(table, name, nullable, ColumnNameEnum.Double)
     class IntType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Int, T, N>(table, name, nullable, ColumnNameEnum.Int)
     class BooleanType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Boolean, T, N>(table, name, nullable, ColumnNameEnum.Boolean)
@@ -33,6 +34,7 @@ sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var na
     class JsonType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<JsonElement, T, N>(table, name, nullable, ColumnNameEnum.Json)
 
     enum class ColumnNameEnum {
+        BigDecimal,
         UUID,
         Double,
         Int,
@@ -44,6 +46,7 @@ sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var na
 
     private companion object {
         fun <T: Table<N>, N: Entity> double(table: T, name: String, nullable: kotlin.Boolean): DoubleType<T, N>  = Column.DoubleType(table, name, nullable).also { it.init() }
+        fun <T: Table<N>, N: Entity> bigDecimal(table: T, name: String, nullable: kotlin.Boolean): BigDecimalType<T, N> = Column.BigDecimalType(table, name, nullable).also { it.init() }
         fun <T: Table<N>, N: Entity> uuid(table: T, name: String, nullable: kotlin.Boolean): UUIDType<T, N> = Column.UUIDType(table, name, nullable).also { it.init() }
         fun <T: Table<N>, N: Entity> int(table: T, name: String, nullable: kotlin.Boolean): IntType<T, N> = Column.IntType(table, name, nullable).also { it.init() }
         fun <T: Table<N>, N: Entity> boolean(table: T, name: String, nullable: kotlin.Boolean): BooleanType<T, N> = Column.BooleanType(table, name, nullable).also { it.init() }
@@ -60,6 +63,12 @@ sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var na
 
     class Double(val nullable: kotlin.Boolean = false) {
         operator fun <T : Table<N>, N : Entity> getValue(table: T, property: KProperty<*>): DoubleType<T, N> = Column.double(table, getColumnName(property), nullable)
+    }
+
+    class BigDecimal(val nullable: kotlin.Boolean = false)  {
+        operator fun <T : Table<N>, N : Entity> getValue(table: T, property: KProperty<*>): BigDecimalType<T, N> {
+            return Column.bigDecimal(table, getColumnName(property), nullable)
+        }
     }
 
     class UUID(val nullable: kotlin.Boolean = false)  {

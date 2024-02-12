@@ -8,7 +8,11 @@ data class Query(
     val orderBy: Map<Column<*, *, *>, AscDescOrder>? = null
 ) {
     override fun toString(): String {
-        val generatedString = "${whereExpression?.let{"WHERE $whereExpression "}}${if(limit!=UInt.MAX_VALUE) {"LIMIT $limit "} else {""}}${if(offset != 0u) {"OFFSET  $offset "} else {""}}${orderBy?.let{"ORDER BY ${prepareOrderBy(orderBy)} "} ?: ""}"
+        val whereStr = "${whereExpression?.let{"WHERE $whereExpression "}}"
+        val limitStr = if(limit!=UInt.MAX_VALUE) {"LIMIT $limit "} else {""}
+        val offsetStr = if(offset != 0u) {"OFFSET  $offset "} else {""}
+        val orderByStr = orderBy?.let{"ORDER BY ${prepareOrderBy(orderBy)} "} ?: ""
+        val generatedString = "$whereStr$orderByStr$limitStr$offsetStr"
         if (generatedString.isEmpty()) return ""
         return generatedString
     }

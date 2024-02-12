@@ -1,8 +1,8 @@
 package io.github.knyazevs.korm
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import io.github.knyazevs.korm.resultset.ResultSet
-import java.sql.Connection
-import java.sql.DriverManager
 
 
 fun FPostgresDriver(
@@ -27,11 +27,27 @@ private class PostgresDriverImpl(
     password: String,
 ) : PostgresDriver {
 
+    val config = HikariConfig().apply {
+        this.setJdbcUrl("jdbc:postgresql://$host:$port/$database")
+        this.username = user
+        this.password = password
+        this.addDataSourceProperty("cachePrepStmts", "true")
+        this.addDataSourceProperty("prepStmtCacheSize", "250")
+        this.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+    }
+    var ds = HikariDataSource(config)
+
+    init {
+
+    }
+
+    /*
     private val conn: Connection =
         DriverManager.getConnection("jdbc:postgresql://$host:$port/$database", user, password)
+    */
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> {
-        val preparedStatement = NamedParamStatement(conn, sql)
+        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
         for ((key, value) in namedParameters) {
             preparedStatement.setAny(key, value)
         }
@@ -41,13 +57,13 @@ private class PostgresDriverImpl(
 
 
     override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> {
-        val preparedStatement = conn.prepareStatement(sql)
+        val preparedStatement = ds.getConnection().prepareStatement(sql)
         val resultSet = preparedStatement.executeQuery() as ResultSet
         return resultSet.handleResults(handler)
     }
 
     override fun execute(sql: String, namedParameters: Map<String, Any?>): Long {
-        val preparedStatement = NamedParamStatement(conn, sql)
+        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
         for ((key, value) in namedParameters) {
             preparedStatement.setAny(key, value)
         }
@@ -56,7 +72,7 @@ private class PostgresDriverImpl(
     }
 
     override fun execute(sql: String, paramSource: SqlParameterSource): Long {
-        val preparedStatement = conn.prepareStatement(sql)
+        val preparedStatement = ds.getConnection().prepareStatement(sql)
         val resultSet = preparedStatement.executeQuery() as ResultSet
         return resultSet.returnCount()
     }
@@ -65,7 +81,7 @@ private class PostgresDriverImpl(
         sql: String,
         namedParameters: Map<String, Any?>
     ) {
-        val preparedStatement = NamedParamStatement(conn, sql)
+        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
         for ((key, value) in namedParameters) {
             preparedStatement.setAny(key, value)
         }

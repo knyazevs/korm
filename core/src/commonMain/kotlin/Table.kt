@@ -3,6 +3,7 @@ package io.github.knyazevs.korm
 import kotlinx.uuid.UUID
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.sql.getBigDecimal
 import io.github.knyazevs.korm.sql.getJson
 import io.github.knyazevs.korm.sql.getUUID
 
@@ -36,6 +37,7 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
             println("Column[$columnNumber]: ${it.value.name}")
             val columnValue: Any? = when(it.value.columnType) {
                 Column.ColumnNameEnum.UUID      ->  rs.getUUID(strictColumnNumber)
+                Column.ColumnNameEnum.BigDecimal->  rs.getBigDecimal(strictColumnNumber)
                 Column.ColumnNameEnum.Double    ->  rs.getDouble(strictColumnNumber)
                 Column.ColumnNameEnum.Int       ->  rs.getInt(strictColumnNumber)
                 Column.ColumnNameEnum.Boolean   ->  rs.getBoolean(strictColumnNumber)
