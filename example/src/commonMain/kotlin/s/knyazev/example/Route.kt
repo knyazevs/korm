@@ -4,8 +4,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.uuid.UUID
-import kotlinx.uuid.generateUUID
+import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.example.product.ProductDTO
@@ -23,7 +22,7 @@ fun Application.configureRouting() {
         put("/create") {
             val createDto = call.receive<ProductDTO>()
             val create = createDto.toDomain().apply {
-                id = UUID.generateUUID()
+                id = Uuid.random()
             }
             ProductTable.new(create)
             val result = ProductTable.findById(create.id!!)
@@ -32,7 +31,7 @@ fun Application.configureRouting() {
         }
 
         post("/update") {
-            val productId = UUID(call.parameters["id"].orEmpty())
+            val productId = Uuid.parse(call.parameters["id"].orEmpty())
             val createDto = call.receive<ProductDTO>()
             val update = createDto.toDomain()
             ProductTable.update(Query(ProductTable.id eq productId.toString()), update)
@@ -42,7 +41,7 @@ fun Application.configureRouting() {
         }
 
         delete("/delete") {
-            val productId = UUID(call.parameters["id"].orEmpty())
+            val productId = Uuid.parse(call.parameters["id"].orEmpty())
             ProductTable.deleteWhere(Query(ProductTable.id eq productId.toString()))
             call.respond(true)
         }

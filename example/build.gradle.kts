@@ -1,9 +1,11 @@
+@file:Suppress("DEPRECATION") // legacy custom-named native targets (e.g. macosX64("native"))
+
 plugins {
+    // No `application` / `io.ktor.plugin`: both apply the `java` plugin, which is
+    // incompatible with Kotlin Multiplatform in Kotlin 2.x. ktor is used purely as
+    // libraries; running is provided by the KMP JVM/native binaries DSL below.
     kotlin("multiplatform")
-    kotlin("plugin.serialization") version "1.9.20"
-    id("io.ktor.plugin") version "2.3.6"
-    application
-    java
+    kotlin("plugin.serialization") version "2.4.0"
 }
 
 group = "io.github.knyazevs.korm.korm.example"
@@ -16,7 +18,7 @@ repositories {
     }
 }
 
-val ktorVersion = "2.3.6"
+val ktorVersion = "3.5.0"
 
 kotlin {
     val hostOs = System.getProperty("os.name")
@@ -43,9 +45,14 @@ kotlin {
         logger.info("Windows is not supported, because no support ktor")
     }
 
+    jvmToolchain(17)
+
     jvm {
-        jvmToolchain(17)
-        withJava()
+        binaries {
+            executable {
+                mainClass.set("io.github.knyazevs.korm.example.MainKt")
+            }
+        }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
@@ -59,10 +66,7 @@ kotlin {
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
                 implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-
-
-                implementation("app.softwork:kotlinx-uuid-core:0.0.21")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
                 implementation(project(":core"))
                 implementation(project(":pg"))
@@ -78,8 +82,8 @@ kotlin {
 
                 implementation("io.ktor:ktor-server-netty:$ktorVersion")
                 implementation("io.ktor:ktor-server-call-logging:$ktorVersion")
-                implementation("org.slf4j:slf4j-api:1.7.30")
-                implementation("org.slf4j:slf4j-simple:1.7.30")
+                implementation("org.slf4j:slf4j-api:2.0.16")
+                implementation("org.slf4j:slf4j-simple:2.0.16")
 
                 implementation(project(":pgkjvm"))
             }
@@ -95,15 +99,6 @@ kotlin {
             logger.info("Windows is not supported, because no support ktor")
         }
     }
-}
-
-application {
-    mainClass.set("io.github.knyazevs.korm.example.MainKt")
-}
-
-tasks.named<JavaExec>("run") {
-    dependsOn(tasks.named<Jar>("jvmJar"))
-    classpath(tasks.named<Jar>("jvmJar"))
 }
 
 tasks.withType<Test>().configureEach {
