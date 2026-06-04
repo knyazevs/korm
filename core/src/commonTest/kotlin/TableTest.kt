@@ -38,7 +38,7 @@ class TableTest {
         val text = "hello world"
         val expectedResult = """INSERT INTO "public"."products"
                         ("id", "price", "position", "text", "nullableTest")
-                        VALUES(:p0::uuid, :p1, :p2, :p3, :p4);"""
+                        VALUES(:p0, :p1, :p2, :p3, :p4);"""
         TestTable.new(TestEntity().apply {
             this.id = uuid
             this.price = price
@@ -67,7 +67,7 @@ class TableTest {
         val text = "hello world"
         val expectedResult = """
             UPDATE "public"."products"
-            SET "id"=:p0::uuid, "price"=:p1, "position"=:p2, "text"=:p3
+            SET "id"=:p0, "price"=:p1, "position"=:p2, "text"=:p3
             WHERE "id" = :p4
         """
         TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
@@ -114,7 +114,7 @@ class TableTest {
     @Test
     fun testFindById() {
         val uuid = Uuid.random()
-        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0::uuid"""
+        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0"""
         TestTable.findById(uuid)
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to uuid.toString()), databaseMockObj.internalParams)

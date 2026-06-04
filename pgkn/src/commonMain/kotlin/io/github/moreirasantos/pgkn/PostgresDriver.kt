@@ -13,8 +13,12 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import libpq.*
+import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.StandardTypeMapper
+import io.github.knyazevs.korm.TypeMapper
 import io.github.knyazevs.korm.resultset.ResultSet
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.PostgresDriverKt")
@@ -49,6 +53,9 @@ private class PostgresDriverImpl(
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
     }
+
+    override val dialect: Dialect = PostgresDialect
+    override val typeMapper: TypeMapper = StandardTypeMapper
 
     // A single libpq connection is not thread-safe: it runs one command at a time
     // and concurrent use is undefined behaviour. We therefore keep a fixed set of

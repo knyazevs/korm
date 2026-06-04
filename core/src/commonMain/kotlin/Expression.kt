@@ -1,36 +1,25 @@
 package io.github.knyazevs.korm
 
-import kotlin.uuid.Uuid
-
 /**
  * Collects bind values while an [Expression] or [Query] is rendered to SQL.
  * Instead of inlining values into the SQL string (which is open to SQL
  * injection), each value is registered under a generated name and replaced by a
- * `:name` placeholder that the database driver binds as a real parameter.
+ * placeholder that the database driver binds as a real parameter. Identifier
+ * quoting and placeholder rendering are delegated to [dialect]; value conversion
+ * to [typeMapper].
  */
-class ParamBuilder {
+class ParamBuilder(val dialect: Dialect, private val typeMapper: TypeMapper) {
     private var counter = 0
     private val collected = LinkedHashMap<String, Any?>()
 
     /** The bind values gathered so far, keyed by their generated placeholder name. */
     val params: Map<String, Any?> get() = collected
 
-    /**
-     * Registers [value] as a bind parameter and returns the placeholder to embed
-     * in the SQL string. UUIDs additionally get a `::uuid` cast so the text-bound
-     * value is interpreted with the right type by Postgres.
-     */
+    /** Registers [value] as a bind parameter and returns the placeholder to embed in the SQL. */
     fun bind(value: Any?): String {
         val name = "p${counter++}"
-        collected[name] = normalize(value)
-        return if (value is Uuid) ":$name::uuid" else ":$name"
-    }
-
-    // Drivers bind values as text, so anything that is not a primitive/String is
-    // rendered through toString() here (UUID, BigDecimal, Instant, JsonElement, ...).
-    private fun normalize(value: Any?): Any? = when (value) {
-        null, is Boolean, is Int, is Long, is Double, is String -> value
-        else -> value.toString()
+        collected[name] = typeMapper.toParameter(value)
+        return dialect.renderBind(name, value)
     }
 }
 

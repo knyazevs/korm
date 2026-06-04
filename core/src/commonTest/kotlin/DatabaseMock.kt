@@ -1,8 +1,13 @@
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.StandardDialect
+import io.github.knyazevs.korm.StandardTypeMapper
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
 
 class DatabaseMock: Database {
+
+    override val dialect = StandardDialect
+    override val typeMapper = StandardTypeMapper
 
     var result: Any? = null
     var internalSql: String = ""

@@ -46,6 +46,9 @@ private class PostgresDriverImpl(
     }
     var ds = HikariDataSource(config)
 
+    override val dialect: Dialect = PostgresDialect
+    override val typeMapper: TypeMapper = StandardTypeMapper
+
     override fun close() = ds.close()
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =

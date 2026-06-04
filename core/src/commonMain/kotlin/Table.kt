@@ -2,9 +2,6 @@ package io.github.knyazevs.korm
 
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.sql.getBigDecimal
-import io.github.knyazevs.korm.sql.getJson
-import io.github.knyazevs.korm.sql.getUUID
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -20,11 +17,13 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
 
     private fun getColumnNames(): List<String> {
         logger.trace { "get column names" }
-        return fieldDisplayName.map { quoteIdentifier(it.value.name) }
+        return fieldDisplayName.map { database.dialect.quoteIdentifier(it.value.name) }
     }
 
     private fun qualifiedTableName(): String =
-        "${quoteIdentifier(meta.schema)}.${quoteIdentifier(meta.tableName)}"
+        "${database.dialect.quoteIdentifier(meta.schema)}.${database.dialect.quoteIdentifier(meta.tableName)}"
+
+    private fun paramBuilder() = ParamBuilder(database.dialect, database.typeMapper)
 
     private fun columnMapToValue(rs: ResultSet): Map<String, Pair<Any, Any?>> {
         logger.trace { "Column list: ${rs.columns.joinToString(", ")}" }
@@ -38,15 +37,8 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
                     throw Exception("Not nullable column \"${it.value.name}\" not found")
                 }
                 null
-            } else when(it.value.columnType) {
-                Column.ColumnNameEnum.UUID      ->  rs.getUUID(columnNumber)
-                Column.ColumnNameEnum.BigDecimal->  rs.getBigDecimal(columnNumber)
-                Column.ColumnNameEnum.Double    ->  rs.getDouble(columnNumber)
-                Column.ColumnNameEnum.Int       ->  rs.getInt(columnNumber)
-                Column.ColumnNameEnum.Boolean   ->  rs.getBoolean(columnNumber)
-                Column.ColumnNameEnum.String    ->  rs.getString(columnNumber)
-                Column.ColumnNameEnum.Instant   ->  rs.getInstant(columnNumber)
-                Column.ColumnNameEnum.Json      ->  rs.getJson(columnNumber)
+            } else {
+                database.typeMapper.fromResult(rs, columnNumber, it.value.columnType)
             }
             it.key to Pair<Any, Any?>(it.value, columnValue)
         }.associateBy( {it.first}, {it.second})
@@ -70,9 +62,9 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     }
 
     fun findById(id: Any): T? {
-        val builder = ParamBuilder()
+        val builder = paramBuilder()
         val idPlaceholder = builder.bind(id)
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()} WHERE ${quoteIdentifier("id")} = $idPlaceholder"
+        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()} WHERE ${database.dialect.quoteIdentifier("id")} = $idPlaceholder"
         return database.execute<T>(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
             this.mapToDao(rs = rs)
         }.firstOrNull()
@@ -80,21 +72,13 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
 
 
     fun find(query: Query): List<T> {
-        val builder = ParamBuilder()
+        val builder = paramBuilder()
         val queryStr = query.toSql(builder)
         val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()} $queryStr"
         return database.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
             this.mapToDao(rs = rs)
         }
     }
-
-    /*
-    fun count(query: Query): List<T> {
-        return PGDatabase.execute(sql = "SELECT COUNT(*) FROM ${this.meta.schema}.${this.meta.tableName}$query") { rs: ResultSet ->
-            this.mapToDao(rs = rs)
-        }
-    }
-     */
 
     fun all(): List<T> {
         val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()}"
@@ -104,9 +88,9 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     }
 
     fun new(entity: T) {
-        val builder = ParamBuilder()
+        val builder = paramBuilder()
         val generatedFields = this.generateFieldToMap(entity)
-        val columns = generatedFields.joinToString(", ") { quoteIdentifier(it.first) }
+        val columns = generatedFields.joinToString(", ") { database.dialect.quoteIdentifier(it.first) }
         val values = generatedFields.joinToString(", ") { builder.bind(it.second) }
 
         val sql = """
@@ -118,13 +102,13 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     }
 
     fun update(query: Query, entity: T) {
-        val builder = ParamBuilder()
+        val builder = paramBuilder()
         val updateFields = this.generateFieldToMap(entity).filter { it.second != null }
         require(updateFields.isNotEmpty()) {
             "update() needs at least one non-null field to set on ${qualifiedTableName()}"
         }
         val generatedUpdateFields = updateFields
-            .joinToString(", ") { "${quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
+            .joinToString(", ") { "${database.dialect.quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
         val queryStr = query.toSql(builder)
         val sql = """
             UPDATE ${qualifiedTableName()}
@@ -135,7 +119,7 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
     }
 
     fun deleteWhere(query: Query) {
-        val builder = ParamBuilder()
+        val builder = paramBuilder()
         val queryStr = query.toSql(builder)
         val sql = "DELETE FROM ${qualifiedTableName()} $queryStr"
         database.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)

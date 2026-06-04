@@ -14,6 +14,9 @@ object Database: Database {
         password = "password",
     )
 
+    override val dialect get() = driver.dialect
+    override val typeMapper get() = driver.typeMapper
+
     override fun <T> execute(
         sql: String,
         namedParameters: Map<String, Any?>,

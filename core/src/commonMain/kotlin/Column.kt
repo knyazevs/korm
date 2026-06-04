@@ -28,7 +28,7 @@ sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var na
     }
 
     // A column renders to its (quoted) identifier in SQL, never as a bind parameter.
-    override fun toSql(builder: ParamBuilder): String = quoteIdentifier(name)
+    override fun toSql(builder: ParamBuilder): String = builder.dialect.quoteIdentifier(name)
 
     class UUIDType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.uuid.Uuid, T, N>(table, name, nullable, ColumnNameEnum.UUID)
     class BigDecimalType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<com.ionspin.kotlin.bignum.decimal.BigDecimal, T, N>(table, name, nullable, ColumnNameEnum.BigDecimal)
