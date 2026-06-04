@@ -1,9 +1,11 @@
+@file:Suppress("DEPRECATION") // legacy custom-named native targets (e.g. macosX64("native"))
+
 import java.util.*
 
 plugins {
     kotlin("multiplatform")
-    kotlin("plugin.serialization") version "1.9.20"
-    id("org.jetbrains.dokka") version "1.9.10"
+    kotlin("plugin.serialization") version "2.4.0"
+    id("org.jetbrains.dokka") version "2.0.0"
     id("maven-publish")
     signing
 }
@@ -46,7 +48,6 @@ val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     description = "Assembles Javadoc JAR"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
 }
 
 publishing {
@@ -123,8 +124,9 @@ kotlin {
     }
     nativeTarget
 
+    jvmToolchain(17)
+
     jvm {
-        jvmToolchain(17)
         //withJava()
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
@@ -135,14 +137,16 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 api(project(":pg"))
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                // NOTE: kept at 0.0.21 — 0.1.x renamed the `kotlinx.uuid` package,
+                // which is a breaking change to Column.UUID's public type (separate migration).
                 implementation("app.softwork:kotlinx-uuid-core:0.0.21")
                 // BigDecimal
-                implementation("com.ionspin.kotlin:bignum:0.3.8")
+                implementation("com.ionspin.kotlin:bignum:0.3.10")
 
 
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-                implementation("io.github.oshai:kotlin-logging:5.0.0-beta-04")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
 
             }
         }
@@ -154,14 +158,14 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(project(":pgkjvm"))
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
             }
         }
         val jvmTest by getting {
             dependencies {
                 // End-to-end tests of the JVM driver against a real Postgres in Docker.
-                implementation("org.testcontainers:postgresql:1.19.8")
-                implementation("org.postgresql:postgresql:42.7.3")
+                implementation("org.testcontainers:postgresql:1.20.4")
+                implementation("org.postgresql:postgresql:42.7.4")
             }
         }
 

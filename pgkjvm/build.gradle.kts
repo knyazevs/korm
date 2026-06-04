@@ -3,7 +3,7 @@ import java.util.*
 plugins {
     kotlin("multiplatform")
     id("maven-publish")
-    id("org.jetbrains.dokka") version "1.9.10"
+    id("org.jetbrains.dokka") version "2.0.0"
     signing
 
 }
@@ -43,7 +43,6 @@ val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     description = "Assembles Javadoc JAR"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
 }
 
 publishing {
@@ -107,8 +106,9 @@ signing {
 }
 
 kotlin {
+    jvmToolchain(17)
+
     jvm {
-        jvmToolchain(17)
         //withJava()
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
@@ -119,9 +119,9 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 api(project(":pg"))
-                implementation("org.postgresql:postgresql:42.2.27")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-                implementation("com.zaxxer:HikariCP:5.1.0")
+                implementation("org.postgresql:postgresql:42.7.4")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("com.zaxxer:HikariCP:6.2.1")
             }
         }
     }
