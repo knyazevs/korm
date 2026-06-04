@@ -1,7 +1,7 @@
 package io.github.knyazevs.korm
 
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.toInstant
 import io.github.knyazevs.korm.resultset.ResultSet
 import java.sql.ResultSetMetaData
 import java.text.DateFormat
@@ -56,7 +56,7 @@ class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSe
     }
 
     override fun getInstant(columnIndex: Int): kotlinx.datetime.Instant? {
-        return pgResultSet.getString(columnIndex + 1)?.fixIso8601()?.toInstant()
+        return pgResultSet.getString(columnIndex + 1)?.fixIso8601()?.let { Instant.parse(it) }
     }
 
     private fun formatDate(date: Date): String {

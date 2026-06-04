@@ -83,14 +83,14 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
 
     override fun getBytes(columnIndex: Int): ByteArray? = getString(columnIndex)?.encodeToByteArray()
 
-    override fun getDate(columnIndex: Int): LocalDate? = getString(columnIndex)?.toLocalDate()
+    override fun getDate(columnIndex: Int): LocalDate? = getString(columnIndex)?.let { LocalDate.parse(it) }
 
-    override fun getTime(columnIndex: Int): LocalTime? = getString(columnIndex)?.toLocalTime()
+    override fun getTime(columnIndex: Int): LocalTime? = getString(columnIndex)?.let { LocalTime.parse(it) }
     override fun getLocalDateTime(columnIndex: Int): LocalDateTime? = getString(columnIndex)
         ?.fixIso8601()
-        ?.toLocalDateTime()
+        ?.let { LocalDateTime.parse(it) }
 
     override fun getInstant(columnIndex: Int): Instant? = getString(columnIndex)
         ?.fixIso8601()
-        ?.toInstant()
+        ?.let { Instant.parse(it) }
 }
