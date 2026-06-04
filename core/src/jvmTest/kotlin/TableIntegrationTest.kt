@@ -14,6 +14,7 @@ import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 /**
@@ -115,6 +116,29 @@ class TableIntegrationTest {
         }
     }
 
+    /** A failing statement must not break the driver; the next query still runs. */
+    @Test
+    fun testConnectionSurvivesQueryError() {
+        assumeDockerAvailable()
+        ItDatabase.newDriver(poolSize = 1).use { driver ->
+            assertFailsWith<Exception> {
+                driver.execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) }
+            }
+            assertEquals(1, driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single())
+        }
+    }
+
+    /** Using the driver after close() must fail. */
+    @Test
+    fun testUseAfterCloseThrows() {
+        assumeDockerAvailable()
+        val driver = ItDatabase.newDriver(poolSize = 1)
+        driver.close()
+        assertFailsWith<Exception> {
+            driver.execute("SELECT 1") { rs -> rs.getInt(0) }
+        }
+    }
+
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
     // without a Docker daemon. Must run before any reference to the Postgres-backed table.
     private fun assumeDockerAvailable() =
@@ -156,6 +180,16 @@ object ItDatabase : Database {
         database = container.databaseName,
         user = container.username,
         password = container.password,
+    )
+
+    /** A separate driver against the same container, for tests that need their own pool/lifecycle. */
+    fun newDriver(poolSize: Int) = createDatabase(
+        host = container.host,
+        port = container.firstMappedPort,
+        database = container.databaseName,
+        user = container.username,
+        password = container.password,
+        poolSize = poolSize,
     )
 
     init {

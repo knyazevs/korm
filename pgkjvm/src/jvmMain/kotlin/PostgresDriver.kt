@@ -12,12 +12,14 @@ fun FPostgresDriver(
     database: String,
     user: String,
     password: String,
+    poolSize: Int = 10,
 ): PostgresDriver = PostgresDriverImpl(
     host = host,
     port = port,
     database = database,
     user = user,
-    password = password
+    password = password,
+    poolSize = poolSize,
 )
 
 private class PostgresDriverImpl(
@@ -26,6 +28,7 @@ private class PostgresDriverImpl(
     database: String,
     user: String,
     password: String,
+    poolSize: Int,
 ) : PostgresDriver {
 
     val config = HikariConfig().apply {
@@ -36,11 +39,14 @@ private class PostgresDriverImpl(
         this.setJdbcUrl("jdbc:postgresql://$host:$port/$database?stringtype=unspecified")
         this.username = user
         this.password = password
+        this.maximumPoolSize = poolSize
         this.addDataSourceProperty("cachePrepStmts", "true")
         this.addDataSourceProperty("prepStmtCacheSize", "250")
         this.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
     }
     var ds = HikariDataSource(config)
+
+    override fun close() = ds.close()
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
         ds.connection.use { conn ->

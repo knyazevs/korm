@@ -6,8 +6,11 @@ import io.github.knyazevs.korm.resultset.ResultSet
  * Executes given query with given named parameters.
  * If you pass a handler, you will receive a list of result data.
  * You can pass an [SqlParameterSource] to register your own Postgres types.
+ *
+ * A driver owns one or more database connections, so it must be released with
+ * [close] (or a `use { }` block) when no longer needed.
  */
-interface PostgresDriver {
+interface PostgresDriver : AutoCloseable {
     fun <T> execute(sql: String, namedParameters: Map<String, Any?> = emptyMap(), handler: (ResultSet) -> T): List<T>
     fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T>
     fun execute(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
@@ -15,4 +18,7 @@ interface PostgresDriver {
 
 
     fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
+
+    /** Closes all underlying database connections. The driver is unusable afterwards. */
+    override fun close()
 }

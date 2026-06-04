@@ -14,10 +14,20 @@ import kotlin.uuid.Uuid
 import platform.posix.getenv
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 @OptIn(ExperimentalForeignApi::class)
 private fun env(name: String): String? = getenv(name)?.toKString()
+
+private fun nativeDriver(poolSize: Int) = createDatabase(
+    host = env("KORM_DB_HOST") ?: "localhost",
+    port = env("KORM_DB_PORT")?.toInt() ?: 5432,
+    database = env("KORM_DB_NAME") ?: "postgres",
+    user = env("KORM_DB_USER") ?: "postgres",
+    password = env("KORM_DB_PASSWORD") ?: "password",
+    poolSize = poolSize,
+)
 
 /**
  * End-to-end test for the native (libpq) driver. Testcontainers is JVM-only, so
@@ -57,6 +67,40 @@ class NativeTableIntegrationTest {
 
         NativeProducts.deleteWhere(Query(NativeProducts.id eq id.toString()))
         assertNull(NativeProducts.findById(id))
+    }
+
+    /**
+     * Regression: a failed statement must not destroy the connection. With poolSize=1
+     * there is a single pooled connection, so if the error path closed it (the old
+     * behaviour — PQfinish on any query error) the following valid query would fail.
+     */
+    @Test
+    fun testConnectionSurvivesQueryError() {
+        if (env("KORM_DB_HOST") == null) {
+            println("KORM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        nativeDriver(poolSize = 1).use { driver ->
+            assertFailsWith<Exception> {
+                driver.execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) }
+            }
+            // Same single connection must still be usable after the error above.
+            assertEquals(1, driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single())
+        }
+    }
+
+    /** Using the driver after close() must fail instead of touching a finished connection. */
+    @Test
+    fun testUseAfterCloseThrows() {
+        if (env("KORM_DB_HOST") == null) {
+            println("KORM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        val driver = nativeDriver(poolSize = 1)
+        driver.close()
+        assertFailsWith<Exception> {
+            driver.execute("SELECT 1") { rs -> rs.getInt(0) }
+        }
     }
 }
 

@@ -18,4 +18,5 @@ expect fun createDatabase(host: String,
                           port: Int = 5432,
                           database: String,
                           user: String,
-                          password: String): PostgresDriver
+                          password: String,
+                          poolSize: Int = 10): PostgresDriver

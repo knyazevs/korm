@@ -6,4 +6,5 @@ actual fun createDatabase(
     database: String,
     user: String,
     password: String,
-) = io.github.moreirasantos.pgkn.FPostgresDriver(host, port, database, user, password)
+    poolSize: Int,
+) = io.github.moreirasantos.pgkn.FPostgresDriver(host, port, database, user, password, poolSize)

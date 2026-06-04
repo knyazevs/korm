@@ -153,6 +153,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
                 api(project(":pg"))
             }
