@@ -136,7 +136,6 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                api(project(":pg"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
                 // BigDecimal
                 implementation("com.ionspin.kotlin:bignum:0.3.10")
@@ -154,23 +153,10 @@ kotlin {
         }
         val jvmMain by getting {
             dependencies {
-                implementation(project(":pgkjvm"))
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
-            }
-        }
-        val jvmTest by getting {
-            dependencies {
-                // End-to-end tests of the JVM driver against a real Postgres in Docker.
-                implementation("org.testcontainers:postgresql:1.20.4")
-                implementation("org.postgresql:postgresql:42.7.4")
-            }
-        }
-
-        if(!hostOs.contains("windows", ignoreCase = true)) {
-            val nativeMain by getting {
-                dependencies {
-                    implementation(project(":pgkn"))
-                }
+                // kotlin-logging delegates to SLF4J on the JVM; core needs the API on the
+                // runtime classpath (previously pulled in transitively via the drivers).
+                implementation("org.slf4j:slf4j-api:2.0.16")
             }
         }
     }

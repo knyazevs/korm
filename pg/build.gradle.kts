@@ -137,6 +137,9 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                // The driver interface returns core's ResultSet and binds core's
+                // SqlParameterSource, so :core is part of the public API.
+                api(project(":core"))
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
             }

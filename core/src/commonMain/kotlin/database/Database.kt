@@ -1,6 +1,5 @@
 package io.github.knyazevs.korm.database
 
-import io.github.knyazevs.korm.PostgresDriver
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.resultset.ResultSet
 
@@ -13,10 +12,3 @@ interface Database {
 
     fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
 }
-
-expect fun createDatabase(host: String,
-                          port: Int = 5432,
-                          database: String,
-                          user: String,
-                          password: String,
-                          poolSize: Int = 10): PostgresDriver

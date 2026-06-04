@@ -69,7 +69,7 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
                 implementation(project(":core"))
-                implementation(project(":pg"))
+                implementation(project(":korm-postgres"))
             }
         }
         val commonTest by getting {
