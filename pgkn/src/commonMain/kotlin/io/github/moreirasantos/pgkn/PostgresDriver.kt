@@ -100,7 +100,11 @@ private class PostgresDriverImpl(
                 },
                 paramLengths = params.map { it?.toString()?.length ?: 0 }.toIntArray().refTo(0),
                 paramFormats = IntArray(params.size) { TEXT_RESULT_FORMAT }.refTo(0),
-                paramTypes = parsedSql.parameterNames.map(paramSource::getSqlType).toUIntArray().refTo(0),
+                // Bind every parameter as unspecified type (oid 0) so the server infers
+                // each type from its column context. Values are sent as text, so declaring
+                // text(25) for a numeric/timestamp column fails; 0u lets Postgres cast.
+                // Mirrors the JVM driver's stringtype=unspecified.
+                paramTypes = UIntArray(params.size) { 0u }.refTo(0),
                 resultFormat = TEXT_RESULT_FORMAT
             )
         }.check()
