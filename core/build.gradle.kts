@@ -138,9 +138,6 @@ kotlin {
             dependencies {
                 api(project(":pg"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-                // NOTE: kept at 0.0.21 — 0.1.x renamed the `kotlinx.uuid` package,
-                // which is a breaking change to Column.UUID's public type (separate migration).
-                implementation("app.softwork:kotlinx-uuid-core:0.0.21")
                 // BigDecimal
                 implementation("com.ionspin.kotlin:bignum:0.3.10")
 

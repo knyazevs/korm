@@ -1,6 +1,5 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import kotlinx.uuid.UUID
-import kotlinx.uuid.generateUUID
+import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,7 +32,7 @@ class TableTest {
 
     @Test
     fun testInsert() {
-        val uuid = UUID.generateUUID()
+        val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)
         val position = 1
         val text = "hello world"
@@ -62,7 +61,7 @@ class TableTest {
 
     @Test
     fun testUpdate() {
-        val uuid = UUID.generateUUID()
+        val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)
         val position = 1
         val text = "hello world"
@@ -114,7 +113,7 @@ class TableTest {
 
     @Test
     fun testFindById() {
-        val uuid = UUID.generateUUID()
+        val uuid = Uuid.random()
         val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0::uuid"""
         TestTable.findById(uuid)
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))

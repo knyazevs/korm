@@ -8,8 +8,7 @@ import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.resultset.ResultSet
-import kotlinx.uuid.UUID
-import kotlinx.uuid.generateUUID
+import kotlin.uuid.Uuid
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
@@ -33,7 +32,7 @@ class TableIntegrationTest {
     @Test
     fun testInsertFindUpdateDeleteRoundTrip() {
         assumeDockerAvailable()
-        val id = UUID.generateUUID()
+        val id = Uuid.random()
         ItProducts.new(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
@@ -71,7 +70,7 @@ class TableIntegrationTest {
     @Test
     fun testValueWithQuoteRoundTrips() {
         assumeDockerAvailable()
-        val id = UUID.generateUUID()
+        val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE it_products; --"
         ItProducts.new(ItProduct().apply {
             this.id = id
@@ -103,7 +102,7 @@ class TableIntegrationTest {
     fun testConnectionsAreReleasedAcrossManyCalls() {
         assumeDockerAvailable()
         repeat(30) { i ->
-            val id = UUID.generateUUID()
+            val id = Uuid.random()
             ItProducts.new(ItProduct().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(i)

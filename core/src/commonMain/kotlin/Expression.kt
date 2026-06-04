@@ -1,6 +1,6 @@
 package io.github.knyazevs.korm
 
-import kotlinx.uuid.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Collects bind values while an [Expression] or [Query] is rendered to SQL.
@@ -23,7 +23,7 @@ class ParamBuilder {
     fun bind(value: Any?): String {
         val name = "p${counter++}"
         collected[name] = normalize(value)
-        return if (value is UUID) ":$name::uuid" else ":$name"
+        return if (value is Uuid) ":$name::uuid" else ":$name"
     }
 
     // Drivers bind values as text, so anything that is not a primitive/String is

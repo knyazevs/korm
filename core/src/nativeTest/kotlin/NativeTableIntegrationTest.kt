@@ -10,8 +10,7 @@ import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.resultset.ResultSet
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
-import kotlinx.uuid.UUID
-import kotlinx.uuid.generateUUID
+import kotlin.uuid.Uuid
 import platform.posix.getenv
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,7 +37,7 @@ class NativeTableIntegrationTest {
             return
         }
 
-        val id = UUID.generateUUID()
+        val id = Uuid.random()
         NativeProducts.new(NativeProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)

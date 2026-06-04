@@ -3,11 +3,11 @@ package io.github.knyazevs.korm.sql
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.uuid.UUID
+import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.resultset.ResultSet
 
-fun ResultSet.getUUID(columnIndex: Int): UUID? {
-    return getString(columnIndex)?.let { UUID(it) }
+fun ResultSet.getUUID(columnIndex: Int): Uuid? {
+    return getString(columnIndex)?.let { Uuid.parse(it) }
 }
 
 fun ResultSet.getBigDecimal(columnIndex: Int): BigDecimal? {
