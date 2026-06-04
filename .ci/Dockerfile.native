@@ -1,0 +1,6 @@
+# Builder image for compiling/running the Kotlin/Native (linuxX64) target.
+# Provides libpq headers + shared lib so the libpq cinterop can link.
+FROM eclipse-temurin:17-jdk
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq-dev \
+    && rm -rf /var/lib/apt/lists/*

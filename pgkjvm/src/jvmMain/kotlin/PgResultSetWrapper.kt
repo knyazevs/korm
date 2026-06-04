@@ -22,17 +22,21 @@ class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSe
 
     override fun getString(columnIndex: Int): String? = pgResultSet.getString(columnIndex + 1)
 
-    override fun getBoolean(columnIndex: Int): Boolean? = pgResultSet.getBoolean(columnIndex + 1)
+    // JDBC's primitive getters return 0/false for SQL NULL, so wasNull() must be
+    // consulted to distinguish a real value from NULL on nullable columns.
+    override fun getBoolean(columnIndex: Int): Boolean? = pgResultSet.getBoolean(columnIndex + 1).orNull()
 
-    override fun getShort(columnIndex: Int): Short? = pgResultSet.getShort(columnIndex + 1)
+    override fun getShort(columnIndex: Int): Short? = pgResultSet.getShort(columnIndex + 1).orNull()
 
-    override fun getInt(columnIndex: Int): Int?= pgResultSet.getInt(columnIndex + 1)
+    override fun getInt(columnIndex: Int): Int? = pgResultSet.getInt(columnIndex + 1).orNull()
 
-    override fun getLong(columnIndex: Int): Long? = pgResultSet.getLong(columnIndex + 1)
+    override fun getLong(columnIndex: Int): Long? = pgResultSet.getLong(columnIndex + 1).orNull()
 
-    override fun getFloat(columnIndex: Int): Float? = pgResultSet.getFloat(columnIndex + 1)
+    override fun getFloat(columnIndex: Int): Float? = pgResultSet.getFloat(columnIndex + 1).orNull()
 
-    override fun getDouble(columnIndex: Int): Double? = pgResultSet.getDouble(columnIndex + 1)
+    override fun getDouble(columnIndex: Int): Double? = pgResultSet.getDouble(columnIndex + 1).orNull()
+
+    private fun <T> T.orNull(): T? = if (pgResultSet.wasNull()) null else this
 
     override fun getBytes(columnIndex: Int): ByteArray? = pgResultSet.getBytes(columnIndex + 1)
 

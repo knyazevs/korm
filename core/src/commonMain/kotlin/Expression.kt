@@ -1,16 +1,54 @@
 package io.github.knyazevs.korm
 
+import kotlinx.uuid.UUID
 
-interface Expression
+/**
+ * Collects bind values while an [Expression] or [Query] is rendered to SQL.
+ * Instead of inlining values into the SQL string (which is open to SQL
+ * injection), each value is registered under a generated name and replaced by a
+ * `:name` placeholder that the database driver binds as a real parameter.
+ */
+class ParamBuilder {
+    private var counter = 0
+    private val collected = LinkedHashMap<String, Any?>()
 
-class Value(private val str: String) : Expression {
-    override fun toString(): String {
-        return "'$str'"
+    /** The bind values gathered so far, keyed by their generated placeholder name. */
+    val params: Map<String, Any?> get() = collected
+
+    /**
+     * Registers [value] as a bind parameter and returns the placeholder to embed
+     * in the SQL string. UUIDs additionally get a `::uuid` cast so the text-bound
+     * value is interpreted with the right type by Postgres.
+     */
+    fun bind(value: Any?): String {
+        val name = "p${counter++}"
+        collected[name] = normalize(value)
+        return if (value is UUID) ":$name::uuid" else ":$name"
+    }
+
+    // Drivers bind values as text, so anything that is not a primitive/String is
+    // rendered through toString() here (UUID, BigDecimal, Instant, JsonElement, ...).
+    private fun normalize(value: Any?): Any? = when (value) {
+        null, is Boolean, is Int, is Long, is Double, is String -> value
+        else -> value.toString()
     }
 }
 
-class RawExpression(val expression: String): Expression {
-    override fun toString(): String = expression
+interface Expression {
+    fun toSql(builder: ParamBuilder): String
+}
+
+class Value(private val value: Any?) : Expression {
+    override fun toSql(builder: ParamBuilder): String = builder.bind(value)
+}
+
+/**
+ * Raw, unparameterized SQL fragment embedded verbatim. Unsafe with untrusted
+ * input — prefer [Value] and the typed operators below. Use only for SQL you
+ * fully control.
+ */
+class RawExpression(val expression: String) : Expression {
+    override fun toSql(builder: ParamBuilder): String = expression
 }
 
 sealed class CompoundBooleanOp(
@@ -18,9 +56,8 @@ sealed class CompoundBooleanOp(
     private val first: Expression,
     private val second: Expression,
 ) : Expression {
-    override fun toString(): String {
-        return "$first $operator $second"
-    }
+    override fun toSql(builder: ParamBuilder): String =
+        "${first.toSql(builder)}$operator${second.toSql(builder)}"
 }
 
 class AndOp(first: Expression, second: Expression) : CompoundBooleanOp(" AND ", first, second)
@@ -43,9 +80,8 @@ abstract class ComparisonOp(
     /** Returns the symbol of the comparison operation. */
     val opSign: String,
 ) : Expression {
-    override fun toString(): String {
-        return "$first $opSign $second"
-    }
+    override fun toSql(builder: ParamBuilder): String =
+        "${first.toSql(builder)} $opSign ${second.toSql(builder)}"
 }
 
 class EqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "=")

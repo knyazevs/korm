@@ -3,6 +3,7 @@ package io.github.knyazevs.korm
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.knyazevs.korm.resultset.ResultSet
+import java.sql.PreparedStatement
 
 
 fun FPostgresDriver(
@@ -28,7 +29,11 @@ private class PostgresDriverImpl(
 ) : PostgresDriver {
 
     val config = HikariConfig().apply {
-        this.setJdbcUrl("jdbc:postgresql://$host:$port/$database")
+        // stringtype=unspecified lets the server infer a parameter's type from its
+        // column context, so text-bound values (BigDecimal, uuid, timestamps, ...)
+        // are accepted by numeric/uuid/timestamp columns — matching the native
+        // (libpq) driver, which sends all parameters as untyped text.
+        this.setJdbcUrl("jdbc:postgresql://$host:$port/$database?stringtype=unspecified")
         this.username = user
         this.password = password
         this.addDataSourceProperty("cachePrepStmts", "true")
@@ -37,65 +42,63 @@ private class PostgresDriverImpl(
     }
     var ds = HikariDataSource(config)
 
-    init {
-
-    }
-
-    /*
-    private val conn: Connection =
-        DriverManager.getConnection("jdbc:postgresql://$host:$port/$database", user, password)
-    */
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> {
-        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
-        for ((key, value) in namedParameters) {
-            preparedStatement.setAny(key, value)
+    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
+        ds.connection.use { conn ->
+            val statement = NamedParamStatement(conn, sql)
+            for ((key, value) in namedParameters) {
+                statement.setAny(key, value)
+            }
+            PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
         }
-        val resultSet = PgResultSetWrapper(preparedStatement.executeQuery())
-        return resultSet.handleResults(handler)
-    }
 
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> {
-        val preparedStatement = ds.getConnection().prepareStatement(sql)
-        val resultSet = preparedStatement.executeQuery() as ResultSet
-        return resultSet.handleResults(handler)
-    }
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long {
-        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
-        for ((key, value) in namedParameters) {
-            preparedStatement.setAny(key, value)
+    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
+        ds.connection.use { conn ->
+            // NOTE: SqlParameterSource binding is not implemented on the JVM driver.
+            PgResultSetWrapper(conn.prepareStatement(sql).executeQuery()).handleResults(handler)
         }
-        val resultSet = preparedStatement.executeQuery() as ResultSet
-        return resultSet.returnCount()
-    }
 
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long {
-        val preparedStatement = ds.getConnection().prepareStatement(sql)
-        val resultSet = preparedStatement.executeQuery() as ResultSet
-        return resultSet.returnCount()
-    }
+    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
+        ds.connection.use { conn ->
+            val statement = NamedParamStatement(conn, sql)
+            for ((key, value) in namedParameters) {
+                statement.setAny(key, value)
+            }
+            statement.preparedStatement.runReturningCount()
+        }
+
+    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
+        ds.connection.use { conn ->
+            conn.prepareStatement(sql).runReturningCount()
+        }
 
     override fun executeUpdate(
         sql: String,
         namedParameters: Map<String, Any?>
     ) {
-        val preparedStatement = NamedParamStatement(ds.getConnection(), sql)
-        for ((key, value) in namedParameters) {
-            preparedStatement.setAny(key, value)
+        ds.connection.use { conn ->
+            val statement = NamedParamStatement(conn, sql)
+            for ((key, value) in namedParameters) {
+                statement.setAny(key, value)
+            }
+            statement.executeUpdate()
         }
-        preparedStatement.executeUpdate()
     }
 
-
-    private fun ResultSet.returnCount(): Long {
-        var size = 0
-        while (this.next()) {
-            size++
+    /**
+     * Runs any statement (DDL, DML or query) and returns a row count for queries
+     * or the update count otherwise. Uses [PreparedStatement.execute] so it works
+     * for statements that do not produce a result set (e.g. CREATE TABLE).
+     */
+    private fun PreparedStatement.runReturningCount(): Long =
+        if (execute()) {
+            resultSet.use { rs ->
+                var size = 0L
+                while (rs.next()) size++
+                size
+            }
+        } else {
+            updateCount.toLong()
         }
-        return size.toLong()
-    }
 
     private fun <T> ResultSet.handleResults(handler: (ResultSet) -> T): List<T> {
         val rs = this
@@ -108,4 +111,3 @@ private class PostgresDriverImpl(
         return list
     }
 }
-

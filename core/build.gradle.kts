@@ -157,6 +157,13 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
             }
         }
+        val jvmTest by getting {
+            dependencies {
+                // End-to-end tests of the JVM driver against a real Postgres in Docker.
+                implementation("org.testcontainers:postgresql:1.19.8")
+                implementation("org.postgresql:postgresql:42.7.3")
+            }
+        }
 
         if(!hostOs.contains("windows", ignoreCase = true)) {
             val nativeMain by getting {

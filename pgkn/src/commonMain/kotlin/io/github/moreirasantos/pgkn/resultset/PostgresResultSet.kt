@@ -26,9 +26,8 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
     override val columns by lazy { internalGetColumns() }
 
     private fun internalGetColumns(): Array<String> {
-        println("get columns")
-        println("Columns count: ${PQnfields(internal)}")
-        return (0..PQnfields(internal)).mapNotNull {
+        logger.trace { "get columns, count: ${PQnfields(internal)}" }
+        return (0 until PQnfields(internal)).mapNotNull {
             PQfname(internal, it)?.toKString()
         }.toTypedArray()
     }

@@ -4,6 +4,9 @@ import kotlinx.uuid.generateUUID
 import io.github.knyazevs.korm.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
     var id by TestTable.id
@@ -34,9 +37,9 @@ class TableTest {
         val price = BigDecimal.fromInt(100)
         val position = 1
         val text = "hello world"
-        val expectedResult = """INSERT INTO public.products
+        val expectedResult = """INSERT INTO "public"."products"
                         ("id", "price", "position", "text", "nullableTest")
-                        VALUES('$uuid'::uuid, '$price', '$position', '$text', null);"""
+                        VALUES(:p0::uuid, :p1, :p2, :p3, :p4);"""
         TestTable.new(TestEntity().apply {
             this.id = uuid
             this.price = price
@@ -45,7 +48,16 @@ class TableTest {
             this.nullableTest = null
         })
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-
+        assertEquals(
+            mapOf(
+                "p0" to uuid.toString(),
+                "p1" to price.toString(),
+                "p2" to position,
+                "p3" to text,
+                "p4" to null,
+            ),
+            databaseMockObj.internalParams,
+        )
     }
 
     @Test
@@ -55,9 +67,9 @@ class TableTest {
         val position = 1
         val text = "hello world"
         val expectedResult = """
-            UPDATE public.products
-            SET "id"='$uuid'::uuid, "price"='$price', "position"='$position', "text"='$text'
-            WHERE id = '$uuid'
+            UPDATE "public"."products"
+            SET "id"=:p0::uuid, "price"=:p1, "position"=:p2, "text"=:p3
+            WHERE "id" = :p4
         """
         TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
             this.id = uuid
@@ -66,18 +78,102 @@ class TableTest {
             this.text = text
             this.nullableTest = null
         })
-        println(databaseMockObj.internalSql)
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-
+        assertEquals(
+            mapOf(
+                "p0" to uuid.toString(),
+                "p1" to price.toString(),
+                "p2" to position,
+                "p3" to text,
+                "p4" to uuid.toString(),
+            ),
+            databaseMockObj.internalParams,
+        )
     }
 
     @Test
     fun testSelect() {
-        query = TestTable.find(TestTable.price eq price.toString(),
-            limit = count,
-            offset = from,
-            orderBy = mapOf(ProductTable.name to AscDescOrder.ASC))
+        val price = BigDecimal.fromInt(100)
+        val count = 10u
+        val from = 5u
+        val expectedResult = """
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
+            WHERE "price" = :p0 ORDER BY "position" ASC LIMIT $count OFFSET $from
+        """
+        TestTable.find(
+            Query(
+                whereExpression = TestTable.price eq price.toString(),
+                limit = count,
+                offset = from,
+                orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
+            )
+        )
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to price.toString()), databaseMockObj.internalParams)
+    }
 
+    @Test
+    fun testFindById() {
+        val uuid = UUID.generateUUID()
+        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0::uuid"""
+        TestTable.findById(uuid)
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to uuid.toString()), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testDeleteWhere() {
+        val expectedResult = """DELETE FROM "public"."products" WHERE "position" = :p0"""
+        TestTable.deleteWhere(Query(TestTable.position eq "5"))
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to "5"), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testCompoundWhereSharesOneParameterSpace() {
+        val expectedResult = """
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
+            WHERE "position" = :p0 AND "text" = :p1
+        """
+        TestTable.find(Query(TestTable.position eq "1" and (TestTable.text eq "abc")))
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to "1", "p1" to "abc"), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testUpdateWithNoNonNullFieldsFails() {
+        assertFailsWith<IllegalArgumentException> {
+            TestTable.update(Query(TestTable.id eq "x"), TestEntity())
+        }
+    }
+
+    /**
+     * Regression test for the bug where a [Query] with no `where` rendered the
+     * literal string "null" into the SQL. An empty query must produce no WHERE.
+     */
+    @Test
+    fun testEmptyQueryHasNoWhereClause() {
+        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products""""
+        TestTable.find(Query())
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertFalse(databaseMockObj.internalSql.contains("WHERE"), "empty query must not emit WHERE")
+        assertTrue(databaseMockObj.internalParams.isEmpty())
+    }
+
+    /**
+     * The whole point of parameterization: a value that looks like an injection
+     * payload must land in the bind parameters, never inlined into the SQL text.
+     */
+    @Test
+    fun testValuesAreParameterizedNotInlined() {
+        val payload = "x'; DROP TABLE products; --"
+        TestTable.find(Query(TestTable.text eq payload))
+        assertFalse(
+            databaseMockObj.internalSql.contains("DROP TABLE"),
+            "the value must not be inlined into SQL: ${databaseMockObj.internalSql}",
+        )
+        assertTrue(databaseMockObj.internalSql.contains(":p0"))
+        assertEquals(payload, databaseMockObj.internalParams["p0"])
     }
 
     companion object {

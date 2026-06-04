@@ -11,6 +11,8 @@ import io.github.knyazevs.korm.PostgresDriver
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.resultset.ResultSet
 
+private val logger = KLogger("io.github.moreirasantos.pgkn.PostgresDriverKt")
+
 @OptIn(ExperimentalForeignApi::class)
 fun FPostgresDriver(
     host: String,
@@ -93,7 +95,7 @@ private class PostgresDriverImpl(
                 command = sqlToUse,
                 nParams = params.size,
                 paramValues = createValues(params.size) {
-                    println(params[it]?.toString()?.cstr)
+                    logger.trace { "param[$it]: ${params[it]}" }
                     value = params[it]?.toString()?.cstr?.getPointer(this@memScoped)
                 },
                 paramLengths = params.map { it?.toString()?.length ?: 0 }.toIntArray().refTo(0),

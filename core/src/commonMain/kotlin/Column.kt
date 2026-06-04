@@ -1,28 +1,34 @@
 package io.github.knyazevs.korm
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KProperty
+
+private val logger = KotlinLogging.logger {}
 
 
 sealed class Column<Z, T: Table<N>, N: Entity>(private val table: T, open var name: String, open var nullable: kotlin.Boolean = false, val columnType: ColumnNameEnum):
     Expression {
     operator fun getValue(n: N, property: KProperty<*>): Z? {
-        println("Get value ${name}")
+        logger.trace { "Get value $name" }
         return n.fields[name] as Z?
     }
 
     operator fun setValue(n: N, property: KProperty<*>, z: Z?){
-        println("Set value ${name}")
+        logger.trace { "Set value $name" }
         n.fields[name] = z
     }
 
     open fun init() {
-        println("init column ${this.name}")
+        logger.trace { "init column ${this.name}" }
         table.addColumn(this.name, this)
     }
     override fun toString(): String {
         return name
     }
+
+    // A column renders to its (quoted) identifier in SQL, never as a bind parameter.
+    override fun toSql(builder: ParamBuilder): String = quoteIdentifier(name)
 
     class UUIDType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.uuid.UUID, T, N>(table, name, nullable, ColumnNameEnum.UUID)
     class BigDecimalType<T: Table<N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<com.ionspin.kotlin.bignum.decimal.BigDecimal, T, N>(table, name, nullable, ColumnNameEnum.BigDecimal)

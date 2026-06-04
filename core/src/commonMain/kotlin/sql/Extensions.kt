@@ -1,8 +1,6 @@
 package io.github.knyazevs.korm.sql
 
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import kotlinx.datetime.Instant
-import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.uuid.UUID
@@ -16,9 +14,8 @@ fun ResultSet.getBigDecimal(columnIndex: Int): BigDecimal? {
     return getString(columnIndex)?.let { BigDecimal.parseString(it) }
 }
 
-fun ResultSet.getInstant(columnIndex: Int): Instant? {
-    return getString(columnIndex)?.let { it.toInstant() }
-}
+// Note: ResultSet already provides getInstant() as a member (with the required
+// Postgres "space -> T" ISO-8601 fix), so no extension is defined here.
 
 fun ResultSet.getJson(columnIndex: Int): JsonElement? {
     return getString(columnIndex)?.let { Json.parseToJsonElement(it) }

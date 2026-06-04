@@ -1,6 +1,8 @@
 local.properties
 .gradle
 build/
+# Gradle/Konan caches used by the local native-CI container build
+.cihome/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
