@@ -139,6 +139,26 @@ class TableIntegrationTest {
         }
     }
 
+    /**
+     * Regression: the JVM driver's SqlParameterSource overloads used to ignore the
+     * source entirely (running the SQL with unbound placeholders). They must now
+     * bind each named parameter from the source.
+     */
+    @Test
+    fun testParamSourceBinding() {
+        assumeDockerAvailable()
+        val source = object : SqlParameterSource {
+            private val values = mapOf("a" to 7, "b" to 5)
+            override fun hasValue(paramName: String) = paramName in values
+            override fun getValue(paramName: String) = values.getValue(paramName)
+            override val parameterNames get() = values.keys.toTypedArray()
+        }
+        ItDatabase.newDriver(poolSize = 1).use { driver ->
+            val sum = driver.execute("SELECT :a::int + :b::int AS s", source) { rs -> rs.getInt(0) }
+            assertEquals(12, sum.single())
+        }
+    }
+
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
     // without a Docker daemon. Must run before any reference to the Postgres-backed table.
     private fun assumeDockerAvailable() =

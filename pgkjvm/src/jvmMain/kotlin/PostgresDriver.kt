@@ -59,8 +59,9 @@ private class PostgresDriverImpl(
 
     override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
         ds.connection.use { conn ->
-            // NOTE: SqlParameterSource binding is not implemented on the JVM driver.
-            PgResultSetWrapper(conn.prepareStatement(sql).executeQuery()).handleResults(handler)
+            val statement = NamedParamStatement(conn, sql)
+            statement.bind(paramSource)
+            PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
         }
 
     override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
@@ -74,7 +75,9 @@ private class PostgresDriverImpl(
 
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         ds.connection.use { conn ->
-            conn.prepareStatement(sql).runReturningCount()
+            val statement = NamedParamStatement(conn, sql)
+            statement.bind(paramSource)
+            statement.preparedStatement.runReturningCount()
         }
 
     override fun executeUpdate(

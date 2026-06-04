@@ -71,6 +71,14 @@ class NamedParamStatement(conn: Connection, sql: String) {
         return preparedStatement.executeUpdate()
     }
 
+    /** Binds every named placeholder in the statement from [paramSource], by name. */
+    fun bind(paramSource: SqlParameterSource) {
+        for (name in fields.toSet()) {
+            require(paramSource.hasValue(name)) { "No value supplied for parameter \"$name\"" }
+            setAny(name, paramSource.getValue(name))
+        }
+    }
+
     fun setAny(name: String, value: Any?) {
         for (index in indexesOf(name)) {
             when (value) {
