@@ -15,6 +15,14 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
     fun getFieldDisplayNames() = fieldDisplayName
+
+    /**
+     * The primary-key column(s): those declared with `primaryKey = true`, or the column
+     * named "id" if none are marked.
+     */
+    val primaryKey: List<Column<*, *, *>>
+        get() = fieldDisplayName.values.filter { it.isPrimaryKey }
+            .ifEmpty { fieldDisplayName.values.filter { it.name == "id" } }
     internal fun addColumn(fieldName: String, column: Column<*, *, *>) {
         logger.trace { "add column/field ${column.name}/$fieldName" }
         fieldDisplayName[fieldName] = column
@@ -75,9 +83,14 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
     }
 
     internal fun selectById(id: Any, exec: SqlExecutor): T? {
+        val pk = primaryKey.singleOrNull()
+            ?: throw IllegalStateException(
+                "findById requires a single-column primary key on ${meta.tableName}; " +
+                    "use find(...) for composite (or missing) keys",
+            )
         val builder = paramBuilder(exec)
         val idPlaceholder = builder.bind(id)
-        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} WHERE ${exec.dialect.quoteIdentifier("id")} = $idPlaceholder"
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} WHERE ${exec.dialect.quoteIdentifier(pk.name)} = $idPlaceholder"
         return exec.execute<T>(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
             this.mapToDao(rs = rs, exec = exec)
         }.firstOrNull()
@@ -146,8 +159,13 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
             val nullability = if (col.nullable) "" else " NOT NULL"
             "${exec.dialect.quoteIdentifier(col.name)} ${exec.dialect.sqlType(col.columnType)}$nullability"
         }
+        val pkClause = primaryKey
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(", ") { exec.dialect.quoteIdentifier(it.name) }
+            ?.let { ",\n    PRIMARY KEY ($it)" }
+            .orEmpty()
         val exists = if (ifNotExists) "IF NOT EXISTS " else ""
-        return "CREATE TABLE $exists${qualifiedTableName(exec)} (\n    $columns\n)"
+        return "CREATE TABLE $exists${qualifiedTableName(exec)} (\n    $columns$pkClause\n)"
     }
 
     internal fun dropTableSql(exec: SqlExecutor, ifExists: Boolean): String =

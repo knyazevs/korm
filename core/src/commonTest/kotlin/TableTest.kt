@@ -43,6 +43,30 @@ object TestOrders : Table<TestCatalog, TestOrderEntity>(Meta("orders"), ::TestOr
     init { orderId; productId }
 }
 
+class CodedEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var code by Coded.code
+    var amount by Coded.amount
+}
+
+object Coded : Table<TestCatalog, CodedEntity>(Meta("coded"), ::CodedEntity) {
+    val code by Column.Text(primaryKey = true)
+    val amount by Column.Int()
+
+    init { code; amount }
+}
+
+class CompositeKeyEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var left by CompositeKey.left
+    var right by CompositeKey.right
+}
+
+object CompositeKey : Table<TestCatalog, CompositeKeyEntity>(Meta("composite"), ::CompositeKeyEntity) {
+    val left by Column.UUID(primaryKey = true)
+    val right by Column.Int(primaryKey = true)
+
+    init { left; right }
+}
+
 class TableTest {
 
     @Test
@@ -226,7 +250,8 @@ class TableTest {
                 "price" numeric NOT NULL,
                 "position" integer NOT NULL,
                 "text" text NOT NULL,
-                "nullableTest" text
+                "nullableTest" text,
+                PRIMARY KEY ("id")
             )
         """
         db.transaction { TestTable.createTable() }
@@ -286,6 +311,29 @@ class TableTest {
         assertTrue(sql.contains("""GROUPBY"products"."position""""), sql)
         assertTrue(sql.contains("""HAVINGSUM("products"."price")>:p0"""), sql)
         assertEquals(mapOf("p0" to BigDecimal.fromInt(100).toString()), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testFindByIdUsesMarkedPrimaryKeyColumn() {
+        db.autocommit { Coded.findById("abc") }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""WHERE"code"=:p0"""))
+        assertEquals(mapOf("p0" to "abc"), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testCreateTableEmitsCompositePrimaryKey() {
+        db.transaction { CompositeKey.createTable() }
+        assertTrue(
+            remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""PRIMARYKEY("left","right")"""),
+            databaseMockObj.internalSql,
+        )
+    }
+
+    @Test
+    fun testFindByIdFailsForCompositeKey() {
+        assertFailsWith<IllegalStateException> {
+            db.autocommit { CompositeKey.findById(Uuid.random()) }
+        }
     }
 
     companion object {

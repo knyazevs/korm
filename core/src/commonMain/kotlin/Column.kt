@@ -36,6 +36,9 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
 
     internal val tableRef: Table<*, *> get() = table
 
+    /** Whether this column is part of the table's primary key. */
+    internal var isPrimaryKey: kotlin.Boolean = false
+
     // As a selectable, read its value via the type mapper (its toSql is the SELECT SQL).
     @Suppress("UNCHECKED_CAST")
     override fun read(rs: ResultSet, index: kotlin.Int, typeMapper: TypeMapper): Z? =
@@ -62,14 +65,14 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
     }
 
     private companion object {
-        fun <T: Table<*, N>, N: Entity> double(table: T, name: String, nullable: kotlin.Boolean): DoubleType<T, N>  = Column.DoubleType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> bigDecimal(table: T, name: String, nullable: kotlin.Boolean): BigDecimalType<T, N> = Column.BigDecimalType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> uuid(table: T, name: String, nullable: kotlin.Boolean): UUIDType<T, N> = Column.UUIDType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> int(table: T, name: String, nullable: kotlin.Boolean): IntType<T, N> = Column.IntType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> boolean(table: T, name: String, nullable: kotlin.Boolean): BooleanType<T, N> = Column.BooleanType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> text(table: T, name: String, nullable: kotlin.Boolean): TextType<T, N> = Column.TextType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> instant(table: T, name: String, nullable: kotlin.Boolean): InstantType<T, N> = Column.InstantType(table, name, nullable).also { it.init() }
-        fun <T: Table<*, N>, N: Entity> json(table: T, name: String, nullable: kotlin.Boolean): JsonType<T, N> = Column.JsonType(table, name, nullable).also { it.init() }
+        fun <T: Table<*, N>, N: Entity> double(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): DoubleType<T, N>  = Column.DoubleType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> bigDecimal(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): BigDecimalType<T, N> = Column.BigDecimalType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> uuid(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): UUIDType<T, N> = Column.UUIDType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> int(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): IntType<T, N> = Column.IntType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> boolean(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): BooleanType<T, N> = Column.BooleanType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> text(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): TextType<T, N> = Column.TextType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> instant(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): InstantType<T, N> = Column.InstantType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> json(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): JsonType<T, N> = Column.JsonType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
 
         fun getColumnName(property: KProperty<*>): String {
             //val columnNameAnnotation: Annotation? = property.annotations.firstOrNull { it is ColumnName }
@@ -78,38 +81,38 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
         }
     }
 
-    class Double(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): DoubleType<T, N> = Column.double(table, getColumnName(property), nullable)
+    class Double(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): DoubleType<T, N> = Column.double(table, getColumnName(property), nullable, primaryKey)
     }
 
-    class BigDecimal(val nullable: kotlin.Boolean = false)  {
+    class BigDecimal(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false)  {
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): BigDecimalType<T, N> {
-            return Column.bigDecimal(table, getColumnName(property), nullable)
+            return Column.bigDecimal(table, getColumnName(property), nullable, primaryKey)
         }
     }
 
-    class UUID(val nullable: kotlin.Boolean = false)  {
+    class UUID(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false)  {
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): UUIDType<T, N> {
-            return Column.uuid(table, getColumnName(property), nullable)
+            return Column.uuid(table, getColumnName(property), nullable, primaryKey)
         }
     }
 
-    class Int(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.int(table, getColumnName(property), nullable)
+    class Int(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.int(table, getColumnName(property), nullable, primaryKey)
     }
 
-    class Boolean(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.boolean(table, getColumnName(property), nullable)
+    class Boolean(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.boolean(table, getColumnName(property), nullable, primaryKey)
     }
-    class Text(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.text(table, getColumnName(property), nullable)
+    class Text(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.text(table, getColumnName(property), nullable, primaryKey)
     }
-    class Instant(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.instant(table, getColumnName(property), nullable)
+    class Instant(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.instant(table, getColumnName(property), nullable, primaryKey)
     }
 
-    class Json(val nullable: kotlin.Boolean = false) {
-        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.json(table, getColumnName(property), nullable)
+    class Json(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.json(table, getColumnName(property), nullable, primaryKey)
     }
 }
 

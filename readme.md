@@ -43,7 +43,7 @@ import io.github.knyazevs.korm.*
 object Main : Catalog
 
 object Users : Table<Main, User>(Meta("users"), ::User) {
-    val id by Column.UUID()
+    val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
     val note by Column.Text(nullable = true)
@@ -60,7 +60,10 @@ class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Ent
 ```
 
 Available column types: `UUID`, `BigDecimal`, `Double`, `Int`, `Boolean`, `Text`,
-`Instant`, `Json`. Each takes an optional `nullable` flag, e.g. `Column.Text(true)`.
+`Instant`, `Json`. Each takes optional `nullable` and `primaryKey` flags, e.g.
+`Column.UUID(primaryKey = true)`, `Column.Text(nullable = true)`. `findById` uses the
+primary key (or the column named `id` if none is marked); mark several columns for a
+composite key.
 
 ### 2. Connect
 
@@ -210,8 +213,9 @@ db.transaction {
 }
 ```
 
-This covers columns and `NOT NULL`. Primary keys, indexes and other constraints are not
-generated yet — add them with raw SQL (`execute("...")`) for now.
+This covers columns, `NOT NULL` and the `PRIMARY KEY` (from the columns marked
+`primaryKey = true`). Indexes and other constraints are not generated yet — add them with
+raw SQL (`execute("...")`) for now.
 
 ## Migrations
 
