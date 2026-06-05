@@ -28,6 +28,14 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     fun <T : Entity> Table<G, T>.deleteWhere(query: Query) = deleteRows(query, exec)
     fun <T : Entity> Table<G, T>.execSql(sql: String) = runRaw(sql, exec)
 
+    /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */
+    fun <T : Entity> Table<G, T>.createTable(ifNotExists: Boolean = true) =
+        exec.executeUpdate(createTableSql(exec, ifNotExists))
+
+    /** Drops this table (`DROP TABLE [IF EXISTS]`). */
+    fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
+        exec.executeUpdate(dropTableSql(exec, ifExists))
+
     /** Runs raw SQL on the pinned connection, returning the row/update count. */
     fun execute(sql: String, params: Map<String, Any?> = emptyMap()): Long = exec.execute(sql, params)
 

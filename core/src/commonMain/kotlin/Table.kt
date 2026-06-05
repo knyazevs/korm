@@ -141,6 +141,18 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         return exec.execute(sql.trimIndent(), builder.params) { rs -> rs.getLong(0) ?: 0L }.firstOrNull() ?: 0L
     }
 
+    internal fun createTableSql(exec: SqlExecutor, ifNotExists: Boolean): String {
+        val columns = fieldDisplayName.values.joinToString(",\n    ") { col ->
+            val nullability = if (col.nullable) "" else " NOT NULL"
+            "${exec.dialect.quoteIdentifier(col.name)} ${exec.dialect.sqlType(col.columnType)}$nullability"
+        }
+        val exists = if (ifNotExists) "IF NOT EXISTS " else ""
+        return "CREATE TABLE $exists${qualifiedTableName(exec)} (\n    $columns\n)"
+    }
+
+    internal fun dropTableSql(exec: SqlExecutor, ifExists: Boolean): String =
+        "DROP TABLE ${if (ifExists) "IF EXISTS " else ""}${qualifiedTableName(exec)}"
+
     internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {
         val builder = paramBuilder(exec)
         val updateFields = this.generatePresentFields(entity)

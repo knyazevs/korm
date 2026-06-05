@@ -9,4 +9,10 @@ import kotlin.uuid.Uuid
 object PostgresDialect : Dialect by StandardDialect {
     override fun renderBind(name: String, value: Any?): String =
         if (value is Uuid) ":$name::uuid" else StandardDialect.renderBind(name, value)
+
+    override fun sqlType(type: Column.ColumnNameEnum): String = when (type) {
+        Column.ColumnNameEnum.Instant -> "timestamptz"
+        Column.ColumnNameEnum.Json -> "jsonb"
+        else -> StandardDialect.sqlType(type)
+    }
 }

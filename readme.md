@@ -136,6 +136,20 @@ Values are always sent as bind parameters, never inlined — so untrusted input 
 inject SQL. Predicate operators: `eq`, `neq`, `less`, `lessEq`, `gt`, `gtEq`, combined
 with `and` / `or`.
 
+## Creating tables
+
+Korm generates `CREATE TABLE` from a table's columns (SQL types come from the dialect):
+
+```kotlin
+db.transaction {
+    Users.createTable()      // CREATE TABLE IF NOT EXISTS "public"."users" (...)
+    // Users.dropTable()     // DROP TABLE IF EXISTS ...
+}
+```
+
+This covers columns and `NOT NULL`. Primary keys, indexes and other constraints are not
+generated yet — add them with raw SQL (`execute("...")`) for now.
+
 ## Transactions
 
 ```kotlin

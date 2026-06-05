@@ -206,6 +206,21 @@ class TableTest {
         assertEquals(payload, databaseMockObj.internalParams["p0"])
     }
 
+    @Test
+    fun testCreateTableGeneratesDdlFromColumns() {
+        val expectedResult = """
+            CREATE TABLE IF NOT EXISTS "public"."products" (
+                "id" uuid NOT NULL,
+                "price" numeric NOT NULL,
+                "position" integer NOT NULL,
+                "text" text NOT NULL,
+                "nullableTest" text
+            )
+        """
+        db.transaction { TestTable.createTable() }
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+    }
+
     companion object {
         val databaseMockObj = DatabaseMock()
 
