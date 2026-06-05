@@ -295,6 +295,23 @@ class TableIntegrationTest {
         assertEquals(listOf("001", "002"), applied)
     }
 
+    /** Many threads hammering a small pool must not corrupt results or block forever. */
+    @Test
+    fun testConcurrentQueriesArePoolSafe() {
+        assumeDockerAvailable()
+        val sum = java.util.concurrent.atomic.AtomicInteger(0)
+        ItDatabase.newDriver(poolSize = 4).use { driver ->
+            val threads = (1..8).map {
+                Thread {
+                    repeat(50) { sum.addAndGet(driver.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single()) }
+                }
+            }
+            threads.forEach { it.start() }
+            threads.forEach { it.join() }
+        }
+        assertEquals(8 * 50, sum.get())
+    }
+
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
     // without a Docker daemon. Must run before any reference to the Postgres-backed table.
     private fun assumeDockerAvailable() =

@@ -13,6 +13,8 @@ import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.knyazevs.korm.transaction
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
+import kotlin.native.concurrent.TransferMode
+import kotlin.native.concurrent.Worker
 import kotlin.uuid.Uuid
 import platform.posix.getenv
 import kotlin.test.Test
@@ -130,6 +132,28 @@ class NativeTableIntegrationTest {
             }
         }
         assertNull(NativeDatabase.autocommit { NativeProducts.findById(id) })
+    }
+
+    /** Many worker threads hammering a small pool must not corrupt or crash anything. */
+    @Test
+    fun testConcurrentQueriesArePoolSafe() {
+        if (env("KORM_DB_HOST") == null) {
+            println("KORM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        nativeDriver(poolSize = 4).use { driver ->
+            val workers = List(8) { Worker.start() }
+            val futures = workers.map { worker ->
+                worker.execute(TransferMode.SAFE, { driver }) { db ->
+                    var sum = 0
+                    repeat(50) { sum += db.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single() }
+                    sum
+                }
+            }
+            val total = futures.sumOf { it.result }
+            workers.forEach { it.requestTermination().result }
+            assertEquals(8 * 50, total)
+        }
     }
 }
 

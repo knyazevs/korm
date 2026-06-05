@@ -83,10 +83,23 @@ private class PostgresDriverImpl(
             throw ConnectionClosedException()
         }
         try {
+            ensureAlive(connection)
             return block(connection)
         } finally {
             // Capacity == poolSize, so a borrowed connection always fits back in.
             pool.trySend(connection)
+        }
+    }
+
+    // libpq marks a connection CONNECTION_BAD once it dies (e.g. the server restarts or
+    // the network drops). Reset it before reuse so a transient outage doesn't permanently
+    // poison the pooled connection. PQstatus is local (no round-trip); PQreset reconnects.
+    private fun ensureAlive(connection: CPointer<PGconn>) {
+        if (ConnStatusType.CONNECTION_OK == PQstatus(connection)) return
+        PQreset(connection)
+        if (ConnStatusType.CONNECTION_OK != PQstatus(connection)) {
+            val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
+            throw QueryExecutionException(message.ifEmpty { "Postgres connection is down and could not be reset" })
         }
     }
 
