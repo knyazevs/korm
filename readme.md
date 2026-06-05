@@ -150,6 +150,23 @@ db.transaction {
 This covers columns and `NOT NULL`. Primary keys, indexes and other constraints are not
 generated yet — add them with raw SQL (`execute("...")`) for now.
 
+## Migrations
+
+Apply ordered, idempotent schema changes. Each `Migration` has a stable `id`; `migrate`
+runs the ones not yet recorded in the `korm_migrations` table, in order, each in its own
+transaction — so it is safe to call on every startup:
+
+```kotlin
+db.migrate(listOf(
+    Migration("001-create-users") {
+        Users.createTable()
+    },
+    Migration("002-add-index") {
+        executeUpdate("""CREATE INDEX IF NOT EXISTS users_name_idx ON "public"."users" ("name")""")
+    },
+))
+```
+
 ## Transactions
 
 ```kotlin

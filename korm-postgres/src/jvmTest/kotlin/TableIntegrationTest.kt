@@ -8,7 +8,9 @@ import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.Migration
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.migrate
 import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.knyazevs.korm.transaction
 import kotlin.uuid.Uuid
@@ -269,6 +271,28 @@ class TableIntegrationTest {
         val count = ItDatabase.autocommit { ItProducts.count(Query(ItProducts.displayName eq "batch1")) }
         assertEquals(1L, count)
         ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it.toString())) } }
+    }
+
+    /** Migrations apply in order, exactly once, and re-running the list is a no-op. */
+    @Test
+    fun testMigrationsRunOnceAndAreIdempotent() {
+        assumeDockerAvailable()
+        val applied = mutableListOf<String>()
+        val suffix = Uuid.random().toString().replace("-", "")
+        val table = "mig_probe_$suffix"
+        val migrations = listOf(
+            Migration<ItCatalog>("001-$suffix") {
+                executeUpdate("CREATE TABLE public.$table (id int)")
+                applied += "001"
+            },
+            Migration<ItCatalog>("002-$suffix") {
+                executeUpdate("DROP TABLE public.$table")
+                applied += "002"
+            },
+        )
+        ItDatabase.migrate(migrations)
+        ItDatabase.migrate(migrations) // already applied → no-op
+        assertEquals(listOf("001", "002"), applied)
     }
 
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners

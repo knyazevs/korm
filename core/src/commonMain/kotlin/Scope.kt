@@ -1,6 +1,7 @@
 package io.github.knyazevs.korm
 
 import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.resultset.ResultSet
 import kotlinx.coroutines.withContext
 
 /**
@@ -35,6 +36,10 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     /** Drops this table (`DROP TABLE [IF EXISTS]`). */
     fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
         exec.executeUpdate(dropTableSql(exec, ifExists))
+
+    /** Runs a raw query on the pinned connection, mapping each row with [handler]. */
+    fun <R> execute(sql: String, params: Map<String, Any?> = emptyMap(), handler: (ResultSet) -> R): List<R> =
+        exec.execute(sql, params, handler)
 
     /** Runs raw SQL on the pinned connection, returning the row/update count. */
     fun execute(sql: String, params: Map<String, Any?> = emptyMap()): Long = exec.execute(sql, params)
