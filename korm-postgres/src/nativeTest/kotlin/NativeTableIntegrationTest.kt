@@ -4,6 +4,7 @@ import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
@@ -105,6 +106,30 @@ class NativeTableIntegrationTest {
         assertFailsWith<Exception> {
             driver.execute("SELECT 1") { rs -> rs.getInt(0) }
         }
+    }
+
+    /** An exception out of a transaction block must ROLLBACK every statement in it. */
+    @Test
+    fun testTransactionRollsBackOnException() {
+        if (env("KORM_DB_HOST") == null) {
+            println("KORM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        val id = Uuid.random()
+        assertFailsWith<RuntimeException> {
+            NativeDatabase.transaction {
+                NativeProducts.new(NativeProduct().apply {
+                    this.id = id
+                    this.price = BigDecimal.fromInt(1)
+                    this.qty = 1
+                    this.displayName = "rollback"
+                    this.note = null
+                    this.rank = null
+                })
+                throw RuntimeException("boom")
+            }
+        }
+        assertNull(NativeDatabase.autocommit { NativeProducts.findById(id) })
     }
 }
 

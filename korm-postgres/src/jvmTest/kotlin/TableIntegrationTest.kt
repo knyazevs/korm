@@ -4,6 +4,7 @@ import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
@@ -167,6 +168,64 @@ class TableIntegrationTest {
             val sum = driver.execute("SELECT :a::int + :b::int AS s", source) { rs -> rs.getInt(0) }
             assertEquals(12, sum.single())
         }
+    }
+
+    /** An exception out of a transaction block must ROLLBACK every statement in it. */
+    @Test
+    fun testTransactionRollsBackOnException() {
+        assumeDockerAvailable()
+        val id = Uuid.random()
+        assertFailsWith<RuntimeException> {
+            ItDatabase.transaction {
+                ItProducts.new(ItProduct().apply {
+                    this.id = id
+                    this.price = BigDecimal.fromInt(1)
+                    this.qty = 1
+                    this.displayName = "rollback"
+                    this.note = null
+                    this.rank = null
+                })
+                throw RuntimeException("boom")
+            }
+        }
+        // The insert above must not have been committed.
+        assertNull(ItDatabase.autocommit { ItProducts.findById(id) })
+    }
+
+    /**
+     * A failing [io.github.knyazevs.korm.Scope.savepoint] rolls back only its own work
+     * (ROLLBACK TO SAVEPOINT); the enclosing transaction keeps the rest and commits.
+     */
+    @Test
+    fun testSavepointPartialRollback() {
+        assumeDockerAvailable()
+        val kept = Uuid.random()
+        val rolled = Uuid.random()
+        ItDatabase.transaction {
+            ItProducts.new(ItProduct().apply {
+                this.id = kept
+                this.price = BigDecimal.fromInt(1)
+                this.qty = 1
+                this.displayName = "kept"
+                this.note = null
+                this.rank = null
+            })
+            runCatching {
+                savepoint {
+                    ItProducts.new(ItProduct().apply {
+                        this.id = rolled
+                        this.price = BigDecimal.fromInt(2)
+                        this.qty = 2
+                        this.displayName = "rolled"
+                        this.note = null
+                        this.rank = null
+                    })
+                    throw RuntimeException("nope")
+                }
+            }
+        }
+        assertEquals("kept", ItDatabase.autocommit { ItProducts.findById(kept) }?.displayName)
+        assertNull(ItDatabase.autocommit { ItProducts.findById(rolled) })
     }
 
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
