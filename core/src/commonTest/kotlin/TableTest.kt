@@ -72,8 +72,8 @@ class TableTest {
         val text = "hello world"
         val expectedResult = """
             UPDATE "public"."products"
-            SET "id"=:p0, "price"=:p1, "position"=:p2, "text"=:p3
-            WHERE "id" = :p4
+            SET "id"=:p0, "price"=:p1, "position"=:p2, "text"=:p3, "nullableTest"=:p4
+            WHERE "id" = :p5
         """
         db.transaction {
             TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
@@ -91,10 +91,29 @@ class TableTest {
                 "p1" to price.toString(),
                 "p2" to position,
                 "p3" to text,
-                "p4" to uuid.toString(),
+                "p4" to null,
+                "p5" to uuid.toString(),
             ),
             databaseMockObj.internalParams,
         )
+    }
+
+    /**
+     * Regression: a field explicitly set to null must be written as NULL (it used to be
+     * dropped from SET), while fields left untouched are still omitted (partial update).
+     */
+    @Test
+    fun testUpdateCanSetNullAndOmitsUntouched() {
+        val uuid = Uuid.random()
+        val expectedResult = """UPDATE "public"."products" SET "nullableTest"=:p0 WHERE "id" = :p1"""
+        db.transaction {
+            TestTable.update(
+                Query(TestTable.id eq uuid.toString()),
+                TestEntity().apply { this.nullableTest = null },
+            )
+        }
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to null, "p1" to uuid.toString()), databaseMockObj.internalParams)
     }
 
     @Test

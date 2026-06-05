@@ -62,6 +62,14 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         }
     }
 
+    // Only the columns the entity actually assigned (present in its fields map),
+    // so update() can tell "leave untouched" (absent) from "set to NULL" (present and null).
+    private fun generatePresentFields(dao: T): List<Pair<String, Any?>> {
+        return this.fieldDisplayName.filter { dao.fields.containsKey(it.key) }.map {
+            it.value.name to dao.fields[it.key]
+        }
+    }
+
     internal fun runRaw(sql: String, exec: SqlExecutor) {
         exec.execute(sql = sql.trimIndent())
     }
@@ -107,9 +115,9 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
 
     internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {
         val builder = paramBuilder(exec)
-        val updateFields = this.generateFieldToMap(entity).filter { it.second != null }
+        val updateFields = this.generatePresentFields(entity)
         require(updateFields.isNotEmpty()) {
-            "update() needs at least one non-null field to set on ${qualifiedTableName(exec)}"
+            "update() needs at least one field set on the entity to update ${qualifiedTableName(exec)}"
         }
         val generatedUpdateFields = updateFields
             .joinToString(", ") { "${exec.dialect.quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
