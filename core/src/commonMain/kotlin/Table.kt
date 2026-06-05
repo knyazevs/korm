@@ -1,12 +1,17 @@
 package io.github.knyazevs.korm
 
-import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
-abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T, private val database: Database<G>) {
+/**
+ * A table definition: its [Meta] (name/schema) and columns, tagged with the catalog
+ * [G] it belongs to. A table holds no connection — operations run inside a
+ * [transaction] / [autocommit] scope (or [Scope]) which supplies the pinned
+ * [SqlExecutor]. The operation methods are `internal`; call them through [Scope].
+ */
+abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T) {
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
     fun getFieldDisplayNames() = fieldDisplayName
@@ -15,17 +20,17 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         fieldDisplayName[fieldName] = column
     }
 
-    private fun getColumnNames(): List<String> {
+    private fun getColumnNames(exec: SqlExecutor): List<String> {
         logger.trace { "get column names" }
-        return fieldDisplayName.map { database.dialect.quoteIdentifier(it.value.name) }
+        return fieldDisplayName.map { exec.dialect.quoteIdentifier(it.value.name) }
     }
 
-    private fun qualifiedTableName(): String =
-        "${database.dialect.quoteIdentifier(meta.schema)}.${database.dialect.quoteIdentifier(meta.tableName)}"
+    private fun qualifiedTableName(exec: SqlExecutor): String =
+        "${exec.dialect.quoteIdentifier(meta.schema)}.${exec.dialect.quoteIdentifier(meta.tableName)}"
 
-    private fun paramBuilder() = ParamBuilder(database.dialect, database.typeMapper)
+    private fun paramBuilder(exec: SqlExecutor) = ParamBuilder(exec.dialect, exec.typeMapper)
 
-    private fun columnMapToValue(rs: ResultSet): Map<String, Pair<Any, Any?>> {
+    private fun columnMapToValue(rs: ResultSet, exec: SqlExecutor): Map<String, Pair<Any, Any?>> {
         logger.trace { "Column list: ${rs.columns.joinToString(", ")}" }
         val columnMap = rs.columns.mapIndexed { index: Int, s: String -> s to index }.toMap()
 
@@ -38,14 +43,14 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
                 }
                 null
             } else {
-                database.typeMapper.fromResult(rs, columnNumber, it.value.columnType)
+                exec.typeMapper.fromResult(rs, columnNumber, it.value.columnType)
             }
             it.key to Pair<Any, Any?>(it.value, columnValue)
         }.associateBy( {it.first}, {it.second})
     }
 
-    private fun mapToDao(rs: ResultSet): T {
-        val columnMapWithValue = columnMapToValue(rs)
+    private fun mapToDao(rs: ResultSet, exec: SqlExecutor): T {
+        val columnMapWithValue = columnMapToValue(rs, exec)
         val fieldToValue: MutableMap<String, Any?> = columnMapWithValue.mapValues { v -> v.value.second }.toMutableMap()
         logger.trace { "Map to dao done: ${fieldToValue.toMap()}" }
         return this.factory(fieldToValue)
@@ -57,72 +62,71 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         }
     }
 
-    fun execSql(sql: String) {
-        database.execute(sql = sql.trimIndent())
+    internal fun runRaw(sql: String, exec: SqlExecutor) {
+        exec.execute(sql = sql.trimIndent())
     }
 
-    fun findById(id: Any): T? {
-        val builder = paramBuilder()
+    internal fun selectById(id: Any, exec: SqlExecutor): T? {
+        val builder = paramBuilder(exec)
         val idPlaceholder = builder.bind(id)
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()} WHERE ${database.dialect.quoteIdentifier("id")} = $idPlaceholder"
-        return database.execute<T>(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} WHERE ${exec.dialect.quoteIdentifier("id")} = $idPlaceholder"
+        return exec.execute<T>(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }.firstOrNull()
     }
 
-
-    fun find(query: Query): List<T> {
-        val builder = paramBuilder()
+    internal fun select(query: Query, exec: SqlExecutor): List<T> {
+        val builder = paramBuilder(exec)
         val queryStr = query.toSql(builder)
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()} $queryStr"
-        return database.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} $queryStr"
+        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }
     }
 
-    fun all(): List<T> {
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${qualifiedTableName()}"
-        return database.execute(sql = sql.trimIndent()) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+    internal fun selectAll(exec: SqlExecutor): List<T> {
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)}"
+        return exec.execute(sql = sql.trimIndent()) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }
     }
 
-    fun new(entity: T) {
-        val builder = paramBuilder()
+    internal fun insert(entity: T, exec: SqlExecutor) {
+        val builder = paramBuilder(exec)
         val generatedFields = this.generateFieldToMap(entity)
-        val columns = generatedFields.joinToString(", ") { database.dialect.quoteIdentifier(it.first) }
+        val columns = generatedFields.joinToString(", ") { exec.dialect.quoteIdentifier(it.first) }
         val values = generatedFields.joinToString(", ") { builder.bind(it.second) }
 
         val sql = """
-            INSERT INTO ${qualifiedTableName()}
+            INSERT INTO ${qualifiedTableName(exec)}
             ($columns)
             VALUES($values);
         """
-        database.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
+        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
-    fun update(query: Query, entity: T) {
-        val builder = paramBuilder()
+    internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {
+        val builder = paramBuilder(exec)
         val updateFields = this.generateFieldToMap(entity).filter { it.second != null }
         require(updateFields.isNotEmpty()) {
-            "update() needs at least one non-null field to set on ${qualifiedTableName()}"
+            "update() needs at least one non-null field to set on ${qualifiedTableName(exec)}"
         }
         val generatedUpdateFields = updateFields
-            .joinToString(", ") { "${database.dialect.quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
+            .joinToString(", ") { "${exec.dialect.quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
         val queryStr = query.toSql(builder)
         val sql = """
-            UPDATE ${qualifiedTableName()}
+            UPDATE ${qualifiedTableName(exec)}
             SET $generatedUpdateFields
            $queryStr
         """
-        database.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
+        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
-    fun deleteWhere(query: Query) {
-        val builder = paramBuilder()
+    internal fun deleteRows(query: Query, exec: SqlExecutor) {
+        val builder = paramBuilder(exec)
         val queryStr = query.toSql(builder)
-        val sql = "DELETE FROM ${qualifiedTableName()} $queryStr"
-        database.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
+        val sql = "DELETE FROM ${qualifiedTableName(exec)} $queryStr"
+        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
     class Meta(val tableName: String, val schema: String = "public")

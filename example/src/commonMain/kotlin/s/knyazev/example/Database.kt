@@ -20,6 +20,9 @@ object Database: Database<AppCatalog> {
     override val dialect get() = driver.dialect
     override val typeMapper get() = driver.typeMapper
 
+    override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
+        driver.usePinned(transactional, block)
+
     override fun <T> execute(
         sql: String,
         namedParameters: Map<String, Any?>,

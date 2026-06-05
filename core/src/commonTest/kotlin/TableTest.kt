@@ -1,6 +1,7 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.*
+import io.github.knyazevs.korm.database.Database
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,7 +18,7 @@ class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf())
 
 object TestCatalog : Catalog
 
-object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity, TableTest.databaseMockObj) {
+object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val position by Column.Int()
@@ -41,13 +42,15 @@ class TableTest {
         val expectedResult = """INSERT INTO "public"."products"
                         ("id", "price", "position", "text", "nullableTest")
                         VALUES(:p0, :p1, :p2, :p3, :p4);"""
-        TestTable.new(TestEntity().apply {
-            this.id = uuid
-            this.price = price
-            this.position = position
-            this.text = text
-            this.nullableTest = null
-        })
+        db.transaction {
+            TestTable.new(TestEntity().apply {
+                this.id = uuid
+                this.price = price
+                this.position = position
+                this.text = text
+                this.nullableTest = null
+            })
+        }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(
             mapOf(
@@ -72,13 +75,15 @@ class TableTest {
             SET "id"=:p0, "price"=:p1, "position"=:p2, "text"=:p3
             WHERE "id" = :p4
         """
-        TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
-            this.id = uuid
-            this.price = price
-            this.position = position
-            this.text = text
-            this.nullableTest = null
-        })
+        db.transaction {
+            TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
+                this.id = uuid
+                this.price = price
+                this.position = position
+                this.text = text
+                this.nullableTest = null
+            })
+        }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(
             mapOf(
@@ -101,14 +106,16 @@ class TableTest {
             SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
             WHERE "price" = :p0 ORDER BY "position" ASC LIMIT $count OFFSET $from
         """
-        TestTable.find(
-            Query(
-                whereExpression = TestTable.price eq price.toString(),
-                limit = count,
-                offset = from,
-                orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
+        db.transaction {
+            TestTable.find(
+                Query(
+                    whereExpression = TestTable.price eq price.toString(),
+                    limit = count,
+                    offset = from,
+                    orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
+                )
             )
-        )
+        }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to price.toString()), databaseMockObj.internalParams)
     }
@@ -117,7 +124,7 @@ class TableTest {
     fun testFindById() {
         val uuid = Uuid.random()
         val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0"""
-        TestTable.findById(uuid)
+        db.transaction { TestTable.findById(uuid) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to uuid.toString()), databaseMockObj.internalParams)
     }
@@ -125,7 +132,7 @@ class TableTest {
     @Test
     fun testDeleteWhere() {
         val expectedResult = """DELETE FROM "public"."products" WHERE "position" = :p0"""
-        TestTable.deleteWhere(Query(TestTable.position eq "5"))
+        db.transaction { TestTable.deleteWhere(Query(TestTable.position eq "5")) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to "5"), databaseMockObj.internalParams)
     }
@@ -136,7 +143,9 @@ class TableTest {
             SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
             WHERE "position" = :p0 AND "text" = :p1
         """
-        TestTable.find(Query(TestTable.position eq "1" and (TestTable.text eq "abc")))
+        db.transaction {
+            TestTable.find(Query(TestTable.position eq "1" and (TestTable.text eq "abc")))
+        }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to "1", "p1" to "abc"), databaseMockObj.internalParams)
     }
@@ -144,7 +153,7 @@ class TableTest {
     @Test
     fun testUpdateWithNoNonNullFieldsFails() {
         assertFailsWith<IllegalArgumentException> {
-            TestTable.update(Query(TestTable.id eq "x"), TestEntity())
+            db.transaction { TestTable.update(Query(TestTable.id eq "x"), TestEntity()) }
         }
     }
 
@@ -155,7 +164,7 @@ class TableTest {
     @Test
     fun testEmptyQueryHasNoWhereClause() {
         val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products""""
-        TestTable.find(Query())
+        db.transaction { TestTable.find(Query()) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertFalse(databaseMockObj.internalSql.contains("WHERE"), "empty query must not emit WHERE")
         assertTrue(databaseMockObj.internalParams.isEmpty())
@@ -168,7 +177,7 @@ class TableTest {
     @Test
     fun testValuesAreParameterizedNotInlined() {
         val payload = "x'; DROP TABLE products; --"
-        TestTable.find(Query(TestTable.text eq payload))
+        db.transaction { TestTable.find(Query(TestTable.text eq payload)) }
         assertFalse(
             databaseMockObj.internalSql.contains("DROP TABLE"),
             "the value must not be inlined into SQL: ${databaseMockObj.internalSql}",
@@ -179,6 +188,10 @@ class TableTest {
 
     companion object {
         val databaseMockObj = DatabaseMock()
+
+        // Same instance, viewed as Database<TestCatalog> (covariance: Database<Nothing>
+        // <: Database<TestCatalog>) so transaction { } resolves the catalog tag.
+        val db: Database<TestCatalog> = databaseMockObj
 
         fun remoteNewLinesAndSpaces(value: String): String {
             return value.replace("\n", "").replace(" ", "")

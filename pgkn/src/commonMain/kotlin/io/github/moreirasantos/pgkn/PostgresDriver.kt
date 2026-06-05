@@ -16,6 +16,7 @@ import libpq.*
 import io.github.knyazevs.korm.Dialect
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
+import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.StandardTypeMapper
 import io.github.knyazevs.korm.TypeMapper
@@ -107,6 +108,42 @@ private class PostgresDriverImpl(
             // here, leaking the PGresult for every parameterless update / DDL statement.
             PQclear(runQuery(conn, sql, namedParameters))
         }
+
+    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
+        withConnection { conn ->
+            val executor = NativeExecutor(conn)
+            if (!transactional) return@withConnection block(executor)
+            PQclear(doExecute(conn, "BEGIN"))
+            try {
+                val result = block(executor)
+                PQclear(doExecute(conn, "COMMIT"))
+                result
+            } catch (e: Throwable) {
+                runCatching { PQclear(doExecute(conn, "ROLLBACK")) }
+                throw e
+            }
+        }
+
+    // An SqlExecutor bound to the pinned connection for the duration of usePinned.
+    private inner class NativeExecutor(private val conn: CPointer<PGconn>) : SqlExecutor {
+        override val dialect = PostgresDialect
+        override val typeMapper = StandardTypeMapper
+
+        override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T) =
+            runQuery(conn, sql, namedParameters).handleResults(handler)
+
+        override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T) =
+            doExecute(conn, sql, paramSource).handleResults(handler)
+
+        override fun execute(sql: String, namedParameters: Map<String, Any?>) =
+            runQuery(conn, sql, namedParameters).returnCount()
+
+        override fun execute(sql: String, paramSource: SqlParameterSource) =
+            doExecute(conn, sql, paramSource).returnCount()
+
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+            PQclear(runQuery(conn, sql, namedParameters))
+    }
 
     override fun close() {
         // tryLock() succeeds only for the first caller; the lock is never released,

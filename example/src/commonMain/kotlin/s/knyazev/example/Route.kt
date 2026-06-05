@@ -6,7 +6,9 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.Query
+import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.transaction
 import io.github.knyazevs.korm.example.product.ProductDTO
 import io.github.knyazevs.korm.example.product.ProductTable
 import io.github.knyazevs.korm.example.product.toDto
@@ -14,7 +16,7 @@ import io.github.knyazevs.korm.example.product.toDto
 fun Application.configureRouting() {
     routing {
         get("/") {
-            val result = ProductTable.all()
+            val result = Database.autocommit { ProductTable.all() }
             val resultDTO = result.map { it.toDto() }
             call.respond(resultDTO)
         }
@@ -24,8 +26,10 @@ fun Application.configureRouting() {
             val create = createDto.toDomain().apply {
                 id = Uuid.random()
             }
-            ProductTable.new(create)
-            val result = ProductTable.findById(create.id!!)
+            val result = Database.transaction {
+                ProductTable.new(create)
+                ProductTable.findById(create.id!!)
+            }
             val resultDTO = result!!.toDto()
             call.respond(resultDTO)
         }
@@ -34,15 +38,19 @@ fun Application.configureRouting() {
             val productId = Uuid.parse(call.parameters["id"].orEmpty())
             val createDto = call.receive<ProductDTO>()
             val update = createDto.toDomain()
-            ProductTable.update(Query(ProductTable.id eq productId.toString()), update)
-            val result = ProductTable.findById(productId)
+            val result = Database.transaction {
+                ProductTable.update(Query(ProductTable.id eq productId.toString()), update)
+                ProductTable.findById(productId)
+            }
             val resultDTO = result!!.toDto()
             call.respond(resultDTO)
         }
 
         delete("/delete") {
             val productId = Uuid.parse(call.parameters["id"].orEmpty())
-            ProductTable.deleteWhere(Query(ProductTable.id eq productId.toString()))
+            Database.transaction {
+                ProductTable.deleteWhere(Query(ProductTable.id eq productId.toString()))
+            }
             call.respond(true)
         }
     }

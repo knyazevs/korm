@@ -1,3 +1,4 @@
+import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.StandardDialect
 import io.github.knyazevs.korm.StandardTypeMapper
@@ -8,6 +9,10 @@ class DatabaseMock: Database<Nothing> {
 
     override val dialect = StandardDialect
     override val typeMapper = StandardTypeMapper
+
+    // The mock records SQL rather than pinning a real connection, so it just runs
+    // the block against itself (BEGIN/COMMIT are no-ops here).
+    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R = block(this)
 
     var result: Any? = null
     var internalSql: String = ""

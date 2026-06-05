@@ -3,6 +3,7 @@ package io.github.knyazevs.korm
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.knyazevs.korm.resultset.ResultSet
+import java.sql.Connection
 import java.sql.PreparedStatement
 
 
@@ -52,74 +53,119 @@ private class PostgresDriverImpl(
     override fun close() = ds.close()
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        ds.connection.use { conn ->
-            val statement = NamedParamStatement(conn, sql)
-            for ((key, value) in namedParameters) {
-                statement.setAny(key, value)
-            }
-            PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
-        }
+        ds.connection.use { it.runQuery(sql, namedParameters, handler) }
 
     override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        ds.connection.use { conn ->
-            val statement = NamedParamStatement(conn, sql)
-            statement.bind(paramSource)
-            PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
-        }
+        ds.connection.use { it.runQuery(sql, paramSource, handler) }
 
     override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        ds.connection.use { conn ->
-            val statement = NamedParamStatement(conn, sql)
-            for ((key, value) in namedParameters) {
-                statement.setAny(key, value)
-            }
-            statement.preparedStatement.runReturningCount()
-        }
+        ds.connection.use { it.runCount(sql, namedParameters) }
 
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        ds.connection.use { conn ->
-            val statement = NamedParamStatement(conn, sql)
-            statement.bind(paramSource)
-            statement.preparedStatement.runReturningCount()
-        }
+        ds.connection.use { it.runCount(sql, paramSource) }
 
-    override fun executeUpdate(
-        sql: String,
-        namedParameters: Map<String, Any?>
-    ) {
-        ds.connection.use { conn ->
-            val statement = NamedParamStatement(conn, sql)
-            for ((key, value) in namedParameters) {
-                statement.setAny(key, value)
-            }
-            statement.executeUpdate()
-        }
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+        ds.connection.use { it.runUpdate(sql, namedParameters) }
     }
 
-    /**
-     * Runs any statement (DDL, DML or query) and returns a row count for queries
-     * or the update count otherwise. Uses [PreparedStatement.execute] so it works
-     * for statements that do not produce a result set (e.g. CREATE TABLE).
-     */
-    private fun PreparedStatement.runReturningCount(): Long =
-        if (execute()) {
-            resultSet.use { rs ->
-                var size = 0L
-                while (rs.next()) size++
-                size
+    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
+        ds.connection.use { conn ->
+            val executor = JdbcExecutor(conn)
+            if (!transactional) return@use block(executor)
+            val previousAutoCommit = conn.autoCommit
+            conn.autoCommit = false
+            try {
+                val result = block(executor)
+                conn.commit()
+                result
+            } catch (e: Throwable) {
+                runCatching { conn.rollback() }
+                throw e
+            } finally {
+                runCatching { conn.autoCommit = previousAutoCommit }
             }
-        } else {
-            updateCount.toLong()
         }
+}
 
-    private fun <T> ResultSet.handleResults(handler: (ResultSet) -> T): List<T> {
-        val rs = this
+/** An [SqlExecutor] bound to one already-open connection, used inside [usePinned]. */
+private class JdbcExecutor(private val conn: Connection) : SqlExecutor {
+    override val dialect: Dialect = PostgresDialect
+    override val typeMapper: TypeMapper = StandardTypeMapper
 
-        val list: MutableList<T> = mutableListOf()
-        while (rs.next()) {
-            list.add(handler(rs))
+    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
+        conn.runQuery(sql, namedParameters, handler)
+
+    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
+        conn.runQuery(sql, paramSource, handler)
+
+    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
+        conn.runCount(sql, namedParameters)
+
+    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
+        conn.runCount(sql, paramSource)
+
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+        conn.runUpdate(sql, namedParameters)
+}
+
+private fun <T> Connection.runQuery(
+    sql: String,
+    namedParameters: Map<String, Any?>,
+    handler: (ResultSet) -> T,
+): List<T> {
+    val statement = NamedParamStatement(this, sql)
+    for ((key, value) in namedParameters) statement.setAny(key, value)
+    return PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
+}
+
+private fun <T> Connection.runQuery(
+    sql: String,
+    paramSource: SqlParameterSource,
+    handler: (ResultSet) -> T,
+): List<T> {
+    val statement = NamedParamStatement(this, sql)
+    statement.bind(paramSource)
+    return PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
+}
+
+private fun Connection.runCount(sql: String, namedParameters: Map<String, Any?>): Long {
+    val statement = NamedParamStatement(this, sql)
+    for ((key, value) in namedParameters) statement.setAny(key, value)
+    return statement.preparedStatement.runReturningCount()
+}
+
+private fun Connection.runCount(sql: String, paramSource: SqlParameterSource): Long {
+    val statement = NamedParamStatement(this, sql)
+    statement.bind(paramSource)
+    return statement.preparedStatement.runReturningCount()
+}
+
+private fun Connection.runUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    val statement = NamedParamStatement(this, sql)
+    for ((key, value) in namedParameters) statement.setAny(key, value)
+    statement.executeUpdate()
+}
+
+/**
+ * Runs any statement (DDL, DML or query) and returns a row count for queries or the
+ * update count otherwise. Uses [PreparedStatement.execute] so it works for statements
+ * that do not produce a result set (e.g. CREATE TABLE).
+ */
+private fun PreparedStatement.runReturningCount(): Long =
+    if (execute()) {
+        resultSet.use { rs ->
+            var size = 0L
+            while (rs.next()) size++
+            size
         }
-
-        return list
+    } else {
+        updateCount.toLong()
     }
+
+private fun <T> ResultSet.handleResults(handler: (ResultSet) -> T): List<T> {
+    val list: MutableList<T> = mutableListOf()
+    while (next()) {
+        list.add(handler(this))
+    }
+    return list
 }

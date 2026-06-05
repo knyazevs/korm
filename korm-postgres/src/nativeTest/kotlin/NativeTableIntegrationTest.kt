@@ -9,6 +9,7 @@ import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.transaction
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlin.uuid.Uuid
@@ -49,6 +50,7 @@ class NativeTableIntegrationTest {
         }
 
         val id = Uuid.random()
+        NativeDatabase.transaction {
         NativeProducts.new(NativeProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
@@ -68,6 +70,7 @@ class NativeTableIntegrationTest {
 
         NativeProducts.deleteWhere(Query(NativeProducts.id eq id.toString()))
         assertNull(NativeProducts.findById(id))
+        }
     }
 
     /**
@@ -116,7 +119,7 @@ class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf
 
 object NativeCatalog : Catalog
 
-object NativeProducts : Table<NativeCatalog, NativeProduct>(Table.Meta("native_products"), ::NativeProduct, NativeDatabase) {
+object NativeProducts : Table<NativeCatalog, NativeProduct>(Table.Meta("native_products"), ::NativeProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
@@ -155,6 +158,9 @@ object NativeDatabase : Database<NativeCatalog> {
 
     override val dialect get() = driver.dialect
     override val typeMapper get() = driver.typeMapper
+
+    override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
+        driver.usePinned(transactional, block)
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
         driver.execute(sql, namedParameters, handler)

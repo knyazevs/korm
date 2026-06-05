@@ -9,6 +9,7 @@ import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.transaction
 import kotlin.uuid.Uuid
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
@@ -35,6 +36,7 @@ class TableIntegrationTest {
     fun testInsertFindUpdateDeleteRoundTrip() {
         assumeDockerAvailable()
         val id = Uuid.random()
+        ItDatabase.transaction {
         ItProducts.new(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
@@ -63,6 +65,7 @@ class TableIntegrationTest {
 
         ItProducts.deleteWhere(Query(ItProducts.id eq id.toString()))
         assertNull(ItProducts.findById(id))
+        }
     }
 
     /**
@@ -74,6 +77,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE it_products; --"
+        ItDatabase.transaction {
         ItProducts.new(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(1)
@@ -83,6 +87,7 @@ class TableIntegrationTest {
         })
 
         assertEquals(tricky, ItProducts.findById(id)?.displayName)
+        }
     }
 
     /**
@@ -92,8 +97,10 @@ class TableIntegrationTest {
     @Test
     fun testExecSqlRunsDdl() {
         assumeDockerAvailable()
-        ItProducts.execSql("CREATE TABLE IF NOT EXISTS public.exec_sql_probe (id int)")
-        ItProducts.execSql("DROP TABLE public.exec_sql_probe")
+        ItDatabase.transaction {
+            ItProducts.execSql("CREATE TABLE IF NOT EXISTS public.exec_sql_probe (id int)")
+            ItProducts.execSql("DROP TABLE public.exec_sql_probe")
+        }
     }
 
     /**
@@ -105,6 +112,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         repeat(30) { i ->
             val id = Uuid.random()
+            ItDatabase.transaction {
             ItProducts.new(ItProduct().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(i)
@@ -114,6 +122,7 @@ class TableIntegrationTest {
                 this.rank = null
             })
             ItProducts.findById(id)
+            }
         }
     }
 
@@ -177,7 +186,7 @@ class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) 
 
 object ItCatalog : Catalog
 
-object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct, ItDatabase) {
+object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
@@ -232,6 +241,9 @@ object ItDatabase : Database<ItCatalog> {
 
     override val dialect get() = driver.dialect
     override val typeMapper get() = driver.typeMapper
+
+    override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
+        driver.usePinned(transactional, block)
 
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
         driver.execute(sql, namedParameters, handler)
