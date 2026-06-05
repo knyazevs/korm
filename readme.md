@@ -144,6 +144,37 @@ Users.find(Query(
 Users.find(Query(Users.id inList listOf(id1, id2)))
 ```
 
+## Joins
+
+Join tables and read the result as `ResultRow`s (indexed by column), map each row to
+your own type, or — for two tables — get both entities back as a `Pair`:
+
+```kotlin
+// raw rows: index by the column you selected
+val rows = db.autocommit {
+    (Users innerJoin Orders on (Users.id eq Orders.userId))
+        .where(Users.age gtEq 18)
+        .select()
+}
+rows.forEach { row -> println("${row[Users.name]} spent ${row[Orders.total]}") }
+
+// projection into your own type
+data class UserSpend(val name: String, val total: BigDecimal)
+val spend = db.autocommit {
+    (Users innerJoin Orders on (Users.id eq Orders.userId))
+        .select(Users.name, Orders.total) { row -> UserSpend(row[Users.name], row[Orders.total]) }
+}
+
+// two tables as entity pairs
+val pairs: List<Pair<User, Order>> = db.autocommit {
+    (Users innerJoin Orders on (Users.id eq Orders.userId)).find()
+}
+```
+
+`leftJoin` is also available; with it use `row.getOrNull(col)` for columns from the right
+side. Joining a third table keeps the `select(...)` forms (the `Pair`/`find()` form is
+two-table only). Columns are automatically qualified by table inside a join.
+
 ## Creating tables
 
 Korm generates `CREATE TABLE` from a table's columns (SQL types come from the dialect):

@@ -8,7 +8,12 @@ package io.github.knyazevs.korm
  * quoting and placeholder rendering are delegated to [dialect]; value conversion
  * to [typeMapper].
  */
-class ParamBuilder(val dialect: Dialect, private val typeMapper: TypeMapper) {
+class ParamBuilder(
+    val dialect: Dialect,
+    private val typeMapper: TypeMapper,
+    /** When true, a [Column] renders as `"table"."col"` (needed to disambiguate joins). */
+    val qualifyColumns: Boolean = false,
+) {
     private var counter = 0
     private val collected = LinkedHashMap<String, Any?>()
 

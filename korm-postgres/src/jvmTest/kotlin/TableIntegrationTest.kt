@@ -10,6 +10,7 @@ import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.Migration
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.innerJoin
 import io.github.knyazevs.korm.migrate
 import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.knyazevs.korm.transaction
@@ -343,10 +344,75 @@ class TableIntegrationTest {
         assertEquals(8 * 50, sum.get())
     }
 
+    /** A join round-trips three ways: ResultRow (A), projection+mapper (C), entity pairs (B). */
+    @Test
+    fun testJoinRoundTrip() {
+        assumeDockerAvailable()
+        val authorId = Uuid.random()
+        val bookId = Uuid.random()
+        ItDatabase.transaction {
+            Authors.createTable()
+            Books.createTable()
+            Authors.new(Author().apply { id = authorId; name = "Ada" })
+            Books.new(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
+        }
+
+        // A — ResultRow
+        val rows = ItDatabase.autocommit {
+            (Authors innerJoin Books on (Authors.id eq Books.authorId)).select()
+        }
+        assertEquals(1, rows.size)
+        assertEquals("Ada", rows.single()[Authors.name])
+        assertEquals("Notes", rows.single()[Books.title])
+
+        // C — projection into a tuple
+        val titles = ItDatabase.autocommit {
+            (Authors innerJoin Books on (Authors.id eq Books.authorId))
+                .select(Authors.name, Books.title) { it[Authors.name] to it[Books.title] }
+        }
+        assertEquals(listOf("Ada" to "Notes"), titles)
+
+        // B — entity pairs
+        val pairs = ItDatabase.autocommit {
+            (Authors innerJoin Books on (Authors.id eq Books.authorId)).find()
+        }
+        assertEquals(1, pairs.size)
+        assertEquals("Ada", pairs.single().first.name)
+        assertEquals(bookId, pairs.single().second.id)
+
+        ItDatabase.transaction { Books.dropTable(); Authors.dropTable() }
+    }
+
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
     // without a Docker daemon. Must run before any reference to the Postgres-backed table.
     private fun assumeDockerAvailable() =
         assumeTrue(DockerClientFactory.instance().isDockerAvailable, "Docker is not available")
+}
+
+class Author(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var id by Authors.id
+    var name by Authors.name
+}
+
+object Authors : Table<ItCatalog, Author>(Table.Meta("authors"), ::Author) {
+    val id by Column.UUID()
+    val name by Column.Text()
+
+    init { id; name }
+}
+
+class Book(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var id by Books.id
+    var authorId by Books.authorId
+    var title by Books.title
+}
+
+object Books : Table<ItCatalog, Book>(Table.Meta("books"), ::Book) {
+    val id by Column.UUID()
+    val authorId by Column.UUID()
+    val title by Column.Text()
+
+    init { id; authorId; title }
 }
 
 class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {

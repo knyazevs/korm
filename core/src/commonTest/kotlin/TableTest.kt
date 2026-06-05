@@ -31,6 +31,18 @@ object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity
 }
 
 
+class TestOrderEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var orderId by TestOrders.orderId
+    var productId by TestOrders.productId
+}
+
+object TestOrders : Table<TestCatalog, TestOrderEntity>(Meta("orders"), ::TestOrderEntity) {
+    val orderId by Column.UUID()
+    val productId by Column.UUID()
+
+    init { orderId; productId }
+}
+
 class TableTest {
 
     @Test
@@ -241,6 +253,23 @@ class TableTest {
 
         db.transaction { TestTable.find(Query(not(TestTable.position eq 0))) }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""NOT("position"=:p0)"""))
+    }
+
+    @Test
+    fun testJoinGeneratesQualifiedSql() {
+        db.autocommit {
+            (TestTable innerJoin TestOrders on (TestTable.id eq TestOrders.productId))
+                .where(TestTable.position gtEq 1)
+                .select(TestTable.text, TestOrders.orderId)
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""SELECT"products"."text","orders"."orderId""""), sql)
+        assertTrue(
+            sql.contains("""FROM"public"."products"INNERJOIN"public"."orders"ON"products"."id"="orders"."productId""""),
+            sql,
+        )
+        assertTrue(sql.contains("""WHERE"products"."position">=:p0"""), sql)
+        assertEquals(mapOf("p0" to 1), databaseMockObj.internalParams)
     }
 
     companion object {
