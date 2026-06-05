@@ -108,7 +108,7 @@ val all: List<User> = db.autocommit { Users.all() }
 val adults: List<User> = db.autocommit {
     Users.find(
         Query(
-            whereExpression = Users.age gtEq "18",
+            whereExpression = Users.age gtEq 18,
             orderBy = mapOf(Users.age to AscDescOrder.DESC),
             limit = 50u,
         )
@@ -129,12 +129,20 @@ with the list overload, and count rows with `count`:
 val saved: User? = db.transaction { Users.new(user) }
 val savedAll: List<User> = db.transaction { Users.new(listOf(user1, user2)) }
 val total: Long = db.autocommit { Users.count() }
-val adults: Long = db.autocommit { Users.count(Query(Users.age gtEq "18")) }
+val adults: Long = db.autocommit { Users.count(Query(Users.age gtEq 18)) }
 ```
 
 Values are always sent as bind parameters, never inlined — so untrusted input can't
-inject SQL. Predicate operators: `eq`, `neq`, `less`, `lessEq`, `gt`, `gtEq`, combined
-with `and` / `or`.
+inject SQL. Predicate operators are **typed** (`Users.age gtEq 18`, not a string):
+`eq`, `neq`, `less`, `lessEq`, `gt`, `gtEq`, plus `inList`, `like`, `isNull()`,
+`isNotNull()` and `not(...)`, combined with `and` / `or`:
+
+```kotlin
+Users.find(Query(
+    (Users.age gtEq 18) and (Users.name like "A%") and Users.note.isNotNull()
+))
+Users.find(Query(Users.id inList listOf(id1, id2)))
+```
 
 ## Creating tables
 

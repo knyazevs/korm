@@ -59,14 +59,14 @@ class TableIntegrationTest {
         assertEquals(0, BigDecimal.fromInt(100).compareTo(found?.price!!))
 
         // Found via a parameterized WHERE on a value.
-        val byQty = ItProducts.find(Query(ItProducts.qty eq "5")).filter { it.id == id }
+        val byQty = ItProducts.find(Query(ItProducts.qty eq 5)).filter { it.id == id }
         assertEquals(1, byQty.size)
 
         // Partial update: only non-null fields go into SET.
-        ItProducts.update(Query(ItProducts.id eq id.toString()), ItProduct().apply { this.qty = 9 })
+        ItProducts.update(Query(ItProducts.id eq id), ItProduct().apply { this.qty = 9 })
         assertEquals(9, ItProducts.findById(id)?.qty)
 
-        ItProducts.deleteWhere(Query(ItProducts.id eq id.toString()))
+        ItProducts.deleteWhere(Query(ItProducts.id eq id))
         assertNull(ItProducts.findById(id))
         }
     }
@@ -247,7 +247,7 @@ class TableIntegrationTest {
         }
         assertEquals(id, returned?.id)
         assertEquals("ret", returned?.displayName)
-        ItDatabase.transaction { ItProducts.deleteWhere(Query(ItProducts.id eq id.toString())) }
+        ItDatabase.transaction { ItProducts.deleteWhere(Query(ItProducts.id eq id)) }
     }
 
     /** Batch insert stores every row in one statement; count() matches a predicate. */
@@ -270,7 +270,7 @@ class TableIntegrationTest {
         assertEquals(3, inserted.size)
         val count = ItDatabase.autocommit { ItProducts.count(Query(ItProducts.displayName eq "batch1")) }
         assertEquals(1L, count)
-        ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it.toString())) } }
+        ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it)) } }
     }
 
     /** Migrations apply in order, exactly once, and re-running the list is a no-op. */
@@ -323,7 +323,7 @@ class TableIntegrationTest {
         assertEquals(0, BigDecimal.fromInt(123).compareTo(row.aDecimal!!))
         assertEquals(instant, row.anInstant)
         assertEquals(json, row.aJson)
-        ItDatabase.transaction { AllTypes.deleteWhere(Query(AllTypes.id eq id.toString())) }
+        ItDatabase.transaction { AllTypes.deleteWhere(Query(AllTypes.id eq id)) }
     }
 
     /** Many threads hammering a small pool must not corrupt results or block forever. */

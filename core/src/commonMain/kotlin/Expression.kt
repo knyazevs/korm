@@ -73,47 +73,71 @@ abstract class ComparisonOp(
         "${first.toSql(builder)} $opSign ${second.toSql(builder)}"
 }
 
+// Comparison operators come in two forms: column-to-expression (e.g. column to column)
+// and the common column-to-value form, which is typed — `Users.age eq 18`, not a string —
+// so the value type must match the column's.
+
 class EqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "=")
 
 infix fun <T : Expression, T2 : Expression> T.eq(other: T2): Expression = EqOp(this, other)
-infix fun <T : Expression> T.eq(other: String): Expression = EqOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.eq(value: Z): Expression = EqOp(this, Value(value))
 
-/**
- * Represents an SQL operator that checks if [expr1] is not equals to [expr2].
- */
+/** Checks that the operands are not equal. */
 class NeqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<>")
 
 infix fun <T : Expression, T2 : Expression> T.neq(other: T2): Expression = NeqOp(this, other)
-infix fun <T : Expression> T.neq(other: String): Expression = NeqOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.neq(value: Z): Expression = NeqOp(this, Value(value))
 
-/**
- * Represents an SQL operator that checks if [expr1] is less than [expr2].
- */
+/** Checks that the left operand is less than the right. */
 class LessOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<")
 
 infix fun <T : Expression, T2 : Expression> T.less(other: T2): Expression = LessOp(this, other)
-infix fun <T : Expression> T.less(other: String): Expression = LessOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.less(value: Z): Expression = LessOp(this, Value(value))
 
-/**
- * Represents an SQL operator that checks if [expr1] is less than or equal to [expr2].
- */
+/** Checks that the left operand is less than or equal to the right. */
 class LessEqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<=")
 
 infix fun <T : Expression, T2 : Expression> T.lessEq(other: T2): Expression = LessEqOp(this, other)
-infix fun <T : Expression> T.lessEq(other: String): Expression = LessEqOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.lessEq(value: Z): Expression = LessEqOp(this, Value(value))
 
-/**
- * Represents an SQL operator that checks if [expr1] is greater than [expr2].
- */
+/** Checks that the left operand is greater than the right. */
 class GreaterOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, ">")
 
 infix fun <T : Expression, T2 : Expression> T.gt(other: T2): Expression = GreaterOp(this, other)
-infix fun <T : Expression> T.gt(other: String): Expression = GreaterOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.gt(value: Z): Expression = GreaterOp(this, Value(value))
 
-/**
- * Represents an SQL operator that checks if [expr1] is greater than or equal to [expr2].
- */
+/** Checks that the left operand is greater than or equal to the right. */
 class GreaterEqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, ">=")
 
 infix fun <T : Expression, T2 : Expression> T.gtEq(other: T2): Expression = GreaterEqOp(this, other)
-infix fun <T : Expression> T.gtEq(other: String): Expression = GreaterEqOp(this, Value(other))
+infix fun <Z> Column<Z, *, *>.gtEq(value: Z): Expression = GreaterEqOp(this, Value(value))
+
+/** `column IN (v1, v2, ...)`. An empty list renders to `FALSE` (matches nothing). */
+class InListOp(private val column: Expression, private val values: List<*>) : Expression {
+    override fun toSql(builder: ParamBuilder): String =
+        if (values.isEmpty()) "FALSE"
+        else "${column.toSql(builder)} IN (${values.joinToString(", ") { builder.bind(it) }})"
+}
+
+infix fun <Z> Column<Z, *, *>.inList(values: List<Z>): Expression = InListOp(this, values)
+
+/** `column LIKE pattern` (text columns only). */
+class LikeOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "LIKE")
+
+infix fun Column<String, *, *>.like(pattern: String): Expression = LikeOp(this, Value(pattern))
+
+/** `column IS NULL` / `column IS NOT NULL`. */
+class IsNullOp(private val column: Expression, private val negated: Boolean) : Expression {
+    override fun toSql(builder: ParamBuilder): String =
+        "${column.toSql(builder)} IS ${if (negated) "NOT " else ""}NULL"
+}
+
+fun Column<*, *, *>.isNull(): Expression = IsNullOp(this, false)
+fun Column<*, *, *>.isNotNull(): Expression = IsNullOp(this, true)
+
+/** Negates an expression: `NOT (expr)`. */
+class NotOp(private val expr: Expression) : Expression {
+    override fun toSql(builder: ParamBuilder): String = "NOT (${expr.toSql(builder)})"
+}
+
+fun not(expr: Expression): Expression = NotOp(expr)

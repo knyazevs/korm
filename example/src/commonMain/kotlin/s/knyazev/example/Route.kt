@@ -37,7 +37,7 @@ fun Application.configureRouting() {
             val createDto = call.receive<ProductDTO>()
             val update = createDto.toDomain()
             val result = Database.suspendTransaction {
-                ProductTable.update(Query(ProductTable.id eq productId.toString()), update)
+                ProductTable.update(Query(ProductTable.id eq productId), update)
                 ProductTable.findById(productId)
             }
             val resultDTO = result!!.toDto()
@@ -47,7 +47,7 @@ fun Application.configureRouting() {
         delete("/delete") {
             val productId = Uuid.parse(call.parameters["id"].orEmpty())
             Database.suspendTransaction {
-                ProductTable.deleteWhere(Query(ProductTable.id eq productId.toString()))
+                ProductTable.deleteWhere(Query(ProductTable.id eq productId))
             }
             call.respond(true)
         }

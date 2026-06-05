@@ -71,7 +71,7 @@ class NativeTableIntegrationTest {
         assertNull(found?.rank)
         assertEquals(0, BigDecimal.fromInt(100).compareTo(found?.price!!))
 
-        NativeProducts.deleteWhere(Query(NativeProducts.id eq id.toString()))
+        NativeProducts.deleteWhere(Query(NativeProducts.id eq id))
         assertNull(NativeProducts.findById(id))
         }
     }

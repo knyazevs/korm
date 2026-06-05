@@ -77,7 +77,7 @@ class TableTest {
             WHERE "id" = :p5
         """
         db.transaction {
-            TestTable.update(Query(TestTable.id eq uuid.toString()), TestEntity().apply {
+            TestTable.update(Query(TestTable.id eq uuid), TestEntity().apply {
                 this.id = uuid
                 this.price = price
                 this.position = position
@@ -109,7 +109,7 @@ class TableTest {
         val expectedResult = """UPDATE "public"."products" SET "nullableTest"=:p0 WHERE "id" = :p1"""
         db.transaction {
             TestTable.update(
-                Query(TestTable.id eq uuid.toString()),
+                Query(TestTable.id eq uuid),
                 TestEntity().apply { this.nullableTest = null },
             )
         }
@@ -129,7 +129,7 @@ class TableTest {
         db.transaction {
             TestTable.find(
                 Query(
-                    whereExpression = TestTable.price eq price.toString(),
+                    whereExpression = TestTable.price eq price,
                     limit = count,
                     offset = from,
                     orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
@@ -152,9 +152,9 @@ class TableTest {
     @Test
     fun testDeleteWhere() {
         val expectedResult = """DELETE FROM "public"."products" WHERE "position" = :p0"""
-        db.transaction { TestTable.deleteWhere(Query(TestTable.position eq "5")) }
+        db.transaction { TestTable.deleteWhere(Query(TestTable.position eq 5)) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-        assertEquals(mapOf("p0" to "5"), databaseMockObj.internalParams)
+        assertEquals(mapOf("p0" to 5), databaseMockObj.internalParams)
     }
 
     @Test
@@ -164,16 +164,16 @@ class TableTest {
             WHERE "position" = :p0 AND "text" = :p1
         """
         db.transaction {
-            TestTable.find(Query(TestTable.position eq "1" and (TestTable.text eq "abc")))
+            TestTable.find(Query(TestTable.position eq 1 and (TestTable.text eq "abc")))
         }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-        assertEquals(mapOf("p0" to "1", "p1" to "abc"), databaseMockObj.internalParams)
+        assertEquals(mapOf("p0" to 1, "p1" to "abc"), databaseMockObj.internalParams)
     }
 
     @Test
     fun testUpdateWithNoNonNullFieldsFails() {
         assertFailsWith<IllegalArgumentException> {
-            db.transaction { TestTable.update(Query(TestTable.id eq "x"), TestEntity()) }
+            db.transaction { TestTable.update(Query(TestTable.id eq Uuid.random()), TestEntity()) }
         }
     }
 
@@ -219,6 +219,28 @@ class TableTest {
         """
         db.transaction { TestTable.createTable() }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+    }
+
+    @Test
+    fun testInListLikeIsNullAndNotOperators() {
+        db.transaction { TestTable.find(Query(TestTable.position inList listOf(1, 2))) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""position"IN(:p0,:p1)"""))
+        assertEquals(mapOf("p0" to 1, "p1" to 2), databaseMockObj.internalParams)
+
+        db.transaction { TestTable.find(Query(TestTable.position inList emptyList())) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("WHEREFALSE"))
+
+        db.transaction { TestTable.find(Query(TestTable.text like "ab%")) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""text"LIKE:p0"""))
+
+        db.transaction { TestTable.find(Query(TestTable.nullableTest.isNull())) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNULL"""))
+
+        db.transaction { TestTable.find(Query(TestTable.nullableTest.isNotNull())) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNOTNULL"""))
+
+        db.transaction { TestTable.find(Query(not(TestTable.position eq 0))) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""NOT("position"=:p0)"""))
     }
 
     companion object {
