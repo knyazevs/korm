@@ -122,6 +122,16 @@ db.transaction {
 }
 ```
 
+`new` returns the stored row (via SQL `RETURNING`); insert many rows in one statement
+with the list overload, and count rows with `count`:
+
+```kotlin
+val saved: User? = db.transaction { Users.new(user) }
+val savedAll: List<User> = db.transaction { Users.new(listOf(user1, user2)) }
+val total: Long = db.autocommit { Users.count() }
+val adults: Long = db.autocommit { Users.count(Query(Users.age gtEq "18")) }
+```
+
 Values are always sent as bind parameters, never inlined — so untrusted input can't
 inject SQL. Predicate operators: `eq`, `neq`, `less`, `lessEq`, `gt`, `gtEq`, combined
 with `and` / `or`.

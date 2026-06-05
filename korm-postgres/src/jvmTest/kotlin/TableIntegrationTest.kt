@@ -228,6 +228,49 @@ class TableIntegrationTest {
         assertNull(ItDatabase.autocommit { ItProducts.findById(rolled) })
     }
 
+    /** new() returns the stored row via RETURNING. */
+    @Test
+    fun testNewReturnsInsertedRow() {
+        assumeDockerAvailable()
+        val id = Uuid.random()
+        val returned = ItDatabase.transaction {
+            ItProducts.new(ItProduct().apply {
+                this.id = id
+                this.price = BigDecimal.fromInt(7)
+                this.qty = 7
+                this.displayName = "ret"
+                this.note = null
+                this.rank = null
+            })
+        }
+        assertEquals(id, returned?.id)
+        assertEquals("ret", returned?.displayName)
+        ItDatabase.transaction { ItProducts.deleteWhere(Query(ItProducts.id eq id.toString())) }
+    }
+
+    /** Batch insert stores every row in one statement; count() matches a predicate. */
+    @Test
+    fun testBatchInsertAndCount() {
+        assumeDockerAvailable()
+        val ids = List(3) { Uuid.random() }
+        val inserted = ItDatabase.transaction {
+            ItProducts.new(ids.mapIndexed { i, id ->
+                ItProduct().apply {
+                    this.id = id
+                    this.price = BigDecimal.fromInt(i)
+                    this.qty = i
+                    this.displayName = "batch$i"
+                    this.note = null
+                    this.rank = null
+                }
+            })
+        }
+        assertEquals(3, inserted.size)
+        val count = ItDatabase.autocommit { ItProducts.count(Query(ItProducts.displayName eq "batch1")) }
+        assertEquals(1L, count)
+        ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it.toString())) } }
+    }
+
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
     // without a Docker daemon. Must run before any reference to the Postgres-backed table.
     private fun assumeDockerAvailable() =

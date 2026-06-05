@@ -99,7 +99,7 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         }
     }
 
-    internal fun insert(entity: T, exec: SqlExecutor) {
+    internal fun insert(entity: T, exec: SqlExecutor): T? {
         val builder = paramBuilder(exec)
         val generatedFields = this.generateFieldToMap(entity)
         val columns = generatedFields.joinToString(", ") { exec.dialect.quoteIdentifier(it.first) }
@@ -108,9 +108,37 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         val sql = """
             INSERT INTO ${qualifiedTableName(exec)}
             ($columns)
-            VALUES($values);
+            VALUES($values)
+            RETURNING ${getColumnNames(exec).joinToString(", ")};
         """
-        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
+        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs ->
+            this.mapToDao(rs = rs, exec = exec)
+        }.firstOrNull()
+    }
+
+    internal fun insertAll(entities: List<T>, exec: SqlExecutor): List<T> {
+        if (entities.isEmpty()) return emptyList()
+        val builder = paramBuilder(exec)
+        val columns = this.fieldDisplayName.values.joinToString(", ") { exec.dialect.quoteIdentifier(it.name) }
+        val tuples = entities.joinToString(", ") { entity ->
+            "(${generateFieldToMap(entity).joinToString(", ") { builder.bind(it.second) }})"
+        }
+        val sql = """
+            INSERT INTO ${qualifiedTableName(exec)}
+            ($columns)
+            VALUES $tuples
+            RETURNING ${getColumnNames(exec).joinToString(", ")};
+        """
+        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs ->
+            this.mapToDao(rs = rs, exec = exec)
+        }
+    }
+
+    internal fun count(query: Query, exec: SqlExecutor): Long {
+        val builder = paramBuilder(exec)
+        val queryStr = query.toSql(builder)
+        val sql = "SELECT COUNT(*) FROM ${qualifiedTableName(exec)} $queryStr"
+        return exec.execute(sql.trimIndent(), builder.params) { rs -> rs.getLong(0) ?: 0L }.firstOrNull() ?: 0L
     }
 
     internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {

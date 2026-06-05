@@ -11,7 +11,15 @@ import io.github.knyazevs.korm.database.Database
 class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     private var savepointCounter = 0
 
-    fun <T : Entity> Table<G, T>.new(entity: T) = insert(entity, exec)
+    /** Inserts [entity] and returns the stored row (via SQL RETURNING), or null if none. */
+    fun <T : Entity> Table<G, T>.new(entity: T): T? = insert(entity, exec)
+
+    /** Inserts all [entities] in one statement and returns the stored rows (RETURNING). */
+    fun <T : Entity> Table<G, T>.new(entities: List<T>): List<T> = insertAll(entities, exec)
+
+    /** Counts rows matching [query] (all rows by default). */
+    fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)
+
     fun <T : Entity> Table<G, T>.find(query: Query): List<T> = select(query, exec)
     fun <T : Entity> Table<G, T>.findById(id: Any): T? = selectById(id, exec)
     fun <T : Entity> Table<G, T>.all(): List<T> = selectAll(exec)

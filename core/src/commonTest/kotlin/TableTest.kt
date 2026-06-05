@@ -41,7 +41,8 @@ class TableTest {
         val text = "hello world"
         val expectedResult = """INSERT INTO "public"."products"
                         ("id", "price", "position", "text", "nullableTest")
-                        VALUES(:p0, :p1, :p2, :p3, :p4);"""
+                        VALUES(:p0, :p1, :p2, :p3, :p4)
+                        RETURNING "id", "price", "position", "text", "nullableTest";"""
         db.transaction {
             TestTable.new(TestEntity().apply {
                 this.id = uuid
