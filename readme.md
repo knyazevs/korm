@@ -188,4 +188,4 @@ without changing `core`.
 
 ## License
 
-GPL-3.0-only. See the `pom` metadata.
+MIT — see [LICENSE](LICENSE).
