@@ -1,5 +1,6 @@
 package io.github.knyazevs.korm
 
+import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KProperty
@@ -8,7 +9,7 @@ private val logger = KotlinLogging.logger {}
 
 
 sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var name: String, open var nullable: kotlin.Boolean = false, val columnType: ColumnNameEnum):
-    Expression {
+    Expression, Selectable<Z> {
     operator fun getValue(n: N, property: KProperty<*>): Z? {
         logger.trace { "Get value $name" }
         return n.fields[name] as Z?
@@ -34,6 +35,11 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
         else builder.dialect.quoteIdentifier(name)
 
     internal val tableRef: Table<*, *> get() = table
+
+    // As a selectable, read its value via the type mapper (its toSql is the SELECT SQL).
+    @Suppress("UNCHECKED_CAST")
+    override fun read(rs: ResultSet, index: kotlin.Int, typeMapper: TypeMapper): Z? =
+        typeMapper.fromResult(rs, index, columnType) as Z?
 
     class UUIDType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.uuid.Uuid, T, N>(table, name, nullable, ColumnNameEnum.UUID)
     class BigDecimalType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<com.ionspin.kotlin.bignum.decimal.BigDecimal, T, N>(table, name, nullable, ColumnNameEnum.BigDecimal)

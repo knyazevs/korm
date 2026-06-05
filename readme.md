@@ -175,6 +175,30 @@ val pairs: List<Pair<User, Order>> = db.autocommit {
 side. Joining a third table keeps the `select(...)` forms (the `Pair`/`find()` form is
 two-table only). Columns are automatically qualified by table inside a join.
 
+## Aggregations
+
+Group rows and read aggregates. Hold each aggregate in a `val` — `row[...]` looks it up by
+identity, so a fresh `count()` would be a different key:
+
+```kotlin
+val orders = count()
+val total = Orders.total.sum()
+
+db.autocommit {
+    (Users innerJoin Orders on (Users.id eq Orders.userId))
+        .groupBy(Users.id)
+        .having(total gt Value(BigDecimal.fromInt(100)))
+        .select(Users.name, orders, total)
+}.forEach { row -> println("${row[Users.name]}: ${row[orders]} orders, ${row[total]}") }
+
+// single table:
+val byAge = db.autocommit { Users.query().groupBy(Users.age).distinct().select(Users.age) }
+```
+
+Aggregates: `count()`, `column.count()`, `column.min()`, `column.max()`, `column.sum()`
+(keep the column's type) and `column.avg()` (Double). Plus `groupBy(...)`, `having(...)`
+and `distinct()`. Start a single-table query with `Table.query()`.
+
 ## Creating tables
 
 Korm generates `CREATE TABLE` from a table's columns (SQL types come from the dialect):

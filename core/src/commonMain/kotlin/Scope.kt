@@ -37,21 +37,21 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
         exec.executeUpdate(dropTableSql(exec, ifExists))
 
-    /** Runs the join, selecting the given columns (or all columns if none are given). */
-    fun Join<G>.select(vararg columns: Column<*, *, *>): List<ResultRow> =
-        runSelect(exec, this, if (columns.isEmpty()) allColumns() else columns.toList())
+    /** Runs the query, selecting the given fields (or all columns if none are given). */
+    fun Join<G>.select(vararg fields: Selectable<*>): List<ResultRow> =
+        runSelect(exec, this, if (fields.isEmpty()) allColumns() else fields.toList())
 
-    /** Runs the join, mapping each [ResultRow] with [map] (a projection into your own type). */
-    fun <R> Join<G>.select(vararg columns: Column<*, *, *>, map: (ResultRow) -> R): List<R> =
-        select(*columns).map(map)
+    /** Runs the query, mapping each [ResultRow] with [map] (a projection into your own type). */
+    fun <R> Join<G>.select(vararg fields: Selectable<*>, map: (ResultRow) -> R): List<R> =
+        select(*fields).map(map)
 
-    /** Runs a two-table join, selecting the given columns (or all columns if none are given). */
-    fun <A : Entity, B : Entity> JoinPair<G, A, B>.select(vararg columns: Column<*, *, *>): List<ResultRow> =
-        asJoin().select(*columns)
+    /** Runs a two-table join, selecting the given fields (or all columns if none are given). */
+    fun <A : Entity, B : Entity> JoinPair<G, A, B>.select(vararg fields: Selectable<*>): List<ResultRow> =
+        asJoin().select(*fields)
 
     /** Runs a two-table join, mapping each [ResultRow] with [map]. */
-    fun <A : Entity, B : Entity, R> JoinPair<G, A, B>.select(vararg columns: Column<*, *, *>, map: (ResultRow) -> R): List<R> =
-        asJoin().select(*columns, map = map)
+    fun <A : Entity, B : Entity, R> JoinPair<G, A, B>.select(vararg fields: Selectable<*>, map: (ResultRow) -> R): List<R> =
+        asJoin().select(*fields, map = map)
 
     /** Runs a two-table join, reconstructing both sides as a `Pair` of entities. */
     fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> {

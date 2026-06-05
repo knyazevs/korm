@@ -272,6 +272,22 @@ class TableTest {
         assertEquals(mapOf("p0" to 1), databaseMockObj.internalParams)
     }
 
+    @Test
+    fun testGroupByAndAggregateSql() {
+        val total = TestTable.price.sum()
+        db.autocommit {
+            TestTable.query()
+                .groupBy(TestTable.position)
+                .having(total gt Value(BigDecimal.fromInt(100)))
+                .select(TestTable.position, count(), total)
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""SELECT"products"."position",COUNT(*),SUM("products"."price")"""), sql)
+        assertTrue(sql.contains("""GROUPBY"products"."position""""), sql)
+        assertTrue(sql.contains("""HAVINGSUM("products"."price")>:p0"""), sql)
+        assertEquals(mapOf("p0" to BigDecimal.fromInt(100).toString()), databaseMockObj.internalParams)
+    }
+
     companion object {
         val databaseMockObj = DatabaseMock()
 

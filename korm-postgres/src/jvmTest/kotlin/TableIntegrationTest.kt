@@ -9,9 +9,11 @@ import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.Migration
+import io.github.knyazevs.korm.count
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.innerJoin
 import io.github.knyazevs.korm.migrate
+import io.github.knyazevs.korm.query
 import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.knyazevs.korm.transaction
 import kotlin.uuid.Uuid
@@ -381,6 +383,35 @@ class TableIntegrationTest {
         assertEquals(bookId, pairs.single().second.id)
 
         ItDatabase.transaction { Books.dropTable(); Authors.dropTable() }
+    }
+
+    /** GROUP BY with COUNT(*) aggregates rows per group. */
+    @Test
+    fun testAggregationGroupBy() {
+        assumeDockerAvailable()
+        val ids = List(3) { Uuid.random() }
+        ItDatabase.transaction {
+            ItProducts.new(ids.mapIndexed { i, id ->
+                ItProduct().apply {
+                    this.id = id
+                    this.price = BigDecimal.fromInt(10)
+                    this.qty = if (i == 0) 5 else 7
+                    this.displayName = "agg"
+                    this.note = null
+                    this.rank = null
+                }
+            })
+        }
+        val cnt = count()
+        val byQty = ItDatabase.autocommit {
+            ItProducts.query()
+                .where(ItProducts.displayName eq "agg")
+                .groupBy(ItProducts.qty)
+                .select(ItProducts.qty, cnt)
+        }.associate { it[ItProducts.qty] to it[cnt] }
+        assertEquals(1L, byQty[5])
+        assertEquals(2L, byQty[7])
+        ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it)) } }
     }
 
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners
