@@ -26,10 +26,8 @@ fun Application.configureRouting() {
             val create = createDto.toDomain().apply {
                 id = Uuid.random()
             }
-            val result = Database.transaction {
-                ProductTable.new(create)
-                ProductTable.findById(create.id!!)
-            }
+            // new() returns the stored row (via RETURNING), so no follow-up read is needed.
+            val result = Database.transaction { ProductTable.new(create) }
             val resultDTO = result!!.toDto()
             call.respond(resultDTO)
         }
