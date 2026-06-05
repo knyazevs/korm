@@ -1,17 +1,191 @@
-Korm is a small project aiming to connect Kotlin native/jvm projects with Postgresql database.
+# Korm
 
-# Example how to use 
-https://github.com/knyazevs/korm-example
+Korm is a small, type-safe ORM for **Kotlin Multiplatform** (JVM and Native) backed
+by PostgreSQL. It gives you tables, entities and transactions with a compile-time
+guarantee that a table is only ever used against the database it belongs to.
 
-# Install libpq
-install choco https://chocolatey.org/install
+> Status: early (0.0.x). The API may still change.
 
-```choco install postgresql15```
+## Modules
 
-# Deprecated
+| Module | What |
+| --- | --- |
+| `core` | Backend-agnostic API: `Table`, `Column`, `Entity`, `Query`, `Catalog`, `Database<G>`, scopes/transactions. No backend dependency. |
+| `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
 
-Install windows package manager:
+Depend on `korm-postgres` — it brings `core` with it:
 
-```winget install wingetcreate```
+```kotlin
+dependencies {
+    implementation("io.github.knyazevs.korm:korm-postgres:<version>")
+}
+```
 
-```winget install PostgreSQL.PostgreSQL```
+### Native requirement: libpq
+
+The Kotlin/Native driver links against **libpq**. Install the PostgreSQL client
+libraries on the build/host machine:
+
+- macOS: `brew install libpq`
+- Debian/Ubuntu: `apt-get install libpq-dev`
+- Windows: `choco install postgresql`
+
+## Quick start
+
+### 1. Declare a catalog, a table and its entity
+
+A `Catalog` is a marker type for a logical database/schema. A `Table` is tagged with
+the catalog it belongs to and carries no connection.
+
+```kotlin
+import io.github.knyazevs.korm.*
+
+object Main : Catalog
+
+object Users : Table<Main, User>(Meta("users"), ::User) {
+    val id by Column.UUID()
+    val name by Column.Text()
+    val age by Column.Int()
+    val note by Column.Text(nullable = true)
+
+    init { id; name; age; note }   // register the columns
+}
+
+class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var id by Users.id
+    var name by Users.name
+    var age by Users.age
+    var note by Users.note
+}
+```
+
+Available column types: `UUID`, `BigDecimal`, `Double`, `Int`, `Boolean`, `Text`,
+`Instant`, `Json`. Each takes an optional `nullable` flag, e.g. `Column.Text(true)`.
+
+### 2. Connect
+
+`createDatabase` returns a connection pool. Assign it to a `Database<Main>` to pin the
+catalog tag:
+
+```kotlin
+import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.createDatabase
+
+val db: Database<Main> = createDatabase(
+    host = "localhost",
+    port = 5432,
+    database = "postgres",
+    user = "postgres",
+    password = "password",
+    poolSize = 10,
+)
+```
+
+### 3. Run operations inside a scope
+
+Table operations live on the scope opened by `transaction { }` (BEGIN/COMMIT/ROLLBACK)
+or `autocommit { }` (a pinned connection, no surrounding transaction — the cheap path
+for reads):
+
+```kotlin
+import io.github.knyazevs.korm.*
+
+// write — committed on success, rolled back if the block throws
+db.transaction {
+    Users.new(User().apply {
+        id = Uuid.random()
+        name = "Ada"
+        age = 36
+        note = null
+    })
+}
+
+// read
+val ada: User? = db.autocommit { Users.findById(someId) }
+val all: List<User> = db.autocommit { Users.all() }
+
+// query
+val adults: List<User> = db.autocommit {
+    Users.find(
+        Query(
+            whereExpression = Users.age gtEq "18",
+            orderBy = mapOf(Users.age to AscDescOrder.DESC),
+            limit = 50u,
+        )
+    )
+}
+
+// update / delete
+db.transaction {
+    Users.update(Query(Users.id eq someId.toString()), User().apply { age = 37 })
+    Users.deleteWhere(Query(Users.name eq "Ada"))
+}
+```
+
+Values are always sent as bind parameters, never inlined — so untrusted input can't
+inject SQL. Predicate operators: `eq`, `neq`, `less`, `lessEq`, `gt`, `gtEq`, combined
+with `and` / `or`.
+
+## Transactions
+
+```kotlin
+db.transaction {
+    Users.new(user)
+    placeOrder(order)          // a helper that joins this same transaction (see below)
+    savepoint {                // a nested unit: if it throws, only its work is undone
+        Audit.new(entry)
+    }
+}                              // COMMIT here; any exception → ROLLBACK
+```
+
+- **`transaction { }`** — one transaction on a pinned connection.
+- **`autocommit { }`** — a pinned connection without a surrounding transaction.
+- **`savepoint { }`** — a nested unit via SQL `SAVEPOINT`; a failure inside rolls back
+  only the savepoint and the enclosing transaction may continue.
+- **Composition** — write transactional helpers as extensions on the scope so they join
+  the caller's transaction:
+
+  ```kotlin
+  fun Scope<Main>.placeOrder(order: Order) {
+      Orders.new(order)
+  }
+  ```
+
+  Calling another database's `transaction { }` inside opens an *independent* transaction
+  (a separate connection).
+
+## Compile-time catalog safety & sharding
+
+Because a `Table` is tagged with its `Catalog`, the compiler rejects using a table from
+a different catalog inside a scope:
+
+```kotlin
+object Cached : Catalog
+object Cache : Table<Cached, Row>(Meta("cache"), ::Row) { /* ... */ }
+
+db.transaction {           // db: Database<Main>
+    Users.new(user)        // ✓ Users is Table<Main, _>
+    Cache.new(row)         // ✗ compile error: Cache is Table<Cached, _>
+}
+```
+
+The catalog tag is phantom, so you can have **many database instances per catalog**
+(e.g. shards):
+
+```kotlin
+val shard0: Database<Main> = createDatabase(host = "shard0", /* ... */)
+val shard1: Database<Main> = createDatabase(host = "shard1", /* ... */)
+
+shardFor(tenantId).transaction { Users.new(user) }
+```
+
+## Multi-backend
+
+`core` is backend-agnostic — SQL rendering and value conversion go through a `Dialect`
+and `TypeMapper` that each backend provides. Today only the PostgreSQL backend ships;
+the seam is there so additional backends (e.g. SQLite) can be added as their own module
+without changing `core`.
+
+## License
+
+GPL-3.0-only. See the `pom` metadata.
