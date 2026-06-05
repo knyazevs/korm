@@ -1,6 +1,7 @@
 package io.github.knyazevs.korm
 
 import io.github.knyazevs.korm.database.Database
+import kotlinx.coroutines.withContext
 
 /**
  * The receiver inside a [transaction] / [autocommit] block. It pins one connection
@@ -65,3 +66,16 @@ fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R =
  */
 fun <G : Catalog, R> Database<G>.autocommit(block: Scope<G>.() -> R): R =
     usePinned(transactional = false) { Scope<G>(it).block() }
+
+/**
+ * Coroutine-friendly [transaction]: the blocking transaction runs on [Dispatchers.IO]
+ * so the calling coroutine suspends instead of blocking its thread (e.g. a ktor worker).
+ * The drivers are blocking, so this offloads work rather than doing async I/O; [block]
+ * runs entirely on one IO thread for the transaction's duration.
+ */
+suspend fun <G : Catalog, R> Database<G>.suspendTransaction(block: Scope<G>.() -> R): R =
+    withContext(ioDispatcher) { transaction(block) }
+
+/** Coroutine-friendly [autocommit]; see [suspendTransaction]. */
+suspend fun <G : Catalog, R> Database<G>.suspendAutocommit(block: Scope<G>.() -> R): R =
+    withContext(ioDispatcher) { autocommit(block) }

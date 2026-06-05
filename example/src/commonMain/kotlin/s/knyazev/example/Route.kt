@@ -6,9 +6,9 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.transaction
+import io.github.knyazevs.korm.suspendAutocommit
+import io.github.knyazevs.korm.suspendTransaction
 import io.github.knyazevs.korm.example.product.ProductDTO
 import io.github.knyazevs.korm.example.product.ProductTable
 import io.github.knyazevs.korm.example.product.toDto
@@ -16,7 +16,7 @@ import io.github.knyazevs.korm.example.product.toDto
 fun Application.configureRouting() {
     routing {
         get("/") {
-            val result = Database.autocommit { ProductTable.all() }
+            val result = Database.suspendAutocommit { ProductTable.all() }
             val resultDTO = result.map { it.toDto() }
             call.respond(resultDTO)
         }
@@ -27,7 +27,7 @@ fun Application.configureRouting() {
                 id = Uuid.random()
             }
             // new() returns the stored row (via RETURNING), so no follow-up read is needed.
-            val result = Database.transaction { ProductTable.new(create) }
+            val result = Database.suspendTransaction { ProductTable.new(create) }
             val resultDTO = result!!.toDto()
             call.respond(resultDTO)
         }
@@ -36,7 +36,7 @@ fun Application.configureRouting() {
             val productId = Uuid.parse(call.parameters["id"].orEmpty())
             val createDto = call.receive<ProductDTO>()
             val update = createDto.toDomain()
-            val result = Database.transaction {
+            val result = Database.suspendTransaction {
                 ProductTable.update(Query(ProductTable.id eq productId.toString()), update)
                 ProductTable.findById(productId)
             }
@@ -46,7 +46,7 @@ fun Application.configureRouting() {
 
         delete("/delete") {
             val productId = Uuid.parse(call.parameters["id"].orEmpty())
-            Database.transaction {
+            Database.suspendTransaction {
                 ProductTable.deleteWhere(Query(ProductTable.id eq productId.toString()))
             }
             call.respond(true)

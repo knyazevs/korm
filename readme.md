@@ -152,6 +152,9 @@ db.transaction {
 - **`autocommit { }`** — a pinned connection without a surrounding transaction.
 - **`savepoint { }`** — a nested unit via SQL `SAVEPOINT`; a failure inside rolls back
   only the savepoint and the enclosing transaction may continue.
+- **`suspendTransaction { }` / `suspendAutocommit { }`** — coroutine-friendly variants
+  that run the (blocking) driver call on `Dispatchers.IO`, so a coroutine (e.g. a ktor
+  handler) suspends instead of blocking its thread. Prefer these from suspend code.
 - **Composition** — write transactional helpers as extensions on the scope so they join
   the caller's transaction:
 
