@@ -295,6 +295,37 @@ class TableIntegrationTest {
         assertEquals(listOf("001", "002"), applied)
     }
 
+    /** Every supported column type round-trips through a generated table. */
+    @Test
+    fun testAllColumnTypesRoundTrip() {
+        assumeDockerAvailable()
+        val id = Uuid.random()
+        val instant = kotlinx.datetime.Instant.parse("2024-01-02T03:04:05Z")
+        val json = kotlinx.serialization.json.JsonPrimitive("hi")
+        ItDatabase.transaction {
+            AllTypes.createTable()
+            AllTypes.new(AllTypesEntity().apply {
+                this.id = id
+                this.anInt = 42
+                this.aDouble = 2.5
+                this.aBool = true
+                this.aText = "txt"
+                this.aDecimal = BigDecimal.fromInt(123)
+                this.anInstant = instant
+                this.aJson = json
+            })
+        }
+        val row = ItDatabase.autocommit { AllTypes.findById(id) }!!
+        assertEquals(42, row.anInt)
+        assertEquals(2.5, row.aDouble)
+        assertEquals(true, row.aBool)
+        assertEquals("txt", row.aText)
+        assertEquals(0, BigDecimal.fromInt(123).compareTo(row.aDecimal!!))
+        assertEquals(instant, row.anInstant)
+        assertEquals(json, row.aJson)
+        ItDatabase.transaction { AllTypes.deleteWhere(Query(AllTypes.id eq id.toString())) }
+    }
+
     /** Many threads hammering a small pool must not corrupt results or block forever. */
     @Test
     fun testConcurrentQueriesArePoolSafe() {
@@ -328,6 +359,30 @@ class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) 
 }
 
 object ItCatalog : Catalog
+
+class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+    var id by AllTypes.id
+    var anInt by AllTypes.anInt
+    var aDouble by AllTypes.aDouble
+    var aBool by AllTypes.aBool
+    var aText by AllTypes.aText
+    var aDecimal by AllTypes.aDecimal
+    var anInstant by AllTypes.anInstant
+    var aJson by AllTypes.aJson
+}
+
+object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
+    val id by Column.UUID()
+    val anInt by Column.Int()
+    val aDouble by Column.Double()
+    val aBool by Column.Boolean()
+    val aText by Column.Text()
+    val aDecimal by Column.BigDecimal()
+    val anInstant by Column.Instant()
+    val aJson by Column.Json()
+
+    init { id; anInt; aDouble; aBool; aText; aDecimal; anInstant; aJson }
+}
 
 object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct) {
     val id by Column.UUID()
