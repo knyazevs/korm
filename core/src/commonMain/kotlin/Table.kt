@@ -6,7 +6,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
-abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T, private val database: Database) {
+abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T, private val database: Database<G>) {
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
     fun getFieldDisplayNames() = fieldDisplayName

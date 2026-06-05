@@ -7,4 +7,4 @@ import io.github.knyazevs.korm.database.Database
  * it adds [AutoCloseable] so the underlying connection pool can be released
  * (or used via a `use { }` block). All query methods are inherited from [Database].
  */
-interface PostgresDriver : Database, AutoCloseable
+interface PostgresDriver : Database<Nothing>, AutoCloseable

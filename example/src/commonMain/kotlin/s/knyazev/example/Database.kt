@@ -1,11 +1,14 @@
 package io.github.knyazevs.korm.example
 
+import io.github.knyazevs.korm.Catalog
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.resultset.ResultSet
 
-object Database: Database {
+object AppCatalog : Catalog
+
+object Database: Database<AppCatalog> {
     private val driver = createDatabase(
         host = "localhost",
         port = 5432,

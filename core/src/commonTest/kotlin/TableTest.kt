@@ -15,7 +15,9 @@ class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf())
     var nullableTest by TestTable.nullableTest
 }
 
-object TestTable : Table<TestEntity>(Meta("products"), ::TestEntity, TableTest.databaseMockObj) {
+object TestCatalog : Catalog
+
+object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity, TableTest.databaseMockObj) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val position by Column.Int()

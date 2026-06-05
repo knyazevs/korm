@@ -4,7 +4,7 @@ import io.github.knyazevs.korm.StandardTypeMapper
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
 
-class DatabaseMock: Database {
+class DatabaseMock: Database<Nothing> {
 
     override val dialect = StandardDialect
     override val typeMapper = StandardTypeMapper

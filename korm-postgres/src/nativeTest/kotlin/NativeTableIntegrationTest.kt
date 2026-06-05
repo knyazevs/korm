@@ -1,4 +1,5 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
+import io.github.knyazevs.korm.Catalog
 import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
@@ -113,7 +114,9 @@ class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf
     var rank by NativeProducts.rank
 }
 
-object NativeProducts : Table<NativeProduct>(Table.Meta("native_products"), ::NativeProduct, NativeDatabase) {
+object NativeCatalog : Catalog
+
+object NativeProducts : Table<NativeCatalog, NativeProduct>(Table.Meta("native_products"), ::NativeProduct, NativeDatabase) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
@@ -126,7 +129,7 @@ object NativeProducts : Table<NativeProduct>(Table.Meta("native_products"), ::Na
     }
 }
 
-object NativeDatabase : Database {
+object NativeDatabase : Database<NativeCatalog> {
     private val driver = createDatabase(
         host = env("KORM_DB_HOST") ?: "localhost",
         port = env("KORM_DB_PORT")?.toInt() ?: 5432,

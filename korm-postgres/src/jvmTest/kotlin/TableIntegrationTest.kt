@@ -1,4 +1,5 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
+import io.github.knyazevs.korm.Catalog
 import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
@@ -174,7 +175,9 @@ class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) 
     var rank by ItProducts.rank
 }
 
-object ItProducts : Table<ItProduct>(Table.Meta("it_products"), ::ItProduct, ItDatabase) {
+object ItCatalog : Catalog
+
+object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct, ItDatabase) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
@@ -191,7 +194,7 @@ object ItProducts : Table<ItProduct>(Table.Meta("it_products"), ::ItProduct, ItD
  * Adapter that exposes the Hikari/JDBC [createDatabase] driver as a [Database],
  * backed by a Postgres container started once for the test run.
  */
-object ItDatabase : Database {
+object ItDatabase : Database<ItCatalog> {
     private val container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
 
     private val driver = createDatabase(
