@@ -38,30 +38,17 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
 
     private fun paramBuilder(exec: SqlExecutor) = ParamBuilder(exec.dialect, exec.typeMapper)
 
-    private fun columnMapToValue(rs: ResultSet, exec: SqlExecutor): Map<String, Pair<Any, Any?>> {
-        logger.trace { "Column list: ${rs.columns.joinToString(", ")}" }
-        val columnMap = rs.columns.mapIndexed { index: Int, s: String -> s to index }.toMap()
-
-        return fieldDisplayName.map {
-            val columnNumber = columnMap[it.value.name]
-            logger.trace { "Column[$columnNumber]: ${it.value.name}" }
-            val columnValue: Any? = if (columnNumber == null) {
-                if (!it.value.nullable) {
-                    throw Exception("Not nullable column \"${it.value.name}\" not found")
-                }
-                null
-            } else {
-                exec.typeMapper.fromResult(rs, columnNumber, it.value.columnType)
-            }
-            it.key to Pair<Any, Any?>(it.value, columnValue)
-        }.associateBy( {it.first}, {it.second})
-    }
-
+    // find/findById/all SELECT every column in fieldDisplayName order, so the result columns
+    // line up positionally — read them by index straight into the entity's field map, with no
+    // per-row name→index map or intermediate allocations.
     private fun mapToDao(rs: ResultSet, exec: SqlExecutor): T {
-        val columnMapWithValue = columnMapToValue(rs, exec)
-        val fieldToValue: MutableMap<String, Any?> = columnMapWithValue.mapValues { v -> v.value.second }.toMutableMap()
-        logger.trace { "Map to dao done: ${fieldToValue.toMap()}" }
-        return this.factory(fieldToValue)
+        val fields = HashMap<String, Any?>(fieldDisplayName.size * 2)
+        var index = 0
+        for ((fieldName, column) in fieldDisplayName) {
+            fields[fieldName] = exec.typeMapper.fromResult(rs, index, column.columnType)
+            index++
+        }
+        return factory(fields)
     }
 
     private fun generateFieldToMap(dao: T): List<Pair<String, Any?>> {

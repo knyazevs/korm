@@ -12,48 +12,14 @@ import java.sql.*
  */
 class NamedParamStatement(conn: Connection, sql: String) {
     val preparedStatement: PreparedStatement
-    private val fields: MutableList<String> = ArrayList()
+    private val fields: List<String>
 
     init {
-        preparedStatement = conn.prepareStatement(parse(sql))
-    }
-
-    private fun parse(sql: String): String {
-        val out = StringBuilder(sql.length)
-        var i = 0
-        while (i < sql.length) {
-            val c = sql[i]
-            when {
-                c == '\'' || c == '"' -> {
-                    // Copy a quoted literal verbatim so ':' inside it is not treated as a parameter.
-                    out.append(c)
-                    i++
-                    while (i < sql.length) {
-                        val ch = sql[i]
-                        out.append(ch)
-                        i++
-                        if (ch == c) break
-                    }
-                }
-                c == ':' && i + 1 < sql.length && sql[i + 1] == ':' -> {
-                    // Postgres "::" cast operator, not a parameter.
-                    out.append("::")
-                    i += 2
-                }
-                c == ':' && i + 1 < sql.length && (sql[i + 1].isLetter() || sql[i + 1] == '_') -> {
-                    var j = i + 1
-                    while (j < sql.length && (sql[j].isLetterOrDigit() || sql[j] == '_')) j++
-                    fields.add(sql.substring(i + 1, j))
-                    out.append('?')
-                    i = j
-                }
-                else -> {
-                    out.append(c)
-                    i++
-                }
-            }
-        }
-        return out.toString()
+        // Parsing (`:name` -> `?` plus the parameter order) depends only on the SQL text,
+        // which is identical across repeated calls of the same statement — cache it.
+        val parsed = parseCache.getOrPut(sql) { parse(sql) }
+        fields = parsed.fields
+        preparedStatement = conn.prepareStatement(parsed.sql)
     }
 
     @Throws(SQLException::class)
@@ -102,4 +68,49 @@ class NamedParamStatement(conn: Connection, sql: String) {
     // 1-based JDBC indexes of every placeholder that used this name.
     private fun indexesOf(name: String): List<Int> =
         fields.mapIndexedNotNull { index, field -> if (field == name) index + 1 else null }
+
+    private class Parsed(val sql: String, val fields: List<String>)
+
+    companion object {
+        private val parseCache = java.util.concurrent.ConcurrentHashMap<String, Parsed>()
+
+        private fun parse(sql: String): Parsed {
+            val out = StringBuilder(sql.length)
+            val fields = ArrayList<String>()
+            var i = 0
+            while (i < sql.length) {
+                val c = sql[i]
+                when {
+                    c == '\'' || c == '"' -> {
+                        // Copy a quoted literal verbatim so ':' inside it is not treated as a parameter.
+                        out.append(c)
+                        i++
+                        while (i < sql.length) {
+                            val ch = sql[i]
+                            out.append(ch)
+                            i++
+                            if (ch == c) break
+                        }
+                    }
+                    c == ':' && i + 1 < sql.length && sql[i + 1] == ':' -> {
+                        // Postgres "::" cast operator, not a parameter.
+                        out.append("::")
+                        i += 2
+                    }
+                    c == ':' && i + 1 < sql.length && (sql[i + 1].isLetter() || sql[i + 1] == '_') -> {
+                        var j = i + 1
+                        while (j < sql.length && (sql[j].isLetterOrDigit() || sql[j] == '_')) j++
+                        fields.add(sql.substring(i + 1, j))
+                        out.append('?')
+                        i = j
+                    }
+                    else -> {
+                        out.append(c)
+                        i++
+                    }
+                }
+            }
+            return Parsed(out.toString(), fields)
+        }
+    }
 }

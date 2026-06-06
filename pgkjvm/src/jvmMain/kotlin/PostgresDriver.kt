@@ -37,13 +37,13 @@ private class PostgresDriverImpl(
         // column context, so text-bound values (BigDecimal, uuid, timestamps, ...)
         // are accepted by numeric/uuid/timestamp columns — matching the native
         // (libpq) driver, which sends all parameters as untyped text.
-        this.setJdbcUrl("jdbc:postgresql://$host:$port/$database?stringtype=unspecified")
+        // prepareThreshold=1 makes pgjdbc use a server-side prepared statement from the first
+        // execution (default is 5), so repeated statements skip re-parsing on the server.
+        // (The MySQL-style cachePrepStmts/prepStmtCacheSize properties are ignored by pgjdbc.)
+        this.setJdbcUrl("jdbc:postgresql://$host:$port/$database?stringtype=unspecified&prepareThreshold=1")
         this.username = user
         this.password = password
         this.maximumPoolSize = poolSize
-        this.addDataSourceProperty("cachePrepStmts", "true")
-        this.addDataSourceProperty("prepStmtCacheSize", "250")
-        this.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
     }
     var ds = HikariDataSource(config)
 
