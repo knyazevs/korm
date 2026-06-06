@@ -1,0 +1,22 @@
+# korm samples
+
+Each subdirectory is a focused, runnable sample. Run gradle commands from the repository root.
+
+| Sample | Backend | Needs Docker | What it shows |
+|---|---|---|---|
+| [ktor-di](ktor-di) | Postgres | yes (compose) | Ktor CRUD, database from Ktor's built-in DI |
+| [ktor-koin](ktor-koin) | Postgres | yes (compose) | Ktor CRUD, database from Koin |
+| [sqlite-cache](sqlite-cache) | Postgres + SQLite | yes (compose) | SQLite as a read-through cache in front of Postgres |
+| [crud-sqlite](crud-sqlite) | SQLite | no | Standalone CRUD + migrations (JVM + native) |
+| [sharding](sharding) | SQLite | no | Multiple catalogs (compile-time safety) + sharding |
+
+The Postgres samples ship a `docker-compose.yml` matching their connection settings:
+
+```sh
+docker compose -f samples/<name>/docker-compose.yml up -d   # start Postgres
+./gradlew :samples:<name>:runJvm                            # run the sample
+docker compose -f samples/<name>/docker-compose.yml down    # stop Postgres
+```
+
+The SQLite samples need nothing external — just `./gradlew :samples:<name>:runJvm` (or
+`:runDebugExecutableNative`). Each sample's own README has the details, endpoints and tests.

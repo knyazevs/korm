@@ -37,6 +37,9 @@ Not recommended yet as the only persistence layer for critical production system
 | `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
 | `korm-sqlite` | The SQLite binding: `createSqliteDatabase(...)` plus the JVM (sqlite-jdbc) and Native (sqlite3 cinterop) drivers. |
 | `korm-jdbc` | Shared JVM JDBC plumbing (HikariCP pool, named-parameter binding) used by the JVM drivers. |
+| `korm-ktor` | DI-agnostic Ktor server integration: explicit-db `call.transaction(db) { }` / `call.autocommit(db) { }`, the `KormException.httpStatusCode()` mapper, and an optional close-on-stop `Korm` plugin. |
+| `korm-ktor-di` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Ktor's built-in DI. |
+| `korm-ktor-koin` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Koin. |
 
 Depend on the backend you want — each brings `core` with it:
 
@@ -314,6 +317,79 @@ Subtypes: `UniqueViolationException` (23505), `ForeignKeyViolationException` (23
 `NotNullViolationException` (23502), `CheckViolationException` (23514). Anything else is a
 `QueryException` with its `sqlState`.
 
+## Ktor integration
+
+korm ships thin Ktor server helpers split across three artifacts so the core one pulls in
+no DI framework. Pick the one matching how you obtain your `Database`:
+
+```kotlin
+dependencies {
+    implementation("io.github.knyazevs.korm:korm-ktor:<version>")       // DI-agnostic
+    // optional, pick one:
+    implementation("io.github.knyazevs.korm:korm-ktor-di:<version>")    // Ktor built-in DI
+    implementation("io.github.knyazevs.korm:korm-ktor-koin:<version>")  // Koin
+}
+```
+
+**`korm-ktor` (DI-agnostic).** You pass the database explicitly, so it works with anything.
+The optional `Korm` plugin closes registered databases on shutdown; `httpStatusCode()` maps a
+`KormException` to an HTTP code for your own `StatusPages` handler.
+
+```kotlin
+fun Application.module() {
+    install(Korm) { manage(database) }              // close database on stop (skip if your DI does it)
+    install(StatusPages) {
+        exception<KormException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "error") }
+    }
+    routing {
+        get("/users") {
+            call.respond(call.autocommit(database) { Users.all() }.map { it.name })
+        }
+        post("/users") {
+            call.transaction(database) { Users.new(user, returning = true) }
+            call.respond(HttpStatusCode.Created)
+        }
+    }
+}
+```
+
+**`korm-ktor-di` (Ktor built-in DI).** Register `Database<G>` with its parameterized type —
+Ktor DI keys by the full type and auto-closes `AutoCloseable` dependencies, so different
+catalogs don't collide and you get lifecycle for free:
+
+```kotlin
+fun Application.module() {
+    dependencies { provide<Database<Main>> { createDatabase(/* ... */) } }   // auto-closed on stop
+    routing {
+        get("/users") { call.respond(call.autocommit<Main, _> { Users.all() }.map { it.name }) }
+    }
+}
+```
+
+**`korm-ktor-koin` (Koin).** Same shape via Koin. Koin keys by `KClass`, so generics are
+erased — if you run more than one catalog, register and resolve with a `named(...)` qualifier
+(`call.transaction(Main, named("app")) { ... }`).
+
+```kotlin
+fun Application.module() {
+    install(Koin) { modules(module { single<Database<Main>> { createDatabase(/* ... */) } }) }
+    routing {
+        get("/users") { call.respond(call.autocommit<Main, _> { Users.all() }.map { it.name }) }
+    }
+}
+```
+
+Both DI artifacts offer the same three call styles (pick whichever reads best) — the catalog
+stays a compile-time type in all of them, they only differ in how you spell it:
+
+```kotlin
+call.transaction<Main, _> { ... }          // catalog as a type argument (`_` infers the result)
+call.transaction(Main) { ... }             // catalog as a value
+call.korm<Main>().transaction { ... }      // resolve once, then run (no `_`, no value)
+```
+
+All of them run on `Dispatchers.IO` (they delegate to `suspendTransaction` / `suspendAutocommit`).
+
 ## Compile-time catalog safety & sharding
 
 Because a `Table` is tagged with its `Catalog`, the compiler rejects using a table from
@@ -383,6 +459,22 @@ Notes:
 The Kotlin/Native driver links against the system **sqlite3** library, which ships with
 macOS and most Linux distributions. On Debian/Ubuntu install the headers if missing:
 `apt-get install libsqlite3-dev`.
+
+## Samples
+
+Runnable samples live under `samples/`, one per task:
+
+| Sample | Shows | Run |
+| --- | --- | --- |
+| `samples:ktor-di` | Ktor web CRUD over Postgres, database resolved from Ktor's built-in DI | `./gradlew :samples:ktor-di:runJvm` |
+| `samples:ktor-koin` | The same web CRUD, but wired through Koin | `./gradlew :samples:ktor-koin:runJvm` |
+| `samples:crud-sqlite` | Standalone (no server) CRUD + migrations over SQLite — self-contained | `./gradlew :samples:crud-sqlite:runJvm` |
+| `samples:sharding` | Multiple catalogs (compile-time safety) + sharding one catalog across databases | `./gradlew :samples:sharding:runJvm` |
+| `samples:sqlite-cache` | Two catalogs: SQLite as a read-through cache in front of Postgres | `./gradlew :samples:sqlite-cache:runJvm` |
+
+The SQLite samples need no external database. The Postgres ones expect a Postgres on
+`localhost:5432` (user/password `postgres`/`password`). Each sample also builds a native
+binary (`runDebugExecutableNative`) from the same code.
 
 ## Benchmarks
 

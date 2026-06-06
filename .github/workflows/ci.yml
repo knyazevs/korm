@@ -31,8 +31,8 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install libpq (for the Kotlin/Native libpq cinterop)
-        run: sudo apt-get update && sudo apt-get install -y libpq-dev
+      - name: Install libpq + libsqlite3 (for the Kotlin/Native cinterops)
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev libsqlite3-dev
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -51,6 +51,26 @@ jobs:
           KORM_DB_USER: postgres
           KORM_DB_PASSWORD: password
         run: ./gradlew :core:nativeTest --console=plain
+
+      # The ktor integration libraries are libraries (no native exe link), so assemble
+      # builds their JVM + native artifacts to verify they compile on both targets.
+      - name: Build ktor integration modules
+        run: ./gradlew :korm-ktor:assemble :korm-ktor-di:assemble :korm-ktor-koin:assemble --console=plain
+
+      # Self-contained SQLite samples — tests run on both JVM and native (no Docker needed).
+      - name: SQLite sample tests (JVM + native)
+        run: >-
+          ./gradlew
+          :samples:crud-sqlite:jvmTest :samples:crud-sqlite:nativeTest
+          :samples:sharding:jvmTest :samples:sharding:nativeTest
+          --console=plain
+
+      # Postgres samples — JVM end-to-end tests spin up their own Postgres via Testcontainers.
+      - name: Postgres sample tests (Testcontainers, JVM)
+        run: >-
+          ./gradlew
+          :samples:ktor-di:jvmTest :samples:ktor-koin:jvmTest :samples:sqlite-cache:jvmTest
+          --console=plain
 
       - name: Upload test reports
         if: always()
