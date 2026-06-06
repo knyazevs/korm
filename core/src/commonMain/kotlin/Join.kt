@@ -114,18 +114,24 @@ infix fun <G : Catalog, A : Entity, B : Entity> Table<G, A>.leftJoin(other: Tabl
  * One row of a query result. Read fields by the [Selectable] you selected:
  * `row[Users.name]` / `row[total]` (throws if NULL/absent) or `row.getOrNull(...)`.
  */
-class ResultRow internal constructor(private val values: Map<Selectable<*>, Any?>) {
+class ResultRow internal constructor(private val values: Map<Any, Any?>) {
     operator fun <Z> get(field: Selectable<Z>): Z {
         @Suppress("UNCHECKED_CAST")
-        return (values[field] as Z?)
+        return (values[fieldKey(field)] as Z?)
             ?: error("Selected field is NULL or was not selected; use getOrNull for nullable fields")
     }
 
     fun <Z> getOrNull(field: Selectable<Z>): Z? {
         @Suppress("UNCHECKED_CAST")
-        return values[field] as Z?
+        return values[fieldKey(field)] as Z?
     }
 }
+
+// Identifies a selected field. A Column's property delegate yields a fresh instance on each
+// access, so instance identity can't be used — key columns by table+name instead; aggregates
+// (held by the caller in a val) are keyed by instance.
+internal fun fieldKey(field: Selectable<*>): Any =
+    if (field is Column<*, *, *>) "${field.tableRef.meta.tableName}.${field.name}" else field
 
 internal fun Table<*, *>.qualifiedName(dialect: Dialect): String =
     "${dialect.quoteIdentifier(meta.schema)}.${dialect.quoteIdentifier(meta.tableName)}"
@@ -149,6 +155,6 @@ internal fun runSelect(exec: SqlExecutor, join: Join<*>, fields: List<Selectable
     val having = join.havingExpr?.let { " HAVING ${it.toSql(builder)}" }.orEmpty()
     val sql = "SELECT $distinct$selectList FROM $from$where$groupBy$having"
     return exec.execute(sql, builder.params) { rs ->
-        ResultRow(fields.withIndex().associate { (i, f) -> f to f.read(rs, i, exec.typeMapper) })
+        ResultRow(fields.withIndex().associate { (i, f) -> fieldKey(f) to f.read(rs, i, exec.typeMapper) })
     }
 }

@@ -40,10 +40,8 @@ class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSe
 
     override fun getBytes(columnIndex: Int): ByteArray? = pgResultSet.getBytes(columnIndex + 1)
 
-    override fun getDate(columnIndex: Int): LocalDate? {
-        val localDate = pgResultSet.getDate(columnIndex + 1) ?: return null
-        return LocalDate.parse(formatDate(localDate))
-    }
+    override fun getDate(columnIndex: Int): LocalDate? =
+        pgResultSet.getString(columnIndex + 1)?.let { LocalDate.parse(it) }
 
     override fun getTime(columnIndex: Int): kotlinx.datetime.LocalTime? =
         pgResultSet.getString(columnIndex + 1)?.let { kotlinx.datetime.LocalTime.parse(it) }
@@ -54,11 +52,6 @@ class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSe
 
     override fun getInstant(columnIndex: Int): kotlinx.datetime.Instant? {
         return pgResultSet.getString(columnIndex + 1)?.fixIso8601()?.let { Instant.parse(it) }
-    }
-
-    private fun formatDate(date: Date): String {
-        val dateFormat: DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX")
-        return dateFormat.format(date)
     }
 
     private fun String.fixIso8601() = replaceRange(10, 11, "T")
