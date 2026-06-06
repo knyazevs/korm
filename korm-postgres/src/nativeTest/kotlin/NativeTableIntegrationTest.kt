@@ -4,6 +4,7 @@ import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.UniqueViolationException
 import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
@@ -132,6 +133,31 @@ class NativeTableIntegrationTest {
             }
         }
         assertNull(NativeDatabase.autocommit { NativeProducts.findById(id) })
+    }
+
+    /** A duplicate primary key surfaces as a typed UniqueViolationException (SQLSTATE 23505). */
+    @Test
+    fun testUniqueViolationIsTyped() {
+        if (env("KORM_DB_HOST") == null) {
+            println("KORM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        val id = Uuid.random()
+        NativeDatabase.transaction {
+            NativeProducts.new(NativeProduct().apply {
+                this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
+                this.displayName = "dup"; this.note = null; this.rank = null
+            })
+        }
+        assertFailsWith<UniqueViolationException> {
+            NativeDatabase.transaction {
+                NativeProducts.new(NativeProduct().apply {
+                    this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
+                    this.displayName = "dup2"; this.note = null; this.rank = null
+                })
+            }
+        }
+        NativeDatabase.transaction { NativeProducts.deleteWhere(Query(NativeProducts.id eq id)) }
     }
 
     /** Many worker threads hammering a small pool must not corrupt or crash anything. */

@@ -76,7 +76,7 @@ private class PostgresDriverImpl(
             conn.autoCommit = false
             try {
                 val result = block(executor)
-                conn.commit()
+                translateSql { conn.commit() }
                 result
             } catch (e: Throwable) {
                 runCatching { conn.rollback() }
@@ -108,42 +108,51 @@ private class JdbcExecutor(private val conn: Connection) : SqlExecutor {
         conn.runUpdate(sql, namedParameters)
 }
 
+// Translates JDBC SQLExceptions into korm's typed exceptions, carrying the SQLSTATE.
+private inline fun <T> translateSql(block: () -> T): T =
+    try {
+        block()
+    } catch (e: java.sql.SQLException) {
+        throw io.github.knyazevs.korm.sqlException(e.message ?: "SQL error", e.sqlState, e)
+    }
+
 private fun <T> Connection.runQuery(
     sql: String,
     namedParameters: Map<String, Any?>,
     handler: (ResultSet) -> T,
-): List<T> {
+): List<T> = translateSql {
     val statement = NamedParamStatement(this, sql)
     for ((key, value) in namedParameters) statement.setAny(key, value)
-    return PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
+    PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
 }
 
 private fun <T> Connection.runQuery(
     sql: String,
     paramSource: SqlParameterSource,
     handler: (ResultSet) -> T,
-): List<T> {
+): List<T> = translateSql {
     val statement = NamedParamStatement(this, sql)
     statement.bind(paramSource)
-    return PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
+    PgResultSetWrapper(statement.executeQuery()).handleResults(handler)
 }
 
-private fun Connection.runCount(sql: String, namedParameters: Map<String, Any?>): Long {
+private fun Connection.runCount(sql: String, namedParameters: Map<String, Any?>): Long = translateSql {
     val statement = NamedParamStatement(this, sql)
     for ((key, value) in namedParameters) statement.setAny(key, value)
-    return statement.preparedStatement.runReturningCount()
+    statement.preparedStatement.runReturningCount()
 }
 
-private fun Connection.runCount(sql: String, paramSource: SqlParameterSource): Long {
+private fun Connection.runCount(sql: String, paramSource: SqlParameterSource): Long = translateSql {
     val statement = NamedParamStatement(this, sql)
     statement.bind(paramSource)
-    return statement.preparedStatement.runReturningCount()
+    statement.preparedStatement.runReturningCount()
 }
 
-private fun Connection.runUpdate(sql: String, namedParameters: Map<String, Any?>) {
+private fun Connection.runUpdate(sql: String, namedParameters: Map<String, Any?>) = translateSql {
     val statement = NamedParamStatement(this, sql)
     for ((key, value) in namedParameters) statement.setAny(key, value)
     statement.executeUpdate()
+    Unit
 }
 
 /**

@@ -4,6 +4,7 @@ import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.UniqueViolationException
 import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.Table
 import io.github.knyazevs.korm.database.Database
@@ -427,6 +428,28 @@ class TableIntegrationTest {
         assertEquals(1L, byQty[5])
         assertEquals(2L, byQty[7])
         ItDatabase.transaction { ids.forEach { ItProducts.deleteWhere(Query(ItProducts.id eq it)) } }
+    }
+
+    /** A duplicate primary key surfaces as a typed UniqueViolationException (SQLSTATE 23505). */
+    @Test
+    fun testUniqueViolationIsTyped() {
+        assumeDockerAvailable()
+        val id = Uuid.random()
+        ItDatabase.transaction {
+            ItProducts.new(ItProduct().apply {
+                this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
+                this.displayName = "dup"; this.note = null; this.rank = null
+            })
+        }
+        assertFailsWith<UniqueViolationException> {
+            ItDatabase.transaction {
+                ItProducts.new(ItProduct().apply {
+                    this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
+                    this.displayName = "dup2"; this.note = null; this.rank = null
+                })
+            }
+        }
+        ItDatabase.transaction { ItProducts.deleteWhere(Query(ItProducts.id eq id)) }
     }
 
     // Skip (rather than fail) these tests where Docker is unavailable, e.g. CI runners

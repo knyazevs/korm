@@ -21,6 +21,7 @@ import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.StandardTypeMapper
 import io.github.knyazevs.korm.TypeMapper
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.sqlException
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.PostgresDriverKt")
 
@@ -246,9 +247,11 @@ private class PostgresDriverImpl(
     private fun CPointer<PGresult>?.check(connection: CPointer<PGconn>): CPointer<PGresult> {
         val status = PQresultStatus(this)
         if (status != PGRES_TUPLES_OK && status != PGRES_COMMAND_OK && status != PGRES_COPY_IN) {
+            // PG_DIAG_SQLSTATE is 'C'; map the SQLSTATE to a typed core exception.
+            val sqlState = PQresultErrorField(this, 'C'.code)?.toKString()
             val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
             PQclear(this)
-            throw QueryExecutionException(message.ifEmpty { "Postgres query failed" })
+            throw sqlException(message.ifEmpty { "Postgres query failed" }, sqlState)
         }
         return this!!
     }

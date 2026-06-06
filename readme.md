@@ -266,6 +266,24 @@ db.transaction {
   Calling another database's `transaction { }` inside opens an *independent* transaction
   (a separate connection).
 
+## Error handling
+
+A failed statement throws a `QueryException` carrying the SQLSTATE; common constraint
+violations have typed subtypes you can catch directly (same on the JVM and native
+backends):
+
+```kotlin
+try {
+    db.transaction { Users.new(user) }
+} catch (e: UniqueViolationException) {   // SQLSTATE 23505
+    // duplicate key — e.g. respond 409
+}
+```
+
+Subtypes: `UniqueViolationException` (23505), `ForeignKeyViolationException` (23503),
+`NotNullViolationException` (23502), `CheckViolationException` (23514). Anything else is a
+`QueryException` with its `sqlState`.
+
 ## Compile-time catalog safety & sharding
 
 Because a `Table` is tagged with its `Catalog`, the compiler rejects using a table from
