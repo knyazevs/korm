@@ -10,7 +10,9 @@ import java.util.*
 
 
 class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSet {
-    override val columns: Array<String> = internalGetColumns()
+    // Lazy: the hot read path maps columns positionally and never touches this, so don't
+    // read ResultSetMetaData on every query.
+    override val columns: Array<String> by lazy { internalGetColumns() }
 
     private fun internalGetColumns(): Array<String> {
         val md: ResultSetMetaData = pgResultSet.metaData
