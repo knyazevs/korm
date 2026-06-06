@@ -160,6 +160,31 @@ class NativeTableIntegrationTest {
         NativeDatabase.transaction { NativeProducts.deleteWhere(Query(NativeProducts.id eq id)) }
     }
 
+    /**
+     * Stability: 16 workers each run 2000 queries against a pool of 8. Opt-in via the
+     * KORM_STABILITY env var so it does not run in the normal CI suite.
+     */
+    @Test
+    fun stabilitySustainedConcurrentLoad() {
+        if (env("KORM_DB_HOST") == null || env("KORM_STABILITY") == null) {
+            println("KORM_STABILITY not set — skipping native stability test")
+            return
+        }
+        nativeDriver(poolSize = 8).use { driver ->
+            val workers = List(16) { Worker.start() }
+            val futures = workers.map { worker ->
+                worker.execute(TransferMode.SAFE, { driver }) { db ->
+                    var ok = 0
+                    repeat(2_000) { if (db.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single() == 1) ok++ }
+                    ok
+                }
+            }
+            val total = futures.sumOf { it.result }
+            workers.forEach { it.requestTermination().result }
+            assertEquals(16 * 2_000, total)
+        }
+    }
+
     /** Many worker threads hammering a small pool must not corrupt or crash anything. */
     @Test
     fun testConcurrentQueriesArePoolSafe() {

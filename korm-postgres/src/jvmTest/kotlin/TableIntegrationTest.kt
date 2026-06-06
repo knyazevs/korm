@@ -562,6 +562,11 @@ object ItDatabase : Database<ItCatalog> {
         password = container.password,
     )
 
+    /** Restarts the backing Postgres container (keeping the host port) — for resilience tests. */
+    fun restartContainer() {
+        container.dockerClient.restartContainerCmd(container.containerId).exec()
+    }
+
     /** A separate driver against the same container, for tests that need their own pool/lifecycle. */
     fun newDriver(poolSize: Int) = createDatabase(
         host = container.host,

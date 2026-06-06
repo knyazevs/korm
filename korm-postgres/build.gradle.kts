@@ -23,7 +23,10 @@ kotlin {
     jvmToolchain(17)
     jvm {
         testRuns["test"].executionTask.configure {
-            useJUnitPlatform()
+            // Long-running stability/soak tests are opt-in: run with -Pstability.
+            useJUnitPlatform {
+                if (!project.hasProperty("stability")) excludeTags("stability")
+            }
         }
     }
 
