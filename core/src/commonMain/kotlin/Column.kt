@@ -52,6 +52,12 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
     class TextType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.String, T, N>(table, name, nullable, ColumnNameEnum.String)
     class InstantType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.datetime.Instant, T, N>(table, name, nullable, ColumnNameEnum.Instant)
     class JsonType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<JsonElement, T, N>(table, name, nullable, ColumnNameEnum.Json)
+    class LongType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Long, T, N>(table, name, nullable, ColumnNameEnum.Long)
+    class FloatType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Float, T, N>(table, name, nullable, ColumnNameEnum.Float)
+    class ShortType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlin.Short, T, N>(table, name, nullable, ColumnNameEnum.Short)
+    class LocalDateType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.datetime.LocalDate, T, N>(table, name, nullable, ColumnNameEnum.LocalDate)
+    class LocalTimeType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.datetime.LocalTime, T, N>(table, name, nullable, ColumnNameEnum.LocalTime)
+    class LocalDateTimeType<T: Table<*, N>, N: Entity>(table: T, override var name: String, override var nullable: kotlin.Boolean = false) : Column<kotlinx.datetime.LocalDateTime, T, N>(table, name, nullable, ColumnNameEnum.LocalDateTime)
 
     enum class ColumnNameEnum {
         BigDecimal,
@@ -61,7 +67,13 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
         Boolean,
         String,
         Instant,
-        Json
+        Json,
+        Long,
+        Float,
+        Short,
+        LocalDate,
+        LocalTime,
+        LocalDateTime
     }
 
     private companion object {
@@ -73,6 +85,12 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
         fun <T: Table<*, N>, N: Entity> text(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): TextType<T, N> = Column.TextType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
         fun <T: Table<*, N>, N: Entity> instant(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): InstantType<T, N> = Column.InstantType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
         fun <T: Table<*, N>, N: Entity> json(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): JsonType<T, N> = Column.JsonType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> long(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): LongType<T, N> = Column.LongType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> float(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): FloatType<T, N> = Column.FloatType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> short(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): ShortType<T, N> = Column.ShortType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> localDate(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): LocalDateType<T, N> = Column.LocalDateType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> localTime(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): LocalTimeType<T, N> = Column.LocalTimeType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
+        fun <T: Table<*, N>, N: Entity> localDateTime(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): LocalDateTimeType<T, N> = Column.LocalDateTimeType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
 
         fun getColumnName(property: KProperty<*>): String {
             //val columnNameAnnotation: Annotation? = property.annotations.firstOrNull { it is ColumnName }
@@ -113,6 +131,24 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
 
     class Json(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.json(table, getColumnName(property), nullable, primaryKey)
+    }
+    class Long(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.long(table, getColumnName(property), nullable, primaryKey)
+    }
+    class Float(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.float(table, getColumnName(property), nullable, primaryKey)
+    }
+    class Short(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.short(table, getColumnName(property), nullable, primaryKey)
+    }
+    class LocalDate(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localDate(table, getColumnName(property), nullable, primaryKey)
+    }
+    class LocalTime(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localTime(table, getColumnName(property), nullable, primaryKey)
+    }
+    class LocalDateTime(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localDateTime(table, getColumnName(property), nullable, primaryKey)
     }
 }
 

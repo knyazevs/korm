@@ -34,5 +34,11 @@ object StandardTypeMapper : TypeMapper {
         Column.ColumnNameEnum.String -> rs.getString(index)
         Column.ColumnNameEnum.Instant -> rs.getInstant(index)
         Column.ColumnNameEnum.Json -> rs.getJson(index)
+        Column.ColumnNameEnum.Long -> rs.getLong(index)
+        Column.ColumnNameEnum.Float -> rs.getFloat(index)
+        Column.ColumnNameEnum.Short -> rs.getShort(index)
+        Column.ColumnNameEnum.LocalDate -> rs.getDate(index)
+        Column.ColumnNameEnum.LocalTime -> rs.getTime(index)
+        Column.ColumnNameEnum.LocalDateTime -> rs.getLocalDateTime(index)
     }
 }

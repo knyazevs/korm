@@ -59,8 +59,9 @@ class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Ent
 }
 ```
 
-Available column types: `UUID`, `BigDecimal`, `Double`, `Int`, `Boolean`, `Text`,
-`Instant`, `Json`. Each takes optional `nullable` and `primaryKey` flags, e.g.
+Available column types: `UUID`, `Text`, `Boolean`, `Short`, `Int`, `Long`, `Float`,
+`Double`, `BigDecimal`, `Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Json`.
+Each takes optional `nullable` and `primaryKey` flags, e.g.
 `Column.UUID(primaryKey = true)`, `Column.Text(nullable = true)`. `findById` uses the
 primary key (or the column named `id` if none is marked); mark several columns for a
 composite key.

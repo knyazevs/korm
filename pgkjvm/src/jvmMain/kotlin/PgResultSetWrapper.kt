@@ -45,15 +45,12 @@ class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSe
         return LocalDate.parse(formatDate(localDate))
     }
 
-    override fun getTime(columnIndex: Int): kotlinx.datetime.LocalTime? {
-        TODO("Not implemented yet")
-        //return pgResultSet.getTime(columnIndex + 1)
-    }
+    override fun getTime(columnIndex: Int): kotlinx.datetime.LocalTime? =
+        pgResultSet.getString(columnIndex + 1)?.let { kotlinx.datetime.LocalTime.parse(it) }
 
-    override fun getLocalDateTime(columnIndex: Int): kotlinx.datetime.LocalDateTime? {
-        TODO("Not implemented yet")
-        //return pgResultSet.getLocalDateTime(columnIndex + 1)
-    }
+    // Postgres returns a "yyyy-MM-dd HH:mm:ss" timestamp; the space at index 10 becomes 'T'.
+    override fun getLocalDateTime(columnIndex: Int): kotlinx.datetime.LocalDateTime? =
+        pgResultSet.getString(columnIndex + 1)?.fixIso8601()?.let { kotlinx.datetime.LocalDateTime.parse(it) }
 
     override fun getInstant(columnIndex: Int): kotlinx.datetime.Instant? {
         return pgResultSet.getString(columnIndex + 1)?.fixIso8601()?.let { Instant.parse(it) }

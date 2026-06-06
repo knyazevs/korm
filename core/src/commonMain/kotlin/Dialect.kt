@@ -48,5 +48,11 @@ object StandardDialect : Dialect {
         Column.ColumnNameEnum.String -> "text"
         Column.ColumnNameEnum.Instant -> "timestamp"
         Column.ColumnNameEnum.Json -> "json"
+        Column.ColumnNameEnum.Long -> "bigint"
+        Column.ColumnNameEnum.Float -> "real"
+        Column.ColumnNameEnum.Short -> "smallint"
+        Column.ColumnNameEnum.LocalDate -> "date"
+        Column.ColumnNameEnum.LocalTime -> "time"
+        Column.ColumnNameEnum.LocalDateTime -> "timestamp"
     }
 }

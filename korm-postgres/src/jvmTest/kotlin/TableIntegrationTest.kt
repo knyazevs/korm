@@ -305,6 +305,9 @@ class TableIntegrationTest {
         val id = Uuid.random()
         val instant = kotlinx.datetime.Instant.parse("2024-01-02T03:04:05Z")
         val json = kotlinx.serialization.json.JsonPrimitive("hi")
+        val date = kotlinx.datetime.LocalDate.parse("2024-01-02")
+        val time = kotlinx.datetime.LocalTime.parse("03:04:05")
+        val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         ItDatabase.transaction {
             AllTypes.createTable()
             AllTypes.new(AllTypesEntity().apply {
@@ -316,6 +319,12 @@ class TableIntegrationTest {
                 this.aDecimal = BigDecimal.fromInt(123)
                 this.anInstant = instant
                 this.aJson = json
+                this.aLong = 9_000_000_000L
+                this.aFloat = 1.5f
+                this.aShort = 7.toShort()
+                this.aDate = date
+                this.aTime = time
+                this.aDateTime = dateTime
             })
         }
         val row = ItDatabase.autocommit { AllTypes.findById(id) }!!
@@ -326,6 +335,12 @@ class TableIntegrationTest {
         assertEquals(0, BigDecimal.fromInt(123).compareTo(row.aDecimal!!))
         assertEquals(instant, row.anInstant)
         assertEquals(json, row.aJson)
+        assertEquals(9_000_000_000L, row.aLong)
+        assertEquals(1.5f, row.aFloat)
+        assertEquals(7.toShort(), row.aShort)
+        assertEquals(date, row.aDate)
+        assertEquals(time, row.aTime)
+        assertEquals(dateTime, row.aDateTime)
         ItDatabase.transaction { AllTypes.deleteWhere(Query(AllTypes.id eq id)) }
     }
 
@@ -466,6 +481,12 @@ class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapO
     var aDecimal by AllTypes.aDecimal
     var anInstant by AllTypes.anInstant
     var aJson by AllTypes.aJson
+    var aLong by AllTypes.aLong
+    var aFloat by AllTypes.aFloat
+    var aShort by AllTypes.aShort
+    var aDate by AllTypes.aDate
+    var aTime by AllTypes.aTime
+    var aDateTime by AllTypes.aDateTime
 }
 
 object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
@@ -477,8 +498,17 @@ object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::Al
     val aDecimal by Column.BigDecimal()
     val anInstant by Column.Instant()
     val aJson by Column.Json()
+    val aLong by Column.Long()
+    val aFloat by Column.Float()
+    val aShort by Column.Short()
+    val aDate by Column.LocalDate()
+    val aTime by Column.LocalTime()
+    val aDateTime by Column.LocalDateTime()
 
-    init { id; anInt; aDouble; aBool; aText; aDecimal; anInstant; aJson }
+    init {
+        id; anInt; aDouble; aBool; aText; aDecimal; anInstant; aJson
+        aLong; aFloat; aShort; aDate; aTime; aDateTime
+    }
 }
 
 object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct) {
