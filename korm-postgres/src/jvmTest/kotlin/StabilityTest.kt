@@ -1,6 +1,8 @@
+import io.github.knyazevs.korm.database.createDatabase
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import org.testcontainers.DockerClientFactory
+import org.testcontainers.containers.PostgreSQLContainer
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -45,21 +47,36 @@ class StabilityTest {
         }
     }
 
-    /** After the database restarts, the pool self-heals and queries succeed again. */
+    /**
+     * After the database restarts, the pool self-heals and queries succeed again. Uses its
+     * own container (not the shared one) so restarting it can't disturb the other tests.
+     */
     @Test
     fun poolRecoversAfterDatabaseRestart() {
         assumeDocker()
-        ItDatabase.newDriver(poolSize = 4).use { driver ->
-            check(driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1)
-            ItDatabase.restartContainer()
-            val deadline = System.currentTimeMillis() + 60_000
-            var recovered = false
-            while (System.currentTimeMillis() < deadline && !recovered) {
-                recovered = runCatching { driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1 }
-                    .getOrDefault(false)
-                if (!recovered) Thread.sleep(500)
+        val container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+        try {
+            createDatabase(
+                host = container.host,
+                port = container.firstMappedPort,
+                database = container.databaseName,
+                user = container.username,
+                password = container.password,
+                poolSize = 4,
+            ).use { driver ->
+                check(driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1)
+                container.dockerClient.restartContainerCmd(container.containerId).exec()
+                val deadline = System.currentTimeMillis() + 60_000
+                var recovered = false
+                while (System.currentTimeMillis() < deadline && !recovered) {
+                    recovered = runCatching { driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1 }
+                        .getOrDefault(false)
+                    if (!recovered) Thread.sleep(500)
+                }
+                assertTrue(recovered, "pool did not recover after database restart")
             }
-            assertTrue(recovered, "pool did not recover after database restart")
+        } finally {
+            container.stop()
         }
     }
 }
