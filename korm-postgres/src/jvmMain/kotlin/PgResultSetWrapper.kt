@@ -1,13 +1,9 @@
 package io.github.knyazevs.korm
 
+import io.github.knyazevs.korm.resultset.ResultSet
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import io.github.knyazevs.korm.resultset.ResultSet
 import java.sql.ResultSetMetaData
-import java.text.DateFormat
-import java.text.SimpleDateFormat
-import java.util.*
-
 
 class PgResultSetWrapper(private val pgResultSet: java.sql.ResultSet) : ResultSet {
     // Lazy: the hot read path maps columns positionally and never touches this, so don't

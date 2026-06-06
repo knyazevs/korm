@@ -133,8 +133,13 @@ class ResultRow internal constructor(private val values: Map<Any, Any?>) {
 internal fun fieldKey(field: Selectable<*>): Any =
     if (field is Column<*, *, *>) "${field.tableRef.meta.tableName}.${field.name}" else field
 
-internal fun Table<*, *>.qualifiedName(dialect: Dialect): String =
-    "${dialect.quoteIdentifier(meta.schema)}.${dialect.quoteIdentifier(meta.tableName)}"
+// Qualifies a table reference. The schema prefix is emitted only when a schema is set;
+// an unqualified name resolves through the connection's default schema (search_path / main).
+internal fun Table<*, *>.qualifiedName(dialect: Dialect): String {
+    val table = dialect.quoteIdentifier(meta.tableName)
+    val schema = meta.schema?.let { dialect.quoteIdentifier(it) }
+    return if (schema != null) "$schema.$table" else table
+}
 
 internal fun Join<*>.allColumns(): List<Column<*, *, *>> =
     tables.flatMap { it.getFieldDisplayNames().values }

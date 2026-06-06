@@ -1,14 +1,16 @@
-package io.github.knyazevs.korm
+package io.github.knyazevs.korm.jdbc
 
-import java.sql.*
-
+import io.github.knyazevs.korm.SqlParameterSource
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.SQLException
 
 /**
  * A [PreparedStatement] wrapper that accepts Spring-style `:name` named
  * parameters. On construction the SQL is parsed: every `:name` placeholder is
  * replaced by a positional `?` and the parameter order is recorded so values can
- * later be bound by name. Postgres `::` casts and quoted string literals are left
- * untouched.
+ * later be bound by name. `::` casts (Postgres) and quoted string literals are left
+ * untouched, so the parser is backend-agnostic and shared by every JDBC backend.
  */
 class NamedParamStatement(conn: Connection, sql: String) {
     val preparedStatement: PreparedStatement
@@ -28,7 +30,7 @@ class NamedParamStatement(conn: Connection, sql: String) {
     }
 
     @Throws(SQLException::class)
-    fun executeQuery(): ResultSet {
+    fun executeQuery(): java.sql.ResultSet {
         return preparedStatement.executeQuery()
     }
 
@@ -56,9 +58,9 @@ class NamedParamStatement(conn: Connection, sql: String) {
                 is Long -> preparedStatement.setLong(index, value)
                 is Float -> preparedStatement.setFloat(index, value)
                 is Double -> preparedStatement.setDouble(index, value)
-                is Date -> preparedStatement.setDate(index, value)
-                is Time -> preparedStatement.setTime(index, value)
-                is Timestamp -> preparedStatement.setTimestamp(index, value)
+                is java.sql.Date -> preparedStatement.setDate(index, value)
+                is java.sql.Time -> preparedStatement.setTime(index, value)
+                is java.sql.Timestamp -> preparedStatement.setTimestamp(index, value)
                 is String -> preparedStatement.setString(index, value)
                 else -> preparedStatement.setObject(index, value)
             }

@@ -1,10 +1,33 @@
 # Korm
 
-Korm is a small, type-safe ORM for **Kotlin Multiplatform** (JVM and Native) backed
-by PostgreSQL. It gives you tables, entities and transactions with a compile-time
-guarantee that a table is only ever used against the database it belongs to.
+Type-safe ORM/SQL DSL for Kotlin Multiplatform.
 
-> Status: early (0.0.x). The API may still change.
+Korm lets you build JVM and Kotlin/Native services that talk to PostgreSQL without JDBC,
+while keeping an Exposed-like Kotlin API: tables, entities, transactions, migrations,
+joins, aggregations and typed predicates.
+
+## Why Korm?
+
+- Kotlin Multiplatform: shared core for JVM and Native
+- PostgreSQL on JVM and Native: JDBC/HikariCP on JVM, libpq on Native
+- Exposed-inspired type-safe DSL
+- Compile-time catalog safety: tables cannot be used with the wrong database
+- Transactions, savepoints, migrations and typed SQLSTATE exceptions
+- JMH benchmarks against Exposed and Hibernate
+
+| Platform | PostgreSQL | Sqlite |
+|---|---|---|
+| JVM | ✅ JDBC/HikariCP | planned |
+| macOS Native | ✅ libpq | planned |
+| Linux Native | ✅ libpq | planned |
+| Windows Native | ✅ libpq | planned |
+| Android | planned | planned |
+| iOS | planned | planned | planned |
+| Wasm | research/planned | planned |
+
+Status: pre-1.0, API may change.
+Good for experimentation, benchmarks, prototypes and feedback.
+Not recommended yet as the only persistence layer for critical production systems.
 
 ## Modules
 
@@ -12,12 +35,16 @@ guarantee that a table is only ever used against the database it belongs to.
 | --- | --- |
 | `core` | Backend-agnostic API: `Table`, `Column`, `Entity`, `Query`, `Catalog`, `Database<G>`, scopes/transactions. No backend dependency. |
 | `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
+| `korm-sqlite` | The SQLite binding: `createSqliteDatabase(...)` plus the JVM (sqlite-jdbc) and Native (sqlite3 cinterop) drivers. |
+| `korm-jdbc` | Shared JVM JDBC plumbing (HikariCP pool, named-parameter binding) used by the JVM drivers. |
 
-Depend on `korm-postgres` — it brings `core` with it:
+Depend on the backend you want — each brings `core` with it:
 
 ```kotlin
 dependencies {
     implementation("io.github.knyazevs.korm:korm-postgres:<version>")
+    // or
+    implementation("io.github.knyazevs.korm:korm-sqlite:<version>")
 }
 ```
 
@@ -315,9 +342,47 @@ shardFor(tenantId).transaction { Users.new(user) }
 ## Multi-backend
 
 `core` is backend-agnostic — SQL rendering and value conversion go through a `Dialect`
-and `TypeMapper` that each backend provides. Today only the PostgreSQL backend ships;
-the seam is there so additional backends (e.g. SQLite) can be added as their own module
-without changing `core`.
+and `TypeMapper` that each backend provides, so the same tables, entities, queries,
+scopes and transactions run unchanged on any backend. Two backends ship today:
+**PostgreSQL** (`korm-postgres`) and **SQLite** (`korm-sqlite`).
+
+### SQLite
+
+`createSqliteDatabase` returns a pool, just like `createDatabase`. Everything in the
+Quick start works the same — only the connection differs:
+
+```kotlin
+import io.github.knyazevs.korm.createSqliteDatabase
+import io.github.knyazevs.korm.database.Database
+
+// In-memory (shared-cache, lives while the handle is open) — great for tests:
+val db: Database<Main> = createSqliteDatabase()           // path = ":memory:"
+
+// File-backed (opened in WAL mode for concurrent reads):
+val db: Database<Main> = createSqliteDatabase("app.db")
+
+db.transaction {
+    Users.createTable()                                   // CREATE TABLE with SQLite types
+    Users.new(User().apply { id = Uuid.random(); name = "Ada"; age = 36 })
+}
+```
+
+Notes:
+- SQLite is a single-writer engine, so `poolSize` defaults to **1** (no `database is
+  locked`). File databases use WAL, which permits many concurrent readers alongside one
+  writer — raise `poolSize` if you want that.
+- Foreign keys are enabled (`PRAGMA foreign_keys=ON`), so FK violations surface as
+  `ForeignKeyViolationException`; unique/PK violations surface as `UniqueViolationException`.
+- Types map to SQLite storage classes (`INTEGER`/`REAL`/`TEXT`); `UUID`, `BigDecimal`,
+  `Json` and the temporal types are stored as TEXT and parsed back transparently.
+- Tables declared without a schema (the default) resolve through the connection's default
+  schema, so the same `Table` definition works on both Postgres (`search_path`) and SQLite.
+
+#### Native requirement: sqlite3
+
+The Kotlin/Native driver links against the system **sqlite3** library, which ships with
+macOS and most Linux distributions. On Debian/Ubuntu install the headers if missing:
+`apt-get install libsqlite3-dev`.
 
 ## Benchmarks
 

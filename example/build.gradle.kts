@@ -85,7 +85,8 @@ kotlin {
                 implementation("org.slf4j:slf4j-api:2.0.16")
                 implementation("org.slf4j:slf4j-simple:2.0.16")
 
-                implementation(project(":pgkjvm"))
+                // The JVM Postgres driver now lives in :korm-postgres (jvmMain), pulled
+                // in transitively; :pgkjvm was dissolved into the shared :korm-jdbc.
             }
         }
         if (!hostOs.contains("windows", ignoreCase = true)) {

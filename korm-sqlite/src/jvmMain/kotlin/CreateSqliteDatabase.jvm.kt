@@ -1,0 +1,33 @@
+package io.github.knyazevs.korm
+
+import io.github.knyazevs.korm.jdbc.JdbcDatabase
+import io.github.knyazevs.korm.jdbc.SqlExceptionTranslator
+import java.sql.SQLException
+
+// sqlite-jdbc exposes the SQLite (extended) result code via SQLException.getErrorCode().
+private val sqliteTranslator: SqlExceptionTranslator = { e: SQLException ->
+    sqliteException(e.message ?: "SQL error", e.errorCode.takeIf { it != 0 }, e)
+}
+
+private fun sqliteJdbcUrl(path: String): String =
+    if (path == ":memory:") {
+        // Shared cache so a pool of connections all see the same in-memory database.
+        // WAL is meaningless without a file, so it is omitted here.
+        "jdbc:sqlite:file::memory:?cache=shared&foreign_keys=on&busy_timeout=5000"
+    } else {
+        // WAL gives concurrent readers alongside one writer; foreign_keys are OFF by
+        // default in SQLite, so enable them to surface ForeignKeyViolationException.
+        "jdbc:sqlite:$path?journal_mode=WAL&foreign_keys=on&busy_timeout=5000"
+    }
+
+private class SqliteJdbcDriver(path: String, poolSize: Int) : JdbcDatabase(
+    jdbcUrl = sqliteJdbcUrl(path),
+    poolSize = poolSize,
+    dialect = SqliteDialect,
+    typeMapper = StandardTypeMapper,
+    wrap = ::SqliteResultSetWrapper,
+    translate = sqliteTranslator,
+), SqliteDriver
+
+actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
+    SqliteJdbcDriver(path, poolSize)

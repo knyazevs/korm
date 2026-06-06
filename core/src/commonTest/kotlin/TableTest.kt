@@ -75,7 +75,7 @@ class TableTest {
         val price = BigDecimal.fromInt(100)
         val position = 1
         val text = "hello world"
-        val expectedResult = """INSERT INTO "public"."products"
+        val expectedResult = """INSERT INTO "products"
                         ("id", "price", "position", "text", "nullableTest")
                         VALUES (:p0, :p1, :p2, :p3, :p4)"""
         db.transaction {
@@ -102,7 +102,7 @@ class TableTest {
 
     @Test
     fun testInsertReturning() {
-        val expectedResult = """INSERT INTO "public"."products"
+        val expectedResult = """INSERT INTO "products"
                         ("id", "price", "position", "text", "nullableTest")
                         VALUES (:p0, :p1, :p2, :p3, :p4)
                         RETURNING "id", "price", "position", "text", "nullableTest""""
@@ -128,7 +128,7 @@ class TableTest {
         val position = 1
         val text = "hello world"
         val expectedResult = """
-            UPDATE "public"."products"
+            UPDATE "products"
             SET "id"=:p0, "price"=:p1, "position"=:p2, "text"=:p3, "nullableTest"=:p4
             WHERE "id" = :p5
         """
@@ -162,7 +162,7 @@ class TableTest {
     @Test
     fun testUpdateCanSetNullAndOmitsUntouched() {
         val uuid = Uuid.random()
-        val expectedResult = """UPDATE "public"."products" SET "nullableTest"=:p0 WHERE "id" = :p1"""
+        val expectedResult = """UPDATE "products" SET "nullableTest"=:p0 WHERE "id" = :p1"""
         db.transaction {
             TestTable.update(
                 Query(TestTable.id eq uuid),
@@ -179,7 +179,7 @@ class TableTest {
         val count = 10u
         val from = 5u
         val expectedResult = """
-            SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "products"
             WHERE "price" = :p0 ORDER BY "position" ASC LIMIT $count OFFSET $from
         """
         db.transaction {
@@ -199,7 +199,7 @@ class TableTest {
     @Test
     fun testFindById() {
         val uuid = Uuid.random()
-        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products" WHERE "id" = :p0"""
+        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "products" WHERE "id" = :p0"""
         db.transaction { TestTable.findById(uuid) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to uuid.toString()), databaseMockObj.internalParams)
@@ -207,7 +207,7 @@ class TableTest {
 
     @Test
     fun testDeleteWhere() {
-        val expectedResult = """DELETE FROM "public"."products" WHERE "position" = :p0"""
+        val expectedResult = """DELETE FROM "products" WHERE "position" = :p0"""
         db.transaction { TestTable.deleteWhere(Query(TestTable.position eq 5)) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertEquals(mapOf("p0" to 5), databaseMockObj.internalParams)
@@ -216,7 +216,7 @@ class TableTest {
     @Test
     fun testCompoundWhereSharesOneParameterSpace() {
         val expectedResult = """
-            SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products"
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "products"
             WHERE "position" = :p0 AND "text" = :p1
         """
         db.transaction {
@@ -239,7 +239,7 @@ class TableTest {
      */
     @Test
     fun testEmptyQueryHasNoWhereClause() {
-        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "public"."products""""
+        val expectedResult = """SELECT "id", "price", "position", "text", "nullableTest" FROM "products""""
         db.transaction { TestTable.find(Query()) }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
         assertFalse(databaseMockObj.internalSql.contains("WHERE"), "empty query must not emit WHERE")
@@ -265,7 +265,7 @@ class TableTest {
     @Test
     fun testCreateTableGeneratesDdlFromColumns() {
         val expectedResult = """
-            CREATE TABLE IF NOT EXISTS "public"."products" (
+            CREATE TABLE IF NOT EXISTS "products" (
                 "id" uuid NOT NULL,
                 "price" numeric NOT NULL,
                 "position" integer NOT NULL,
@@ -310,7 +310,7 @@ class TableTest {
         val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
         assertTrue(sql.contains("""SELECT"products"."text","orders"."orderId""""), sql)
         assertTrue(
-            sql.contains("""FROM"public"."products"INNERJOIN"public"."orders"ON"products"."id"="orders"."productId""""),
+            sql.contains("""FROM"products"INNERJOIN"orders"ON"products"."id"="orders"."productId""""),
             sql,
         )
         assertTrue(sql.contains("""WHERE"products"."position">=:p0"""), sql)

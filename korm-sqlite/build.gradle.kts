@@ -18,58 +18,54 @@ kotlin {
         hostOs.contains("windows", ignoreCase = true) -> mingwX64 { }
         else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
     }
-    nativeTarget
+    nativeTarget.apply {
+        compilations.getByName("main") {
+            cinterops {
+                register("sqlite3") {
+                    defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                    packageName("csqlite")
+                }
+            }
+        }
+    }
 
     jvmToolchain(17)
     jvm {
         testRuns["test"].executionTask.configure {
-            // Long-running stability/soak tests are opt-in: run with -Pstability.
-            useJUnitPlatform {
-                if (!project.hasProperty("stability")) excludeTags("stability")
-            }
+            useJUnitPlatform()
         }
     }
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // Aggregates the agnostic core with the Postgres drivers and exposes
-                // createDatabase(...). PostgresDriver (from :pg) is part of the public
-                // return type, so :core and :pg are api dependencies.
+                // Exposes SqliteDialect / SqliteDriver / createSqliteDatabase. The driver
+                // returns core's ResultSet and binds core's SqlParameterSource, so :core
+                // is part of the public API.
                 api(project(":core"))
-                api(project(":pg"))
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
                 implementation("com.ionspin.kotlin:bignum:0.3.10")
-            }
-        }
-        val jvmMain by getting {
-            dependencies {
-                // The JVM Postgres driver is the shared JDBC driver wired with the
-                // pgjdbc URL + PgResultSetWrapper (which uses kotlinx-datetime).
-                implementation(project(":korm-jdbc"))
-                implementation("org.postgresql:postgresql:42.7.4")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
-            }
-        }
-        val jvmTest by getting {
-            dependencies {
-                // End-to-end tests of the JVM driver against a real Postgres in Docker.
-                implementation("org.testcontainers:postgresql:1.20.4")
-                implementation("org.postgresql:postgresql:42.7.4")
-                // For the all-column-types round-trip test (Instant / Json columns).
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             }
         }
-        if (!hostOs.contains("windows", ignoreCase = true)) {
-            val nativeMain by getting {
-                dependencies {
-                    implementation(project(":pgkn"))
-                }
+        val jvmMain by getting {
+            dependencies {
+                // The JVM SQLite driver is the shared JDBC driver wired with the
+                // sqlite-jdbc URL + SqliteResultSetWrapper.
+                implementation(project(":korm-jdbc"))
+                implementation("org.xerial:sqlite-jdbc:3.47.1.0")
+            }
+        }
+        val jvmTest by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             }
         }
     }

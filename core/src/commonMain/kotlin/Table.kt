@@ -33,8 +33,7 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         return fieldDisplayName.map { exec.dialect.quoteIdentifier(it.value.name) }
     }
 
-    private fun qualifiedTableName(exec: SqlExecutor): String =
-        "${exec.dialect.quoteIdentifier(meta.schema)}.${exec.dialect.quoteIdentifier(meta.tableName)}"
+    private fun qualifiedTableName(exec: SqlExecutor): String = qualifiedName(exec.dialect)
 
     private fun paramBuilder(exec: SqlExecutor) = ParamBuilder(exec.dialect, exec.typeMapper)
 
@@ -181,5 +180,11 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
-    class Meta(val tableName: String, val schema: String = "public")
+    /**
+     * Table identity. [schema] is optional and defaults to `null`: an unqualified table
+     * name resolves through the connection's default schema (Postgres `search_path`,
+     * SQLite `main`, ...). Set it explicitly to pin a schema (rendered as
+     * `"schema"."table"`); backends without schemas (SQLite) should leave it unset.
+     */
+    class Meta(val tableName: String, val schema: String? = null)
 }
