@@ -14,6 +14,8 @@ class DatabaseMock: Database<Nothing> {
     // the block against itself (BEGIN/COMMIT are no-ops here).
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R = block(this)
 
+    override fun close() = Unit
+
     var result: Any? = null
     var internalSql: String = ""
     var internalParams: Map<String, Any?> = emptyMap()

@@ -262,6 +262,8 @@ object NativeDatabase : Database<NativeCatalog> {
     override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
         driver.usePinned(transactional, block)
 
+    override fun close() = driver.close()
+
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
         driver.execute(sql, namedParameters, handler)
 

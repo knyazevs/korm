@@ -10,4 +10,4 @@ plugins {
 }
 
 rootProject.name = "korm"
-include("core", "pg", "pgkjvm", "pgkn", "korm-postgres", "example")
+include("core", "pg", "pgkjvm", "pgkn", "korm-postgres", "example", "benchmarks")

@@ -11,11 +11,14 @@ import io.github.knyazevs.korm.SqlExecutor
  * tagged with the same catalog can then be used against it via
  * [io.github.knyazevs.korm.transaction] / [io.github.knyazevs.korm.autocommit].
  */
-interface Database<out G : Catalog> : SqlExecutor {
+interface Database<out G : Catalog> : SqlExecutor, AutoCloseable {
     /**
      * Pins one connection for the duration of [block]; the [SqlExecutor] passed to it
      * routes every statement to that connection. Wraps BEGIN/COMMIT/ROLLBACK when
      * [transactional] is true, otherwise runs in autocommit. Backend-specific.
      */
     fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R
+
+    /** Closes the underlying connection(s); the database is unusable afterwards. */
+    override fun close()
 }
