@@ -316,6 +316,23 @@ and `TypeMapper` that each backend provides. Today only the PostgreSQL backend s
 the seam is there so additional backends (e.g. SQLite) can be added as their own module
 without changing `core`.
 
+## Benchmarks
+
+The `:benchmarks` module has a JMH harness, including a cross-ORM comparison against
+Hibernate and Exposed over the same Postgres (`./gradlew :benchmarks:jmh`). Indicative
+single-threaded throughput (ops/s, higher is better; on a developer laptop — treat as
+relative, not absolute):
+
+| Operation  | korm | Exposed | Hibernate |
+| ---------- | ---- | ------- | --------- |
+| findById   | ~5.1k | ~5.0k | ~9.5k |
+| selectWhere| ~5.3k | ~5.1k | ~9.8k |
+| insert     | ~3.4k | ~5.1k | ~5.0k |
+
+korm is on par with Exposed on reads; Hibernate's read throughput is higher (mature
+statement caching). korm's insert is slower because it does `INSERT ... RETURNING` and
+reads the row back. Numbers vary by machine and are single-threaded — run them yourself.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
