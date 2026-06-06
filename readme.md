@@ -386,20 +386,26 @@ macOS and most Linux distributions. On Debian/Ubuntu install the headers if miss
 
 ## Benchmarks
 
-The `:benchmarks` module has a JMH harness, including a cross-ORM comparison against
-Hibernate and Exposed over the same Postgres (`./gradlew :benchmarks:jmh`). Indicative
-throughput (ops/s, 8 threads, higher is better; on a developer laptop — treat as relative,
-not absolute):
+The `:benchmarks` module has a JMH harness comparing korm against Exposed and Hibernate on
+the JVM (`./gradlew :benchmarks:jmh`), plus a native korm harness (`NativeBenchmark`, opt-in
+via `KORM_BENCH`); point both at one Postgres with `KORM_DB_HOST` etc. Indicative throughput
+(ops/s, 8 threads/workers, higher is better; one developer laptop, same database — treat as
+relative, not absolute):
 
-| Operation  | korm | Exposed | Hibernate |
-| ---------- | ---- | ------- | --------- |
-| findById   | ~17k | ~16k | ~32k |
-| selectWhere| ~16k | ~18k | ~30k |
-| insert     | ~15k | ~17k | ~17k |
+| Operation   | korm (JVM) | korm (Native) | Exposed | Hibernate |
+| ----------- | ---------- | ------------- | ------- | --------- |
+| findById    | ~8.2k      | ~13.2k        | ~8.2k   | ~16.0k    |
+| selectWhere | ~8.2k      | ~13.7k        | ~7.9k   | ~16.3k    |
+| insert      | ~8.0k      | ~5.0k         | ~7.9k   | ~8.3k     |
 
-korm is on par with Exposed across the board, and with Hibernate on inserts; Hibernate's
-read throughput is ~2× higher (its mature statement-caching / fetch machinery). All three
-scale similarly with the connection pool. Numbers vary by machine — run them yourself.
+- korm on the JVM tracks Exposed closely (same JDBC/HikariCP layer).
+- korm on **Native is ~1.6× faster than on the JVM for reads** (libpq directly, no JDBC),
+  closing most of the gap to Hibernate.
+- Native inserts are slower because the libpq driver issues `BEGIN`/`COMMIT` as their own
+  round-trips (the JVM driver defers `BEGIN`) — a known optimization target.
+- Hibernate leads on reads (its mature statement-caching / fetch machinery).
+
+Numbers vary by machine — run them yourself.
 
 ## License
 

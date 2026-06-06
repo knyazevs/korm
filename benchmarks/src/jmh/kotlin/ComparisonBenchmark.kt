@@ -94,34 +94,53 @@ open class ComparisonBenchmark {
 
     @Setup
     fun setup() {
-        container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+        // Use an external Postgres (shared with the native benchmark) when KORM_DB_HOST is
+        // set; otherwise spin up an ephemeral Testcontainers one.
+        val envHost = System.getenv("KORM_DB_HOST")
+        val host: String
+        val port: Int
+        val database: String
+        val user: String
+        val password: String
+        if (envHost != null) {
+            host = envHost
+            port = System.getenv("KORM_DB_PORT")?.toInt() ?: 5432
+            database = System.getenv("KORM_DB_NAME") ?: "postgres"
+            user = System.getenv("KORM_DB_USER") ?: "postgres"
+            password = System.getenv("KORM_DB_PASSWORD") ?: "password"
+        } else {
+            container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+            host = container.host
+            port = container.firstMappedPort
+            database = container.databaseName
+            user = container.username
+            password = container.password
+        }
+        val jdbcUrl = "jdbc:postgresql://$host:$port/$database"
 
-        kormDb = createDatabase(
-            host = container.host,
-            port = container.firstMappedPort,
-            database = container.databaseName,
-            user = container.username,
-            password = container.password,
-            poolSize = 8,
-        )
+        kormDb = createDatabase(host, port, database, user, password, poolSize = 8)
+        // Start from a clean table (the insert benchmarks bloat it across runs) and index
+        // `name` so selectWhere is an index lookup, not a size-dependent sequential scan.
         kormDb.transaction {
+            CmpTable.dropTable()
             CmpTable.createTable()
+            executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
             CmpTable.new(CmpRow().apply { id = seededKormId; name = "seed"; amount = KormBigDecimal.fromInt(1) })
         }
 
         exposedDs = HikariDataSource(HikariConfig().apply {
-            jdbcUrl = container.jdbcUrl
-            username = container.username
-            password = container.password
+            this.jdbcUrl = jdbcUrl
+            this.username = user
+            this.password = password
             maximumPoolSize = 8
         })
         exposedDb = ExposedDatabase.connect(exposedDs)
 
         sessionFactory = Configuration()
             .addAnnotatedClass(HibBench::class.java)
-            .setProperty("hibernate.connection.url", container.jdbcUrl)
-            .setProperty("hibernate.connection.username", container.username)
-            .setProperty("hibernate.connection.password", container.password)
+            .setProperty("hibernate.connection.url", jdbcUrl)
+            .setProperty("hibernate.connection.username", user)
+            .setProperty("hibernate.connection.password", password)
             .setProperty("hibernate.connection.provider_class", "org.hibernate.hikaricp.internal.HikariCPConnectionProvider")
             .setProperty("hibernate.hikari.maximumPoolSize", "8")
             .setProperty("hibernate.hbm2ddl.auto", "none")
@@ -133,7 +152,7 @@ open class ComparisonBenchmark {
         runCatching { sessionFactory.close() }
         runCatching { exposedDs.close() }
         runCatching { kormDb.close() }
-        container.stop()
+        if (::container.isInitialized) container.stop()
     }
 
     // --- korm ---
