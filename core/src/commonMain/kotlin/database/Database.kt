@@ -1,21 +1,24 @@
 package io.github.knyazevs.korm.database
 
-import io.github.knyazevs.korm.PostgresDriver
-import io.github.knyazevs.korm.SqlParameterSource
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.Catalog
+import io.github.knyazevs.korm.SqlExecutor
 
+/**
+ * A database handle, tagged with the [Catalog] [G] it connects to. The tag is
+ * phantom (it appears in no member), so a backend driver implements
+ * `Database<Nothing>` and — by covariance — fits any `Database<G>`; a caller pins
+ * the tag by assigning it to a `Database<MyCatalog>`. A [io.github.knyazevs.korm.Table]
+ * tagged with the same catalog can then be used against it via
+ * [io.github.knyazevs.korm.transaction] / [io.github.knyazevs.korm.autocommit].
+ */
+interface Database<out G : Catalog> : SqlExecutor, AutoCloseable {
+    /**
+     * Pins one connection for the duration of [block]; the [SqlExecutor] passed to it
+     * routes every statement to that connection. Wraps BEGIN/COMMIT/ROLLBACK when
+     * [transactional] is true, otherwise runs in autocommit. Backend-specific.
+     */
+    fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R
 
-interface Database {
-    fun <T> execute(sql: String, namedParameters: Map<String, Any?> = emptyMap(), handler: (ResultSet) -> T): List<T>
-    fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T>
-    fun execute(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
-    fun execute(sql: String, paramSource: SqlParameterSource): Long
-
-    fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
+    /** Closes the underlying connection(s); the database is unusable afterwards. */
+    override fun close()
 }
-
-expect fun createDatabase(host: String,
-                          port: Int = 5432,
-                          database: String,
-                          user: String,
-                          password: String): PostgresDriver

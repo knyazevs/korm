@@ -1,59 +1,53 @@
 package io.github.knyazevs.korm
 
-import kotlinx.uuid.UUID
-import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.sql.getBigDecimal
-import io.github.knyazevs.korm.sql.getJson
-import io.github.knyazevs.korm.sql.getUUID
+import io.github.oshai.kotlinlogging.KotlinLogging
 
+private val logger = KotlinLogging.logger {}
 
-abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T, private val database: Database) {
+/**
+ * A table definition: its [Meta] (name/schema) and columns, tagged with the catalog
+ * [G] it belongs to. A table holds no connection — operations run inside a
+ * [transaction] / [autocommit] scope (or [Scope]) which supplies the pinned
+ * [SqlExecutor]. The operation methods are `internal`; call them through [Scope].
+ */
+abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T) {
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
     fun getFieldDisplayNames() = fieldDisplayName
+
+    /**
+     * The primary-key column(s): those declared with `primaryKey = true`, or the column
+     * named "id" if none are marked.
+     */
+    val primaryKey: List<Column<*, *, *>>
+        get() = fieldDisplayName.values.filter { it.isPrimaryKey }
+            .ifEmpty { fieldDisplayName.values.filter { it.name == "id" } }
     internal fun addColumn(fieldName: String, column: Column<*, *, *>) {
-        println("add column/field ${column.name}/$fieldName")
+        logger.trace { "add column/field ${column.name}/$fieldName" }
         fieldDisplayName[fieldName] = column
     }
 
-    private fun getColumnNames(): List<String> {
-        println("get column names")
-        return fieldDisplayName.map { it.value.name }
+    private fun getColumnNames(exec: SqlExecutor): List<String> {
+        logger.trace { "get column names" }
+        return fieldDisplayName.map { exec.dialect.quoteIdentifier(it.value.name) }
     }
 
-    private fun columnMapToValue(rs: ResultSet): Map<String, Pair<Any, Any?>> {
-        println("Column list: ${rs.columns.joinToString(", ")}")
-        val columnMap = rs.columns.mapIndexed { index: Int, s: String -> s to index }.toMap()
+    private fun qualifiedTableName(exec: SqlExecutor): String = qualifiedName(exec.dialect)
 
-        return fieldDisplayName.map {
-            val columnNumber = columnMap[it.value.name]
-            if (columnNumber == null  && !it.value.nullable) {
-                throw Exception("Not nullable column \"${it.value.name}\" not found")
-            }
-            val strictColumnNumber = columnNumber!!
+    private fun paramBuilder(exec: SqlExecutor) = ParamBuilder(exec.dialect, exec.typeMapper)
 
-
-            println("Column[$columnNumber]: ${it.value.name}")
-            val columnValue: Any? = when(it.value.columnType) {
-                Column.ColumnNameEnum.UUID      ->  rs.getUUID(strictColumnNumber)
-                Column.ColumnNameEnum.BigDecimal->  rs.getBigDecimal(strictColumnNumber)
-                Column.ColumnNameEnum.Double    ->  rs.getDouble(strictColumnNumber)
-                Column.ColumnNameEnum.Int       ->  rs.getInt(strictColumnNumber)
-                Column.ColumnNameEnum.Boolean   ->  rs.getBoolean(strictColumnNumber)
-                Column.ColumnNameEnum.String    ->  rs.getString(strictColumnNumber)
-                Column.ColumnNameEnum.Instant   ->  rs.getInstant(strictColumnNumber)
-                Column.ColumnNameEnum.Json      ->  rs.getJson(strictColumnNumber)
-            }
-            it.key to Pair<Any, Any?>(it.value, columnValue)
-        }.associateBy( {it.first}, {it.second})
-    }
-
-    private fun mapToDao(rs: ResultSet): T {
-        val columnMapWithValue = columnMapToValue(rs)
-        val fieldToValue: MutableMap<String, Any?> = columnMapWithValue.mapValues { v -> v.value.second }.toMutableMap()
-        println("Map to dao done: ${fieldToValue.toMap().toString()}")
-        return this.factory(fieldToValue)
+    // find/findById/all SELECT every column in fieldDisplayName order, so the result columns
+    // line up positionally — read them by index straight into the entity's field map, with no
+    // per-row name→index map or intermediate allocations.
+    private fun mapToDao(rs: ResultSet, exec: SqlExecutor): T {
+        val fields = HashMap<String, Any?>(fieldDisplayName.size * 2)
+        var index = 0
+        for ((fieldName, column) in fieldDisplayName) {
+            fields[fieldName] = exec.typeMapper.fromResult(rs, index, column.columnType)
+            index++
+        }
+        return factory(fields)
     }
 
     private fun generateFieldToMap(dao: T): List<Pair<String, Any?>> {
@@ -62,85 +56,135 @@ abstract class Table<T: Entity>(val meta: Meta, val factory: (MutableMap<String,
         }
     }
 
-    fun execSql(sql: String) {
-        database.execute(sql = sql.trimIndent())
+    // Only the columns the entity actually assigned (present in its fields map),
+    // so update() can tell "leave untouched" (absent) from "set to NULL" (present and null).
+    private fun generatePresentFields(dao: T): List<Pair<String, Any?>> {
+        return this.fieldDisplayName.filter { dao.fields.containsKey(it.key) }.map {
+            it.value.name to dao.fields[it.key]
+        }
     }
 
-    fun findById(id: Any): T? {
-        val query = Query(whereExpression = RawExpression("id='$id'"))
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${this.meta.schema}.${this.meta.tableName} $query"
-        return database.execute<T>(sql = sql.trimIndent()) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+    internal fun runRaw(sql: String, exec: SqlExecutor) {
+        exec.execute(sql = sql.trimIndent())
+    }
+
+    internal fun selectById(id: Any, exec: SqlExecutor): T? {
+        val pk = primaryKey.singleOrNull()
+            ?: throw IllegalStateException(
+                "findById requires a single-column primary key on ${meta.tableName}; " +
+                    "use find(...) for composite (or missing) keys",
+            )
+        val builder = paramBuilder(exec)
+        val idPlaceholder = builder.bind(id)
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} WHERE ${exec.dialect.quoteIdentifier(pk.name)} = $idPlaceholder"
+        return exec.execute<T>(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }.firstOrNull()
     }
 
-
-    fun find(query: Query): List<T> {
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${this.meta.schema}.${this.meta.tableName} $query"
-        return database.execute(sql = sql.trimIndent()) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+    internal fun select(query: Query, exec: SqlExecutor): List<T> {
+        val builder = paramBuilder(exec)
+        val queryStr = query.toSql(builder)
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)} $queryStr"
+        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }
     }
 
-    /*
-    fun count(query: Query): List<T> {
-        return PGDatabase.execute(sql = "SELECT COUNT(*) FROM ${this.meta.schema}.${this.meta.tableName}$query") { rs: ResultSet ->
-            this.mapToDao(rs = rs)
-        }
-    }
-     */
-
-    fun all(): List<T> {
-        val sql = "SELECT ${this.getColumnNames().joinToString ( ", " )} FROM ${this.meta.schema}.${this.meta.tableName}"
-        return database.execute(sql = sql.trimIndent()) { rs: ResultSet ->
-            this.mapToDao(rs = rs)
+    internal fun selectAll(exec: SqlExecutor): List<T> {
+        val sql = "SELECT ${this.getColumnNames(exec).joinToString ( ", " )} FROM ${qualifiedTableName(exec)}"
+        return exec.execute(sql = sql.trimIndent()) { rs: ResultSet ->
+            this.mapToDao(rs = rs, exec = exec)
         }
     }
 
-    fun new(entity: T) {
+    internal fun insert(entity: T, exec: SqlExecutor, returning: Boolean): T? {
+        val builder = paramBuilder(exec)
         val generatedFields = this.generateFieldToMap(entity)
-        val columns = generatedFields.joinToString(", ") { "\"${it.first}\"" }
-        val values = generatedFields.joinToString(", ") {
-            when(it.second) {
-                null -> "null"
-                is UUID -> "'${it.second.toString()}'::uuid"
-                is Boolean -> it.second.toString()
-                else -> "'${it.second.toString()}'"
-            }
+        val columns = generatedFields.joinToString(", ") { exec.dialect.quoteIdentifier(it.first) }
+        val values = generatedFields.joinToString(", ") { builder.bind(it.second) }
+        val base = "INSERT INTO ${qualifiedTableName(exec)} ($columns) VALUES ($values)"
+        if (!returning) {
+            exec.executeUpdate(sql = base, namedParameters = builder.params)
+            return entity
         }
-
-        val sql = """
-            INSERT INTO ${this.meta.schema}.${this.meta.tableName}
-            ($columns)
-            VALUES($values);
-        """
-        println(sql)
-        database.executeUpdate(sql = sql.trimIndent())
+        val sql = "$base RETURNING ${getColumnNames(exec).joinToString(", ")}"
+        return exec.execute(sql = sql, namedParameters = builder.params) { rs ->
+            this.mapToDao(rs = rs, exec = exec)
+        }.firstOrNull()
     }
 
-    fun update(query: Query, entity: T) {
-        val generatedUpdateFields = this.generateFieldToMap(entity)
-            .filter{ it.second != null }.joinToString(", ") {
-                val second = when(it.second) {
-                    null -> "null"
-                    is UUID -> "'${it.second.toString()}'::uuid"
-                    is Boolean -> it.second.toString()
-                    else -> "'${it.second.toString()}'"
-                }
-                "\"${it.first}\"=$second"
+    internal fun insertAll(entities: List<T>, exec: SqlExecutor, returning: Boolean): List<T> {
+        if (entities.isEmpty()) return emptyList()
+        val builder = paramBuilder(exec)
+        val columns = this.fieldDisplayName.values.joinToString(", ") { exec.dialect.quoteIdentifier(it.name) }
+        val tuples = entities.joinToString(", ") { entity ->
+            "(${generateFieldToMap(entity).joinToString(", ") { builder.bind(it.second) }})"
         }
+        val base = "INSERT INTO ${qualifiedTableName(exec)} ($columns) VALUES $tuples"
+        if (!returning) {
+            exec.executeUpdate(sql = base, namedParameters = builder.params)
+            return entities
+        }
+        val sql = "$base RETURNING ${getColumnNames(exec).joinToString(", ")}"
+        return exec.execute(sql = sql, namedParameters = builder.params) { rs ->
+            this.mapToDao(rs = rs, exec = exec)
+        }
+    }
+
+    internal fun count(query: Query, exec: SqlExecutor): Long {
+        val builder = paramBuilder(exec)
+        val queryStr = query.toSql(builder)
+        val sql = "SELECT COUNT(*) FROM ${qualifiedTableName(exec)} $queryStr"
+        return exec.execute(sql.trimIndent(), builder.params) { rs -> rs.getLong(0) ?: 0L }.firstOrNull() ?: 0L
+    }
+
+    internal fun createTableSql(exec: SqlExecutor, ifNotExists: Boolean): String {
+        val columns = fieldDisplayName.values.joinToString(",\n    ") { col ->
+            val nullability = if (col.nullable) "" else " NOT NULL"
+            "${exec.dialect.quoteIdentifier(col.name)} ${exec.dialect.sqlType(col.columnType)}$nullability"
+        }
+        val pkClause = primaryKey
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(", ") { exec.dialect.quoteIdentifier(it.name) }
+            ?.let { ",\n    PRIMARY KEY ($it)" }
+            .orEmpty()
+        val exists = if (ifNotExists) "IF NOT EXISTS " else ""
+        return "CREATE TABLE $exists${qualifiedTableName(exec)} (\n    $columns$pkClause\n)"
+    }
+
+    internal fun dropTableSql(exec: SqlExecutor, ifExists: Boolean): String =
+        "DROP TABLE ${if (ifExists) "IF EXISTS " else ""}${qualifiedTableName(exec)}"
+
+    internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {
+        val builder = paramBuilder(exec)
+        val updateFields = this.generatePresentFields(entity)
+        require(updateFields.isNotEmpty()) {
+            "update() needs at least one field set on the entity to update ${qualifiedTableName(exec)}"
+        }
+        val generatedUpdateFields = updateFields
+            .joinToString(", ") { "${exec.dialect.quoteIdentifier(it.first)}=${builder.bind(it.second)}" }
+        val queryStr = query.toSql(builder)
         val sql = """
-            UPDATE ${this.meta.schema}.${this.meta.tableName}
+            UPDATE ${qualifiedTableName(exec)}
             SET $generatedUpdateFields
-           $query
+           $queryStr
         """
-        database.executeUpdate(sql = sql.trimIndent())
+        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
-    fun deleteWhere(query: Query) {
-        val sql = "DELETE FROM ${this.meta.schema}.${this.meta.tableName} $query"
-        database.executeUpdate(sql = sql.trimIndent())
+    internal fun deleteRows(query: Query, exec: SqlExecutor) {
+        val builder = paramBuilder(exec)
+        val queryStr = query.toSql(builder)
+        val sql = "DELETE FROM ${qualifiedTableName(exec)} $queryStr"
+        exec.executeUpdate(sql = sql.trimIndent(), namedParameters = builder.params)
     }
 
-    class Meta(val tableName: String, val schema: String = "public")
+    /**
+     * Table identity. [schema] is optional and defaults to `null`: an unqualified table
+     * name resolves through the connection's default schema (Postgres `search_path`,
+     * SQLite `main`, ...). Set it explicitly to pin a schema (rendered as
+     * `"schema"."table"`); backends without schemas (SQLite) should leave it unset.
+     */
+    class Meta(val tableName: String, val schema: String? = null)
 }

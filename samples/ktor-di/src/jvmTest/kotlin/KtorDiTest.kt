@@ -1,0 +1,63 @@
+package io.github.knyazevs.korm.samples.ktordi
+
+import io.github.knyazevs.korm.autocommit
+import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.createDatabase
+import io.ktor.client.request.get
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.server.plugins.di.dependencies
+import io.ktor.server.plugins.di.provide
+import io.ktor.server.testing.testApplication
+import org.testcontainers.DockerClientFactory
+import org.testcontainers.containers.PostgreSQLContainer
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/** Exercises the ktor-di sample end-to-end against a real Postgres (Testcontainers, JVM only). */
+class KtorDiTest {
+
+    @Test
+    fun createThenList() {
+        if (!DockerClientFactory.instance().isDockerAvailable) return // skip without Docker
+
+        val pg = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+        try {
+            val db: Database<AppCatalog> = createDatabase(
+                host = pg.host,
+                port = pg.firstMappedPort,
+                database = pg.databaseName,
+                user = pg.username,
+                password = pg.password,
+            )
+            db.autocommit { ProductTable.dropTable(); ProductTable.createTable() }
+
+            testApplication {
+                application {
+                    dependencies { provide<Database<AppCatalog>> { db } }
+                    configure()
+                }
+
+                val created = client.put("/create") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"price":42,"payload":{"k":"v"}}""")
+                }
+                assertEquals(HttpStatusCode.OK, created.status)
+                assertTrue(created.bodyAsText().contains("\"price\":42"))
+
+                val list = client.get("/")
+                assertEquals(HttpStatusCode.OK, list.status)
+                assertTrue(list.bodyAsText().contains("\"price\":42"), "list body: ${list.bodyAsText()}")
+            }
+
+            db.close()
+        } finally {
+            pg.stop()
+        }
+    }
+}

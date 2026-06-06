@@ -1,9 +1,11 @@
+@file:Suppress("DEPRECATION") // legacy custom-named native targets (e.g. macosX64("native"))
+
 import java.util.*
 
 plugins {
     kotlin("multiplatform")
-    kotlin("plugin.serialization") version "1.9.20"
-    id("org.jetbrains.dokka") version "1.9.10"
+    kotlin("plugin.serialization") version "2.4.0"
+    id("org.jetbrains.dokka") version "2.0.0"
     id("maven-publish")
     signing
 }
@@ -46,7 +48,6 @@ val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     description = "Assembles Javadoc JAR"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
 }
 
 publishing {
@@ -83,8 +84,8 @@ publishing {
 
             licenses {
                 license {
-                    name.set("GPL-3.0-only")
-                    url.set("https://opensource.org/licenses/gpl-3-0")
+                    name.set("MIT")
+                    url.set("https://opensource.org/licenses/MIT")
                 }
             }
             developers {
@@ -123,8 +124,9 @@ kotlin {
     }
     nativeTarget
 
+    jvmToolchain(17)
+
     jvm {
-        jvmToolchain(17)
         //withJava()
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
@@ -134,35 +136,30 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                api(project(":pg"))
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
-                implementation("app.softwork:kotlinx-uuid-core:0.0.21")
+                // Public suspend API (suspendTransaction/suspendAutocommit) is coroutine-based.
+                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
                 // BigDecimal
-                implementation("com.ionspin.kotlin:bignum:0.3.8")
+                implementation("com.ionspin.kotlin:bignum:0.3.10")
 
 
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-                implementation("io.github.oshai:kotlin-logging:5.0.0-beta-04")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
 
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
             }
         }
         val jvmMain by getting {
             dependencies {
-                implementation(project(":pgkjvm"))
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-            }
-        }
-
-        if(!hostOs.contains("windows", ignoreCase = true)) {
-            val nativeMain by getting {
-                dependencies {
-                    implementation(project(":pgkn"))
-                }
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                // kotlin-logging delegates to SLF4J on the JVM; core needs the API on the
+                // runtime classpath (previously pulled in transitively via the drivers).
+                implementation("org.slf4j:slf4j-api:2.0.16")
             }
         }
     }

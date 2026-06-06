@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Linux x86_64 is a supported Kotlin/Native host
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install libpq + libsqlite3 (for the Kotlin/Native cinterops)
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev libsqlite3-dev
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # JVM unit + integration tests. The integration tests use Testcontainers,
+      # which needs Docker (available on ubuntu-latest runners).
+      - name: JVM tests
+        run: ./gradlew :core:jvmTest --console=plain
+
+      # Native (libpq) tests against the Postgres service above.
+      - name: Native tests
+        env:
+          KORM_DB_HOST: localhost
+          KORM_DB_PORT: "5432"
+          KORM_DB_NAME: postgres
+          KORM_DB_USER: postgres
+          KORM_DB_PASSWORD: password
+        run: ./gradlew :core:nativeTest --console=plain
+
+      # The ktor integration libraries are libraries (no native exe link), so assemble
+      # builds their JVM + native artifacts to verify they compile on both targets.
+      - name: Build ktor integration modules
+        run: ./gradlew :korm-ktor:assemble :korm-ktor-di:assemble :korm-ktor-koin:assemble --console=plain
+
+      # Self-contained SQLite samples — tests run on both JVM and native (no Docker needed).
+      - name: SQLite sample tests (JVM + native)
+        run: >-
+          ./gradlew
+          :samples:crud-sqlite:jvmTest :samples:crud-sqlite:nativeTest
+          :samples:sharding:jvmTest :samples:sharding:nativeTest
+          --console=plain
+
+      # Postgres samples — JVM end-to-end tests spin up their own Postgres via Testcontainers.
+      - name: Postgres sample tests (Testcontainers, JVM)
+        run: >-
+          ./gradlew
+          :samples:ktor-di:jvmTest :samples:ktor-koin:jvmTest :samples:sqlite-cache:jvmTest
+          --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: "**/build/reports/tests/**"
+          if-no-files-found: ignore

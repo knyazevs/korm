@@ -3,7 +3,7 @@ import java.util.*
 plugins {
     `kotlin-dsl`
     id("maven-publish")
-    id("org.jetbrains.dokka") version "1.9.10"
+    id("org.jetbrains.dokka") version "2.0.0"
     signing
 }
 
@@ -44,7 +44,8 @@ val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     description = "Assembles Javadoc JAR"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
+    // Empty javadoc jar (accepted by Maven Central); decoupled from Dokka task
+    // names which changed in Dokka 2.x. Run `dokkaGenerate` for real docs.
 }
 
 buildscript {
@@ -57,7 +58,7 @@ buildscript {
 
     dependencies {
         // kotlin
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
     }
 }
 

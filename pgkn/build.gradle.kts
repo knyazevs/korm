@@ -1,10 +1,12 @@
+@file:Suppress("DEPRECATION") // legacy custom-named native targets (e.g. macosX64("native"))
+
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import java.util.*
 
 plugins {
     kotlin("multiplatform")
     id("maven-publish")
-    id("org.jetbrains.dokka") version "1.9.10"
+    id("org.jetbrains.dokka") version "2.0.0"
     signing
 }
 
@@ -43,7 +45,6 @@ val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     description = "Assembles Javadoc JAR"
     archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
 }
 
 publishing {
@@ -81,8 +82,8 @@ publishing {
 
             licenses {
                 license {
-                    name.set("GPL-3.0-only")
-                    url.set("https://opensource.org/licenses/gpl-3-0")
+                    name.set("MIT")
+                    url.set("https://opensource.org/licenses/MIT")
                 }
             }
             developers {
@@ -151,8 +152,9 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
-                implementation("io.github.oshai:kotlin-logging:5.1.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
                 api(project(":pg"))
             }
         }

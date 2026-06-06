@@ -1,6 +1,8 @@
 local.properties
 .gradle
 build/
+# JVM heap dumps (e.g. from a Kotlin/Native compiler OOM)
+*.hprof
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

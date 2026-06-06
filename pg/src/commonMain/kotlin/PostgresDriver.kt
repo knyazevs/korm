@@ -1,18 +1,10 @@
 package io.github.knyazevs.korm
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.database.Database
 
 /**
- * Executes given query with given named parameters.
- * If you pass a handler, you will receive a list of result data.
- * You can pass an [SqlParameterSource] to register your own Postgres types.
+ * A Postgres-backed [Database]. This is the type returned by the driver factories;
+ * it adds [AutoCloseable] so the underlying connection pool can be released
+ * (or used via a `use { }` block). All query methods are inherited from [Database].
  */
-interface PostgresDriver {
-    fun <T> execute(sql: String, namedParameters: Map<String, Any?> = emptyMap(), handler: (ResultSet) -> T): List<T>
-    fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T>
-    fun execute(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
-    fun execute(sql: String, paramSource: SqlParameterSource): Long
-
-
-    fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
-}
+interface PostgresDriver : Database<Nothing>, AutoCloseable
