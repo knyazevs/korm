@@ -77,8 +77,7 @@ class TableTest {
         val text = "hello world"
         val expectedResult = """INSERT INTO "public"."products"
                         ("id", "price", "position", "text", "nullableTest")
-                        VALUES(:p0, :p1, :p2, :p3, :p4)
-                        RETURNING "id", "price", "position", "text", "nullableTest";"""
+                        VALUES (:p0, :p1, :p2, :p3, :p4)"""
         db.transaction {
             TestTable.new(TestEntity().apply {
                 this.id = uuid
@@ -99,6 +98,27 @@ class TableTest {
             ),
             databaseMockObj.internalParams,
         )
+    }
+
+    @Test
+    fun testInsertReturning() {
+        val expectedResult = """INSERT INTO "public"."products"
+                        ("id", "price", "position", "text", "nullableTest")
+                        VALUES (:p0, :p1, :p2, :p3, :p4)
+                        RETURNING "id", "price", "position", "text", "nullableTest""""
+        db.transaction {
+            TestTable.new(
+                TestEntity().apply {
+                    this.id = Uuid.random()
+                    this.price = BigDecimal.fromInt(1)
+                    this.position = 1
+                    this.text = "x"
+                    this.nullableTest = null
+                },
+                returning = true,
+            )
+        }
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
     }
 
     @Test

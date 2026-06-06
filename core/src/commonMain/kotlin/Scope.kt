@@ -13,11 +13,20 @@ import kotlinx.coroutines.withContext
 class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     private var savepointCounter = 0
 
-    /** Inserts [entity] and returns the stored row (via SQL RETURNING), or null if none. */
-    fun <T : Entity> Table<G, T>.new(entity: T): T? = insert(entity, exec)
+    /**
+     * Inserts [entity]. By default returns the entity as given (a plain INSERT — the fast
+     * path). Pass `returning = true` to fetch the stored row back via SQL `RETURNING`, e.g. to
+     * read database-generated columns; then it returns that row (or null if none).
+     */
+    fun <T : Entity> Table<G, T>.new(entity: T, returning: Boolean = false): T? =
+        insert(entity, exec, returning)
 
-    /** Inserts all [entities] in one statement and returns the stored rows (RETURNING). */
-    fun <T : Entity> Table<G, T>.new(entities: List<T>): List<T> = insertAll(entities, exec)
+    /**
+     * Inserts all [entities] in one statement. By default returns [entities] as given; pass
+     * `returning = true` to fetch the stored rows back via SQL `RETURNING`.
+     */
+    fun <T : Entity> Table<G, T>.new(entities: List<T>, returning: Boolean = false): List<T> =
+        insertAll(entities, exec, returning)
 
     /** Counts rows matching [query] (all rows by default). */
     fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)

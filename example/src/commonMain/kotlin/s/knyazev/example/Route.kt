@@ -26,8 +26,8 @@ fun Application.configureRouting() {
             val create = createDto.toDomain().apply {
                 id = Uuid.random()
             }
-            // new() returns the stored row (via RETURNING), so no follow-up read is needed.
-            val result = Database.suspendTransaction { ProductTable.new(create) }
+            // returning = true fetches the stored row back (RETURNING), so no follow-up read.
+            val result = Database.suspendTransaction { ProductTable.new(create, returning = true) }
             val resultDTO = result!!.toDto()
             call.respond(resultDTO)
         }

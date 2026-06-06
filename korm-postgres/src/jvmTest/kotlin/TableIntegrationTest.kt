@@ -240,14 +240,17 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         val returned = ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
-                this.id = id
-                this.price = BigDecimal.fromInt(7)
-                this.qty = 7
-                this.displayName = "ret"
-                this.note = null
-                this.rank = null
-            })
+            ItProducts.new(
+                ItProduct().apply {
+                    this.id = id
+                    this.price = BigDecimal.fromInt(7)
+                    this.qty = 7
+                    this.displayName = "ret"
+                    this.note = null
+                    this.rank = null
+                },
+                returning = true,
+            )
         }
         assertEquals(id, returned?.id)
         assertEquals("ret", returned?.displayName)

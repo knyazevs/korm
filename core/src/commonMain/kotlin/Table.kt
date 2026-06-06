@@ -99,37 +99,36 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         }
     }
 
-    internal fun insert(entity: T, exec: SqlExecutor): T? {
+    internal fun insert(entity: T, exec: SqlExecutor, returning: Boolean): T? {
         val builder = paramBuilder(exec)
         val generatedFields = this.generateFieldToMap(entity)
         val columns = generatedFields.joinToString(", ") { exec.dialect.quoteIdentifier(it.first) }
         val values = generatedFields.joinToString(", ") { builder.bind(it.second) }
-
-        val sql = """
-            INSERT INTO ${qualifiedTableName(exec)}
-            ($columns)
-            VALUES($values)
-            RETURNING ${getColumnNames(exec).joinToString(", ")};
-        """
-        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs ->
+        val base = "INSERT INTO ${qualifiedTableName(exec)} ($columns) VALUES ($values)"
+        if (!returning) {
+            exec.executeUpdate(sql = base, namedParameters = builder.params)
+            return entity
+        }
+        val sql = "$base RETURNING ${getColumnNames(exec).joinToString(", ")}"
+        return exec.execute(sql = sql, namedParameters = builder.params) { rs ->
             this.mapToDao(rs = rs, exec = exec)
         }.firstOrNull()
     }
 
-    internal fun insertAll(entities: List<T>, exec: SqlExecutor): List<T> {
+    internal fun insertAll(entities: List<T>, exec: SqlExecutor, returning: Boolean): List<T> {
         if (entities.isEmpty()) return emptyList()
         val builder = paramBuilder(exec)
         val columns = this.fieldDisplayName.values.joinToString(", ") { exec.dialect.quoteIdentifier(it.name) }
         val tuples = entities.joinToString(", ") { entity ->
             "(${generateFieldToMap(entity).joinToString(", ") { builder.bind(it.second) }})"
         }
-        val sql = """
-            INSERT INTO ${qualifiedTableName(exec)}
-            ($columns)
-            VALUES $tuples
-            RETURNING ${getColumnNames(exec).joinToString(", ")};
-        """
-        return exec.execute(sql = sql.trimIndent(), namedParameters = builder.params) { rs ->
+        val base = "INSERT INTO ${qualifiedTableName(exec)} ($columns) VALUES $tuples"
+        if (!returning) {
+            exec.executeUpdate(sql = base, namedParameters = builder.params)
+            return entities
+        }
+        val sql = "$base RETURNING ${getColumnNames(exec).joinToString(", ")}"
+        return exec.execute(sql = sql, namedParameters = builder.params) { rs ->
             this.mapToDao(rs = rs, exec = exec)
         }
     }

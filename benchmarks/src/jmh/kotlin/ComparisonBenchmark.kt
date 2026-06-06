@@ -30,6 +30,7 @@ import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
+import org.openjdk.jmh.annotations.Threads
 import org.openjdk.jmh.annotations.Warmup
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.concurrent.TimeUnit
@@ -79,6 +80,7 @@ open class HibBench {
 @Warmup(iterations = 3, time = 2)
 @Measurement(iterations = 5, time = 2)
 @Fork(1)
+@Threads(8)
 open class ComparisonBenchmark {
 
     private lateinit var container: PostgreSQLContainer<*>

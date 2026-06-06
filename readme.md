@@ -126,11 +126,14 @@ db.transaction {
 }
 ```
 
-`new` returns the stored row (via SQL `RETURNING`); insert many rows in one statement
-with the list overload, and count rows with `count`:
+`new` does a plain `INSERT` and returns the entity you passed — the fast path. Pass
+`returning = true` to fetch the stored row back via SQL `RETURNING` (e.g. to read
+database-generated columns). Insert many rows in one statement with the list overload,
+and count rows with `count`:
 
 ```kotlin
-val saved: User? = db.transaction { Users.new(user) }
+db.transaction { Users.new(user) }                                      // plain INSERT (fast)
+val saved: User? = db.transaction { Users.new(user, returning = true) } // fetch the DB row
 val savedAll: List<User> = db.transaction { Users.new(listOf(user1, user2)) }
 val total: Long = db.autocommit { Users.count() }
 val adults: Long = db.autocommit { Users.count(Query(Users.age gtEq 18)) }
@@ -320,18 +323,18 @@ without changing `core`.
 
 The `:benchmarks` module has a JMH harness, including a cross-ORM comparison against
 Hibernate and Exposed over the same Postgres (`./gradlew :benchmarks:jmh`). Indicative
-single-threaded throughput (ops/s, higher is better; on a developer laptop — treat as
-relative, not absolute):
+throughput (ops/s, 8 threads, higher is better; on a developer laptop — treat as relative,
+not absolute):
 
 | Operation  | korm | Exposed | Hibernate |
 | ---------- | ---- | ------- | --------- |
-| findById   | ~5.1k | ~5.0k | ~9.5k |
-| selectWhere| ~5.3k | ~5.1k | ~9.8k |
-| insert     | ~3.4k | ~5.1k | ~5.0k |
+| findById   | ~17k | ~16k | ~32k |
+| selectWhere| ~16k | ~18k | ~30k |
+| insert     | ~15k | ~17k | ~17k |
 
-korm is on par with Exposed on reads; Hibernate's read throughput is higher (mature
-statement caching). korm's insert is slower because it does `INSERT ... RETURNING` and
-reads the row back. Numbers vary by machine and are single-threaded — run them yourself.
+korm is on par with Exposed across the board, and with Hibernate on inserts; Hibernate's
+read throughput is ~2× higher (its mature statement-caching / fetch machinery). All three
+scale similarly with the connection pool. Numbers vary by machine — run them yourself.
 
 ## License
 
