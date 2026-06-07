@@ -57,12 +57,6 @@ kotlin {
                 implementation("org.postgresql:postgresql:42.7.4")
             }
         }
-        if (!hostOs.contains("windows", ignoreCase = true)) {
-            val nativeMain by getting {
-                dependencies {
-                    implementation(project(":pgkn"))
-                }
-            }
-        }
+        // The native Postgres driver now ships inside :korm-postgres (nativeMain).
     }
 }

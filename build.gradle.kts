@@ -1,115 +1,71 @@
-import java.util.*
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
 
 plugins {
-    `kotlin-dsl`
-    id("maven-publish")
-    id("org.jetbrains.dokka") version "2.0.0"
-    signing
-}
-
-// Stub secrets to let the project sync and build without the publication values set up
-ext["signing.keyId"] = null
-ext["signing.password"] = null
-ext["signing.secretKeyRingFile"] = null
-ext["ossrhUsername"] = null
-ext["ossrhPassword"] = null
-
-// Grabbing secrets from local.properties file or from environment variables, which could be used on CI
-val secretPropsFile = project.rootProject.file("local.properties")
-if (secretPropsFile.exists()) {
-    secretPropsFile.reader().use {
-        Properties().apply {
-            load(it)
-        }
-    }.onEach { (name, value) ->
-        ext[name.toString()] = value
-    }
-} else {
-    ext["signing.keyId"] = System.getenv("SIGNING_KEY_ID")
-    ext["signing.password"] = System.getenv("SIGNING_PASSWORD")
-    ext["signing.secretKeyRingFile"] = System.getenv("SIGNING_SECRET_KEY_RING_FILE")
-    ext["ossrhUsername"] = System.getenv("OSSRH_USERNAME")
-    ext["ossrhPassword"] = System.getenv("OSSRH_PASSWORD")
-}
-
-fun getExtraString(name: String) = ext[name]?.toString()
-
-    /*
-val javadocJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("javadoc")
-}
-     */
-
-val javadocJar by tasks.registering(Jar::class) {
-    group = JavaBasePlugin.DOCUMENTATION_GROUP
-    description = "Assembles Javadoc JAR"
-    archiveClassifier.set("javadoc")
-    // Empty javadoc jar (accepted by Maven Central); decoupled from Dokka task
-    // names which changed in Dokka 2.x. Run `dokkaGenerate` for real docs.
+    // Applied to the publishable subprojects below (not to the root itself).
+    id("com.vanniktech.maven.publish") version "0.36.0" apply false
 }
 
 buildscript {
     repositories {
+        google()
         mavenCentral()
         maven {
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
         }
     }
-
     dependencies {
-        // kotlin
+        // Kotlin Gradle plugin for all modules (they apply kotlin("multiplatform") without a version).
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+        // Android Gradle plugin for the modules that declare an androidTarget() (Compose
+        // Multiplatform support). They apply id("com.android.library") without a version.
+        classpath("com.android.tools.build:gradle:9.2.1")
     }
 }
-
 
 allprojects {
     repositories {
+        google()
         mavenCentral()
         maven {
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
         }
-
     }
 }
 
-publishing {
-    repositories {
-        /*
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/knyazevs/korm")
-            credentials {
-                username = System.getenv("USERNAME")
-                password = System.getenv("TOKEN")
-            }
-        }
-        */
-        maven {
-            name = "sonatype"
-            setUrl("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            credentials {
-                username = getExtraString("ossrhUsername")
-                password = getExtraString("ossrhPassword")
-            }
-        }
-    }
-    // Configure all publications
-    publications.withType<MavenPublication> {
+// Publishing configuration shared by every published library module + the BOM. Credentials
+// (mavenCentralUsername/Password) and the GPG key (signingInMemoryKey/Password) are supplied
+// out-of-band — see gradle.properties for the property names.
+val publishableModules = setOf(
+    "korm-core",
+    "korm-postgres",
+    "korm-jdbc",
+    "korm-sqlite",
+    "korm-ktor",
+    "korm-ktor-di",
+    "korm-ktor-koin",
+    "korm-bom",
+)
 
-        // Stub javadoc.jar artifact
-        artifact(javadocJar.get())
+subprojects {
+    if (name !in publishableModules) return@subprojects
 
-        // Provide artifacts information requited by Maven Central
+    apply(plugin = "com.vanniktech.maven.publish")
+
+    configure<MavenPublishBaseExtension> {
+        publishToMavenCentral()
+        signAllPublications()
+        coordinates(group.toString(), name, version.toString())
+
         pom {
-            name.set("Korm")
-            description.set("Korm is a simple ORM library for working with Postgresql via kotlin mpp")
+            name.set("korm")
+            description.set("Korm — a simple Kotlin Multiplatform ORM (Postgres + SQLite, JVM + Native).")
+            inceptionYear.set("2024")
             url.set("https://github.com/knyazevs/korm")
-
             licenses {
                 license {
-                    name.set("GPL-3.0-only")
-                    url.set("https://opensource.org/licenses/gpl-3-0")
+                    name.set("MIT")
+                    url.set("https://opensource.org/licenses/MIT")
+                    distribution.set("https://opensource.org/licenses/MIT")
                 }
             }
             developers {
@@ -117,18 +73,14 @@ publishing {
                     id.set("knyazevs")
                     name.set("Sergey Knyazev")
                     email.set("sknyazev@vk.com")
+                    url.set("https://github.com/knyazevs")
                 }
             }
             scm {
                 url.set("https://github.com/knyazevs/korm")
+                connection.set("scm:git:https://github.com/knyazevs/korm.git")
+                developerConnection.set("scm:git:ssh://git@github.com/knyazevs/korm.git")
             }
-
         }
     }
-}
-
-// Signing artifacts. Signing.* extra properties values will be used
-
-signing {
-    sign(publishing.publications)
 }

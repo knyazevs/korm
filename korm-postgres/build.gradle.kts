@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION") // legacy custom-named native target (e.g. macosX64("native"))
-
 plugins {
     kotlin("multiplatform")
 }
@@ -9,18 +7,8 @@ repositories {
 }
 
 kotlin {
-    val hostOs = System.getProperty("os.name")
-    val arch = System.getProperty("os.arch")
-    val nativeTarget = when {
-        hostOs == "Mac OS X" && arch == "x86_64" -> macosX64("native")
-        hostOs == "Mac OS X" && arch == "aarch64" -> macosArm64("native")
-        hostOs == "Linux" -> linuxX64("native")
-        hostOs.contains("windows", ignoreCase = true) -> mingwX64 { }
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
-    }
-    nativeTarget
-
     jvmToolchain(17)
+
     jvm {
         testRuns["test"].executionTask.configure {
             // Long-running stability/soak tests are opt-in: run with -Pstability.
@@ -30,14 +18,29 @@ kotlin {
         }
     }
 
+    // The native Postgres driver talks to libpq via cinterop (formerly the :pgkn module,
+    // now folded into this module's nativeMain). Register the same-named "libpq" cinterop
+    // on every native target so it commonizes into the shared nativeMain source set.
+    listOf(linuxX64(), macosX64(), macosArm64()).forEach { target ->
+        target.compilations.getByName("main").cinterops {
+            register("libpq") {
+                defFile(project.file("src/nativeInterop/cinterop/libpq.def"))
+            }
+        }
+    }
+    // mingwX64() // deferred — see the publishing plan
+
+    applyDefaultHierarchyTemplate()
+
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // Aggregates the agnostic core with the Postgres drivers and exposes
-                // createDatabase(...). PostgresDriver (from :pg) is part of the public
-                // return type, so :core and :pg are api dependencies.
-                api(project(":core"))
-                api(project(":pg"))
+                // Exposes createDatabase(...) plus the Postgres Dialect + PostgresDriver
+                // interface (formerly the :pg module). PostgresDriver is part of the public
+                // return type, so :korm-core is an api dependency.
+                api(project(":korm-core"))
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
         }
         val commonTest by getting {
@@ -65,11 +68,12 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             }
         }
-        if (!hostOs.contains("windows", ignoreCase = true)) {
-            val nativeMain by getting {
-                dependencies {
-                    implementation(project(":pgkn"))
-                }
+        val nativeMain by getting {
+            dependencies {
+                // The native libpq driver (formerly :pgkn).
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
         }
     }

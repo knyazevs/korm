@@ -40,9 +40,10 @@ jobs:
       # JVM unit + integration tests. The integration tests use Testcontainers,
       # which needs Docker (available on ubuntu-latest runners).
       - name: JVM tests
-        run: ./gradlew :core:jvmTest --console=plain
+        run: ./gradlew :korm-core:jvmTest --console=plain
 
-      # Native (libpq) tests against the Postgres service above.
+      # Native (libpq) tests against the Postgres service above. The host native test task
+      # on a Linux runner is linuxX64Test (the modules now declare real native targets).
       - name: Native tests
         env:
           KORM_DB_HOST: localhost
@@ -50,14 +51,15 @@ jobs:
           KORM_DB_NAME: postgres
           KORM_DB_USER: postgres
           KORM_DB_PASSWORD: password
-        run: ./gradlew :core:nativeTest --console=plain
+        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test --console=plain
 
       # The ktor integration libraries are libraries (no native exe link), so assemble
-      # builds their JVM + native artifacts to verify they compile on both targets.
+      # builds their JVM + native artifacts to verify they compile on every target.
       - name: Build ktor integration modules
         run: ./gradlew :korm-ktor:assemble :korm-ktor-di:assemble :korm-ktor-koin:assemble --console=plain
 
       # Self-contained SQLite samples — tests run on both JVM and native (no Docker needed).
+      # The samples still use a single host-named native target, so their task is `nativeTest`.
       - name: SQLite sample tests (JVM + native)
         run: >-
           ./gradlew
@@ -79,3 +81,60 @@ jobs:
           name: test-reports
           path: "**/build/reports/tests/**"
           if-no-files-found: ignore
+
+  # Compose Multiplatform targets (androidTarget + iosX64/iosArm64/iosSimulatorArm64).
+  # iOS klibs only compile on a macOS host; the macos-latest runner also ships the Android
+  # SDK, so it covers both. The unqualified task names run in every module that declares
+  # them — i.e. korm-core, korm-sqlite and the three korm-ktor* modules.
+  mobile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Compile the Android and iOS variants of every Compose-Multiplatform-enabled module.
+      # sqlite3.h is vendored and iOS/macOS ship libsqlite3, so no extra system deps are needed.
+      - name: Build Android + iOS targets
+        run: >-
+          ./gradlew
+          compileAndroidMain
+          compileKotlinIosArm64 compileKotlinIosX64 compileKotlinIosSimulatorArm64
+          --console=plain
+
+  # Publish all artifacts (JVM + linuxX64/macosX64/macosArm64 + the BOM) to Maven Central
+  # Portal from a single macOS host, so the deployment is one complete, atomic bundle.
+  # macOS K/N can cross-compile the Linux klibs; brew libpq supplies the headers the libpq
+  # cinterop needs for every target (sqlite3.h is vendored in the repo).
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install libpq (for the Kotlin/Native libpq cinterop)
+        run: brew install libpq
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Publish to Maven Central Portal
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: ./gradlew publishToMavenCentral --no-configuration-cache --console=plain

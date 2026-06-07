@@ -33,15 +33,39 @@ Not recommended yet as the only persistence layer for critical production system
 
 | Module | What |
 | --- | --- |
-| `core` | Backend-agnostic API: `Table`, `Column`, `Entity`, `Query`, `Catalog`, `Database<G>`, scopes/transactions. No backend dependency. |
-| `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
+| `korm-bom` | Bill of Materials: pins the versions of every korm artifact so you can omit them elsewhere. |
+| `korm-core` | Backend-agnostic API: `Table`, `Column`, `Entity`, `Query`, `Catalog`, `Database<G>`, scopes/transactions. No backend dependency. |
+| `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the PostgreSQL dialect/driver interface and the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
 | `korm-sqlite` | The SQLite binding: `createSqliteDatabase(...)` plus the JVM (sqlite-jdbc) and Native (sqlite3 cinterop) drivers. |
 | `korm-jdbc` | Shared JVM JDBC plumbing (HikariCP pool, named-parameter binding) used by the JVM drivers. |
 | `korm-ktor` | DI-agnostic Ktor server integration: explicit-db `call.transaction(db) { }` / `call.autocommit(db) { }`, the `KormException.httpStatusCode()` mapper, and an optional close-on-stop `Korm` plugin. |
 | `korm-ktor-di` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Ktor's built-in DI. |
 | `korm-ktor-koin` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Koin. |
 
-Depend on the backend you want — each brings `core` with it:
+## Installation
+
+korm is published to Maven Central under the `io.github.knyazevs.korm` group, with
+artifacts for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
+
+Depend on the backend you want — each brings `korm-core` with it. The recommended way is to
+import the BOM once and then declare artifacts without versions:
+
+```kotlin
+dependencies {
+    implementation(platform("io.github.knyazevs.korm:korm-bom:<version>"))
+
+    implementation("io.github.knyazevs.korm:korm-postgres") // PostgreSQL (JVM + Native)
+    // or
+    implementation("io.github.knyazevs.korm:korm-sqlite")   // SQLite (JVM + Native)
+
+    // optional Ktor server integration
+    implementation("io.github.knyazevs.korm:korm-ktor")     // DI-agnostic
+    // implementation("io.github.knyazevs.korm:korm-ktor-di")   // Ktor built-in DI
+    // implementation("io.github.knyazevs.korm:korm-ktor-koin") // Koin
+}
+```
+
+Without the BOM, pin the version on each artifact:
 
 ```kotlin
 dependencies {
