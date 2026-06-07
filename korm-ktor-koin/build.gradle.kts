@@ -14,7 +14,7 @@ repositories {
 val koinVersion = "4.1.0"
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 
     jvm {
         testRuns["test"].executionTask.configure {
