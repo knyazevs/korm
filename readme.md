@@ -10,20 +10,26 @@ joins, aggregations and typed predicates.
 
 - Kotlin Multiplatform: shared core for JVM and Native
 - PostgreSQL on JVM and Native: JDBC/HikariCP on JVM, libpq on Native
+- SQLite on JVM and Native: sqlite-jdbc on JVM, sqlite3 cinterop on Native
+- Coroutines: `suspend` transactions on every backend — on the JVM the blocking
+  drivers are offloaded to **virtual threads** (Loom), so handlers never block a worker
+- Optional **true async** PostgreSQL on the JVM via r2dbc (`korm-r2dbc`), with pipelining
 - Exposed-inspired type-safe DSL
 - Compile-time catalog safety: tables cannot be used with the wrong database
 - Transactions, savepoints, migrations and typed SQLSTATE exceptions
 - JMH benchmarks against Exposed and Hibernate
 
-| Platform | PostgreSQL | Sqlite |
+| Platform | PostgreSQL | SQLite |
 |---|---|---|
-| JVM | ✅ JDBC/HikariCP | planned |
-| macOS Native | ✅ libpq | planned |
-| Linux Native | ✅ libpq | planned |
-| Windows Native | ✅ libpq | planned |
+| JVM | ✅ JDBC/HikariCP · ✅ async (r2dbc) | ✅ sqlite-jdbc |
+| macOS Native | ✅ libpq | ✅ sqlite3 |
+| Linux Native | ✅ libpq | ✅ sqlite3 |
+| Windows Native | planned (mingw) | planned (mingw) |
 | Android | planned | planned |
-| iOS | planned | planned | planned |
+| iOS | planned | planned |
 | Wasm | research/planned | planned |
+
+Requires **JDK 21+** (the suspend offload path uses virtual threads).
 
 Status: pre-1.0, API may change.
 Good for experimentation, benchmarks, prototypes and feedback.
@@ -37,10 +43,11 @@ Not recommended yet as the only persistence layer for critical production system
 | `korm-core` | Backend-agnostic API: `Table`, `Column`, `Entity`, `Query`, `Catalog`, `Database<G>`, scopes/transactions. No backend dependency. |
 | `korm-postgres` | The PostgreSQL binding: `createDatabase(...)` plus the PostgreSQL dialect/driver interface and the JVM (JDBC/HikariCP) and Native (libpq) drivers. |
 | `korm-sqlite` | The SQLite binding: `createSqliteDatabase(...)` plus the JVM (sqlite-jdbc) and Native (sqlite3 cinterop) drivers. |
+| `korm-r2dbc` | Async (non-blocking) PostgreSQL for the **JVM** via r2dbc-postgresql: `createR2dbcDatabase(...)`. Implements the suspend API only — pick it over `korm-postgres` when you want true non-blocking I/O (and pipelining) rather than offloaded blocking JDBC. |
 | `korm-jdbc` | Shared JVM JDBC plumbing (HikariCP pool, named-parameter binding) used by the JVM drivers. |
-| `korm-ktor` | DI-agnostic Ktor server integration: explicit-db `call.transaction(db) { }` / `call.autocommit(db) { }`, the `KormException.httpStatusCode()` mapper, and an optional close-on-stop `Korm` plugin. |
-| `korm-ktor-di` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Ktor's built-in DI. |
-| `korm-ktor-koin` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `Database<G>` from Koin. |
+| `korm-ktor` | DI-agnostic Ktor server integration: explicit-db `call.transaction(db) { }` / `call.autocommit(db) { }` (suspend), the `KormException.httpStatusCode()` mapper, and an optional close-on-stop `Korm` plugin. |
+| `korm-ktor-di` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `SuspendDatabase<G>` from Ktor's built-in DI. |
+| `korm-ktor-koin` | `call.transaction<G, _> { }` / `call.korm<G>()` that resolve `SuspendDatabase<G>` from Koin. |
 
 ## Installation
 
@@ -57,6 +64,8 @@ dependencies {
     implementation("io.github.knyazevs.korm:korm-postgres") // PostgreSQL (JVM + Native)
     // or
     implementation("io.github.knyazevs.korm:korm-sqlite")   // SQLite (JVM + Native)
+    // or, for non-blocking PostgreSQL on the JVM:
+    implementation("io.github.knyazevs.korm:korm-r2dbc")    // async PostgreSQL (JVM only)
 
     // optional Ktor server integration
     implementation("io.github.knyazevs.korm:korm-ktor")     // DI-agnostic
@@ -308,20 +317,68 @@ db.transaction {
 - **`autocommit { }`** — a pinned connection without a surrounding transaction.
 - **`savepoint { }`** — a nested unit via SQL `SAVEPOINT`; a failure inside rolls back
   only the savepoint and the enclosing transaction may continue.
-- **`suspendTransaction { }` / `suspendAutocommit { }`** — coroutine-friendly variants
-  that run the (blocking) driver call on `Dispatchers.IO`, so a coroutine (e.g. a ktor
-  handler) suspends instead of blocking its thread. Prefer these from suspend code.
+- **`suspendTransaction { }` / `suspendAutocommit { }`** — coroutine variants on
+  `SuspendDatabase` (see [Coroutines & async](#coroutines--async)); prefer these from
+  suspend code such as a Ktor handler.
 - **Composition** — write transactional helpers as extensions on the scope so they join
-  the caller's transaction:
+  the caller's transaction (`SuspendScope<Main>` for the suspend variants):
 
   ```kotlin
-  fun Scope<Main>.placeOrder(order: Order) {
+  fun Scope<Main>.placeOrder(order: Order) {              // suspend: SuspendScope<Main>
       Orders.new(order)
   }
   ```
 
   Calling another database's `transaction { }` inside opens an *independent* transaction
   (a separate connection).
+
+## Coroutines & async
+
+Every backend also exposes a `suspend` API. Where the blocking `Database<G>` has
+`transaction { }` / `autocommit { }`, the `SuspendDatabase<G>` has
+`suspendTransaction { }` / `suspendAutocommit { }` — same DSL inside, but the block is
+itself `suspend`, so it may suspend (call other suspend code) while the connection stays
+pinned:
+
+```kotlin
+import io.github.knyazevs.korm.database.SuspendDatabase
+import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.suspendTransaction
+import io.github.knyazevs.korm.suspendAutocommit
+
+// the same driver factories return a type that is both Database and SuspendDatabase
+val db: SuspendDatabase<Main> = createDatabase(host = "localhost", /* ... */)
+
+suspend fun handler() {
+    db.suspendTransaction { Users.new(user, returning = true) }
+    val all = db.suspendAutocommit { Users.all() }
+}
+```
+
+There are two ways the suspend path is served, behind the **same** API:
+
+- **Offload (blocking drivers).** `korm-postgres` (JDBC/libpq) and `korm-sqlite` run the
+  blocking driver off the calling coroutine. On the **JVM** the offload dispatcher is a
+  **virtual-thread** executor (Loom, hence JDK 21+): blocking is cheap and concurrency is
+  bounded only by the connection pool, not by a thread pool. On Native it uses
+  `Dispatchers.Default`. This is not true async I/O — it keeps the *caller's* thread free,
+  the way Room/Exposed do.
+- **True async (`korm-r2dbc`).** Non-blocking I/O all the way to the socket (and
+  pipelining), via r2dbc-postgresql. JVM-only. `createR2dbcDatabase(...)` returns a
+  `SuspendDatabase` and plugs into the exact same `suspendTransaction { }` / DSL / Ktor
+  helpers — only the factory call differs:
+
+  ```kotlin
+  import io.github.knyazevs.korm.r2dbc.createR2dbcDatabase
+
+  val db: SuspendDatabase<Main> = createR2dbcDatabase(host = "localhost", /* ... */)
+  db.suspendTransaction { Users.new(user, returning = true) }   // identical usage
+  ```
+
+Which to pick: for most server apps a connection pool bounds concurrency anyway, so the
+offload path (virtual threads on the JVM) is plenty. Reach for `korm-r2dbc` when you want
+real non-blocking throughput under high concurrency, where its pipelining helps. SQLite is
+a local file, so it is offload-only — true async would buy it nothing.
 
 ## Error handling
 
@@ -377,13 +434,13 @@ fun Application.module() {
 }
 ```
 
-**`korm-ktor-di` (Ktor built-in DI).** Register `Database<G>` with its parameterized type —
-Ktor DI keys by the full type and auto-closes `AutoCloseable` dependencies, so different
-catalogs don't collide and you get lifecycle for free:
+**`korm-ktor-di` (Ktor built-in DI).** Register `SuspendDatabase<G>` with its parameterized
+type — Ktor DI keys by the full type and auto-closes `AutoCloseable` dependencies, so
+different catalogs don't collide and you get lifecycle for free:
 
 ```kotlin
 fun Application.module() {
-    dependencies { provide<Database<Main>> { createDatabase(/* ... */) } }   // auto-closed on stop
+    dependencies { provide<SuspendDatabase<Main>> { createDatabase(/* ... */) } } // auto-closed on stop
     routing {
         get("/users") { call.respond(call.autocommit<Main, _> { Users.all() }.map { it.name }) }
     }
@@ -396,7 +453,7 @@ erased — if you run more than one catalog, register and resolve with a `named(
 
 ```kotlin
 fun Application.module() {
-    install(Koin) { modules(module { single<Database<Main>> { createDatabase(/* ... */) } }) }
+    install(Koin) { modules(module { single<SuspendDatabase<Main>> { createDatabase(/* ... */) } }) }
     routing {
         get("/users") { call.respond(call.autocommit<Main, _> { Users.all() }.map { it.name }) }
     }
@@ -412,7 +469,11 @@ call.transaction(Main) { ... }             // catalog as a value
 call.korm<Main>().transaction { ... }      // resolve once, then run (no `_`, no value)
 ```
 
-All of them run on `Dispatchers.IO` (they delegate to `suspendTransaction` / `suspendAutocommit`).
+The helpers are `suspend` and backend-transparent: they delegate to
+`suspendTransaction` / `suspendAutocommit` on the resolved `SuspendDatabase`, so the same
+routes work whether you register an offloaded blocking driver (`createDatabase`, virtual
+threads on the JVM) or the async one (`createR2dbcDatabase`). See
+[Coroutines & async](#coroutines--async).
 
 ## Compile-time catalog safety & sharding
 
@@ -443,8 +504,10 @@ shardFor(tenantId).transaction { Users.new(user) }
 
 `core` is backend-agnostic — SQL rendering and value conversion go through a `Dialect`
 and `TypeMapper` that each backend provides, so the same tables, entities, queries,
-scopes and transactions run unchanged on any backend. Two backends ship today:
-**PostgreSQL** (`korm-postgres`) and **SQLite** (`korm-sqlite`).
+scopes and transactions run unchanged on any backend. Backends that ship today:
+**PostgreSQL** (`korm-postgres`, JVM + Native), **SQLite** (`korm-sqlite`, JVM + Native)
+and **async PostgreSQL** (`korm-r2dbc`, JVM, suspend-only — see
+[Coroutines & async](#coroutines--async)).
 
 ### SQLite
 
@@ -492,13 +555,15 @@ Runnable samples live under `samples/`, one per task:
 | --- | --- | --- |
 | `samples:ktor-di` | Ktor web CRUD over Postgres, database resolved from Ktor's built-in DI | `./gradlew :samples:ktor-di:runJvm` |
 | `samples:ktor-koin` | The same web CRUD, but wired through Koin | `./gradlew :samples:ktor-koin:runJvm` |
+| `samples:r2dbc` | The same Ktor CRUD on the **async** r2dbc driver — one-line diff from `ktor-di` (JVM only) | `./gradlew :samples:r2dbc:runJvm` |
 | `samples:crud-sqlite` | Standalone (no server) CRUD + migrations over SQLite — self-contained | `./gradlew :samples:crud-sqlite:runJvm` |
 | `samples:sharding` | Multiple catalogs (compile-time safety) + sharding one catalog across databases | `./gradlew :samples:sharding:runJvm` |
 | `samples:sqlite-cache` | Two catalogs: SQLite as a read-through cache in front of Postgres | `./gradlew :samples:sqlite-cache:runJvm` |
 
 The SQLite samples need no external database. The Postgres ones expect a Postgres on
-`localhost:5432` (user/password `postgres`/`password`). Each sample also builds a native
-binary (`runDebugExecutableNative`) from the same code.
+`localhost:5432` (user/password `postgres`/`password`) — each ships a `docker-compose.yml`
+that matches. Every sample except `r2dbc` (which is JVM-only) also builds a native binary
+(`runDebugExecutableNative`) from the same code.
 
 ## Benchmarks
 
