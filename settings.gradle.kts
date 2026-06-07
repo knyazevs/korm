@@ -10,8 +10,9 @@ plugins {
 }
 
 rootProject.name = "korm"
-include("core", "pg", "pgkn", "korm-postgres", "korm-jdbc", "korm-sqlite", "benchmarks")
+include("korm-core", "korm-postgres", "korm-jdbc", "korm-sqlite", "benchmarks")
 include("korm-ktor", "korm-ktor-di", "korm-ktor-koin")
+include("korm-bom")
 include(
     "samples:ktor-di",
     "samples:ktor-koin",

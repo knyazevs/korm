@@ -19,8 +19,8 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 // The generic JDBC driver returns core's ResultSet and binds core's
-                // SqlParameterSource, so :core is part of the public API.
-                api(project(":core"))
+                // SqlParameterSource, so :korm-core is part of the public API.
+                api(project(":korm-core"))
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
                 implementation("com.zaxxer:HikariCP:6.2.1")
             }

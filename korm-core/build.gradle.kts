@@ -1,0 +1,57 @@
+plugins {
+    kotlin("multiplatform")
+    kotlin("plugin.serialization") version "2.4.0"
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+
+    jvm {
+        testRuns["test"].executionTask.configure {
+            useJUnitPlatform()
+        }
+    }
+
+    linuxX64()
+    macosX64()
+    macosArm64()
+    // mingwX64() // deferred — see the publishing plan
+
+    applyDefaultHierarchyTemplate()
+
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                // Public suspend API (suspendTransaction/suspendAutocommit) is coroutine-based.
+                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                // BigDecimal
+                implementation("com.ionspin.kotlin:bignum:0.3.10")
+
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                implementation("io.github.oshai:kotlin-logging:7.0.3")
+            }
+        }
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+            }
+        }
+        val jvmMain by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                // kotlin-logging delegates to SLF4J on the JVM; core needs the API on the
+                // runtime classpath (previously pulled in transitively via the drivers).
+                implementation("org.slf4j:slf4j-api:2.0.16")
+            }
+        }
+    }
+}

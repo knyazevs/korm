@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION") // legacy custom-named native target (e.g. macosX64("native"))
-
 plugins {
     kotlin("multiplatform")
 }
@@ -9,40 +7,39 @@ repositories {
 }
 
 kotlin {
-    val hostOs = System.getProperty("os.name")
-    val arch = System.getProperty("os.arch")
-    val nativeTarget = when {
-        hostOs == "Mac OS X" && arch == "x86_64" -> macosX64("native")
-        hostOs == "Mac OS X" && arch == "aarch64" -> macosArm64("native")
-        hostOs == "Linux" -> linuxX64("native")
-        hostOs.contains("windows", ignoreCase = true) -> mingwX64 { }
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
-    }
-    nativeTarget.apply {
-        compilations.getByName("main") {
-            cinterops {
-                register("sqlite3") {
-                    defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
-                    packageName("csqlite")
-                }
-            }
-        }
-    }
-
     jvmToolchain(17)
+
     jvm {
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
     }
 
+    // Register the same-named "sqlite3" cinterop on every native target so it commonizes
+    // into the shared nativeMain source set.
+    listOf(linuxX64(), macosX64(), macosArm64()).forEach { target ->
+        target.compilations.getByName("main").cinterops {
+            register("sqlite3") {
+                defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                packageName("csqlite")
+                // Use the vendored sqlite3.h so the cinterop generates identically across
+                // targets (incl. cross-compiling linuxX64 from a macOS host, where there is
+                // no system sqlite3.h). Linking still uses the platform's libsqlite3.
+                compilerOpts("-I${project.file("src/nativeInterop/cinterop")}")
+            }
+        }
+    }
+    // mingwX64() // deferred — see the publishing plan
+
+    applyDefaultHierarchyTemplate()
+
     sourceSets {
         val commonMain by getting {
             dependencies {
                 // Exposes SqliteDialect / SqliteDriver / createSqliteDatabase. The driver
-                // returns core's ResultSet and binds core's SqlParameterSource, so :core
+                // returns core's ResultSet and binds core's SqlParameterSource, so :korm-core
                 // is part of the public API.
-                api(project(":core"))
+                api(project(":korm-core"))
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
             }
         }

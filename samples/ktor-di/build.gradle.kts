@@ -80,7 +80,6 @@ kotlin {
             val nativeMain by getting {
                 dependencies {
                     implementation("io.ktor:ktor-server-cio:$ktorVersion")
-                    implementation(project(":pgkn"))
                 }
             }
         }
