@@ -7,7 +7,7 @@ repositories {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 
     jvm {
         testRuns["test"].executionTask.configure {
@@ -40,6 +40,9 @@ kotlin {
                 // return type, so :korm-core is an api dependency.
                 api(project(":korm-core"))
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+                // PostgresDialect casts a JsonElement bind to ::jsonb (needed so the truly-typed
+                // r2dbc driver doesn't send it as text; harmless for the text-based JDBC/libpq paths).
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
         }
