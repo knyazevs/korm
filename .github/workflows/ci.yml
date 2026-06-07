@@ -82,6 +82,33 @@ jobs:
           path: "**/build/reports/tests/**"
           if-no-files-found: ignore
 
+  # Compose Multiplatform targets (androidTarget + iosX64/iosArm64/iosSimulatorArm64).
+  # iOS klibs only compile on a macOS host; the macos-latest runner also ships the Android
+  # SDK, so it covers both. The unqualified task names run in every module that declares
+  # them — i.e. korm-core, korm-sqlite and the three korm-ktor* modules.
+  mobile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Compile the Android and iOS variants of every Compose-Multiplatform-enabled module.
+      # sqlite3.h is vendored and iOS/macOS ship libsqlite3, so no extra system deps are needed.
+      - name: Build Android + iOS targets
+        run: >-
+          ./gradlew
+          compileAndroidMain
+          compileKotlinIosArm64 compileKotlinIosX64 compileKotlinIosSimulatorArm64
+          --console=plain
+
   # Publish all artifacts (JVM + linuxX64/macosX64/macosArm64 + the BOM) to Maven Central
   # Portal from a single macOS host, so the deployment is one complete, atomic bundle.
   # macOS K/N can cross-compile the Linux klibs; brew libpq supplies the headers the libpq

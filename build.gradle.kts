@@ -7,6 +7,7 @@ plugins {
 
 buildscript {
     repositories {
+        google()
         mavenCentral()
         maven {
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
@@ -15,11 +16,15 @@ buildscript {
     dependencies {
         // Kotlin Gradle plugin for all modules (they apply kotlin("multiplatform") without a version).
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+        // Android Gradle plugin for the modules that declare an androidTarget() (Compose
+        // Multiplatform support). They apply id("com.android.library") without a version.
+        classpath("com.android.tools.build:gradle:9.2.1")
     }
 }
 
 allprojects {
     repositories {
+        google()
         mavenCentral()
         maven {
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")

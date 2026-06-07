@@ -2,8 +2,9 @@ headers = sqlite3.h
 headerFilter = sqlite3.h
 package = csqlite
 
-# SQLite ships with the OS on macOS and most Linux distros.
+# SQLite ships with the OS on macOS, iOS and most Linux distros.
 linkerOpts.osx = -lsqlite3
+linkerOpts.ios = -lsqlite3
 linkerOpts.linux = -lsqlite3
 compilerOpts.linux = -I/usr/include
 linkerOpts.mingw = -lsqlite3
