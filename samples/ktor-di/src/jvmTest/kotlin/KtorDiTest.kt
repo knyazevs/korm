@@ -1,8 +1,9 @@
 package io.github.knyazevs.korm.samples.ktordi
 
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.suspendAutocommit
+import kotlinx.coroutines.runBlocking
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -28,18 +29,18 @@ class KtorDiTest {
 
         val pg = PostgreSQLContainer("postgres:16-alpine").apply { start() }
         try {
-            val db: Database<AppCatalog> = createDatabase(
+            val db: SuspendDatabase<AppCatalog> = createDatabase(
                 host = pg.host,
                 port = pg.firstMappedPort,
                 database = pg.databaseName,
                 user = pg.username,
                 password = pg.password,
             )
-            db.autocommit { ProductTable.dropTable(); ProductTable.createTable() }
+            runBlocking { db.suspendAutocommit { ProductTable.dropTable(); ProductTable.createTable() } }
 
             testApplication {
                 application {
-                    dependencies { provide<Database<AppCatalog>> { db } }
+                    dependencies { provide<SuspendDatabase<AppCatalog>> { db } }
                     configure()
                 }
 

@@ -25,11 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Install libpq + libsqlite3 (for the Kotlin/Native cinterops)
         run: sudo apt-get update && sudo apt-get install -y libpq-dev libsqlite3-dev
@@ -37,13 +37,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # JVM unit + integration tests. The integration tests use Testcontainers,
-      # which needs Docker (available on ubuntu-latest runners).
+      # JVM unit tests. korm-sqlite runs against an in-memory database (no Docker); it covers
+      # both the blocking and the suspend (offload) paths.
       - name: JVM tests
-        run: ./gradlew :korm-core:jvmTest --console=plain
+        run: ./gradlew :korm-core:jvmTest :korm-sqlite:jvmTest --console=plain
 
       # Native (libpq) tests against the Postgres service above. The host native test task
       # on a Linux runner is linuxX64Test (the modules now declare real native targets).
+      # korm-sqlite's native tests use an in-memory database (no Postgres needed).
       - name: Native tests
         env:
           KORM_DB_HOST: localhost
@@ -51,7 +52,7 @@ jobs:
           KORM_DB_NAME: postgres
           KORM_DB_USER: postgres
           KORM_DB_PASSWORD: password
-        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test --console=plain
+        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test :korm-sqlite:linuxX64Test --console=plain
 
       # The ktor integration libraries are libraries (no native exe link), so assemble
       # builds their JVM + native artifacts to verify they compile on every target.
@@ -67,11 +68,18 @@ jobs:
           :samples:sharding:jvmTest :samples:sharding:nativeTest
           --console=plain
 
+      # Async r2dbc backend (JVM-only) — end-to-end tests spin up their own Postgres via
+      # Testcontainers.
+      - name: r2dbc tests (Testcontainers, JVM)
+        run: ./gradlew :korm-r2dbc:jvmTest --console=plain
+
       # Postgres samples — JVM end-to-end tests spin up their own Postgres via Testcontainers.
+      # samples:r2dbc is the async variant of ktor-di.
       - name: Postgres sample tests (Testcontainers, JVM)
         run: >-
           ./gradlew
           :samples:ktor-di:jvmTest :samples:ktor-koin:jvmTest :samples:sqlite-cache:jvmTest
+          :samples:r2dbc:jvmTest
           --console=plain
 
       - name: Upload test reports
@@ -91,11 +99,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -119,11 +127,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Install libpq (for the Kotlin/Native libpq cinterop)
         run: brew install libpq

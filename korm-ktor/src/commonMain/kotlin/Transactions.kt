@@ -1,15 +1,16 @@
 package io.github.knyazevs.korm.ktor
 
 import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Scope
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.SuspendScope
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.suspendAutocommit
 import io.github.knyazevs.korm.suspendTransaction
 import io.ktor.server.application.ApplicationCall
 
 /**
- * Runs [block] in a transaction on [db] (BEGIN/COMMIT, ROLLBACK on throw), suspending the
- * calling coroutine while the blocking driver works (see [suspendTransaction]).
+ * Runs [block] in a transaction on [db] (BEGIN/COMMIT, ROLLBACK on throw) without blocking the
+ * worker — [block] is itself `suspend` and may suspend while the connection stays pinned. Works
+ * with any backend's [SuspendDatabase] (offload JDBC/libpq, or truly-async r2dbc).
  *
  * This overload is DI-agnostic: you pass the database explicitly, so it works with any way of
  * obtaining it — Koin (`call.transaction(call.get()) { ... }`), Ktor's built-in DI, or a plain
@@ -17,8 +18,8 @@ import io.ktor.server.application.ApplicationCall
  * the database for you.
  */
 suspend fun <G : Catalog, R> ApplicationCall.transaction(
-    db: Database<G>,
-    block: Scope<G>.() -> R,
+    db: SuspendDatabase<G>,
+    block: suspend SuspendScope<G>.() -> R,
 ): R = db.suspendTransaction(block)
 
 /**
@@ -26,6 +27,6 @@ suspend fun <G : Catalog, R> ApplicationCall.transaction(
  * single statements. See [transaction] for the DI-agnostic rationale.
  */
 suspend fun <G : Catalog, R> ApplicationCall.autocommit(
-    db: Database<G>,
-    block: Scope<G>.() -> R,
+    db: SuspendDatabase<G>,
+    block: suspend SuspendScope<G>.() -> R,
 ): R = db.suspendAutocommit(block)

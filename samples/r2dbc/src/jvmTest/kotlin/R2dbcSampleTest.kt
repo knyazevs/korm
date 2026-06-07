@@ -1,9 +1,8 @@
-package io.github.knyazevs.korm.samples.ktorkoin
+package io.github.knyazevs.korm.samples.r2dbc
 
 import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.r2dbc.createR2dbcDatabase
 import io.github.knyazevs.korm.suspendAutocommit
-import kotlinx.coroutines.runBlocking
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -11,25 +10,18 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.application.Application
-import io.ktor.server.application.install
+import io.ktor.server.plugins.di.dependencies
+import io.ktor.server.plugins.di.provide
 import io.ktor.server.testing.testApplication
-import org.koin.dsl.module
-import org.koin.ktor.plugin.Koin
+import kotlinx.coroutines.runBlocking
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-// Top-level so `install` resolves against Application only (inside application { } both
-// Application.install and ApplicationTestBuilder.install are in scope → ambiguous).
-private fun Application.registerKoin(db: SuspendDatabase<AppCatalog>) {
-    install(Koin) { modules(module { single<SuspendDatabase<AppCatalog>> { db } }) }
-}
-
-/** Exercises the ktor-koin sample end-to-end against a real Postgres (Testcontainers, JVM only). */
-class KtorKoinTest {
+/** Exercises the async r2dbc sample end-to-end against a real Postgres (Testcontainers, JVM only). */
+class R2dbcSampleTest {
 
     @Test
     fun createThenList() {
@@ -37,7 +29,7 @@ class KtorKoinTest {
 
         val pg = PostgreSQLContainer("postgres:16-alpine").apply { start() }
         try {
-            val db: SuspendDatabase<AppCatalog> = createDatabase(
+            val db: SuspendDatabase<AppCatalog> = createR2dbcDatabase(
                 host = pg.host,
                 port = pg.firstMappedPort,
                 database = pg.databaseName,
@@ -48,19 +40,20 @@ class KtorKoinTest {
 
             testApplication {
                 application {
-                    registerKoin(db)
+                    dependencies { provide<SuspendDatabase<AppCatalog>> { db } }
                     configure()
                 }
 
                 val created = client.put("/create") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"price":7,"payload":{"k":"v"}}""")
+                    setBody("""{"price":42,"payload":{"k":"v"}}""")
                 }
                 assertEquals(HttpStatusCode.OK, created.status)
+                assertTrue(created.bodyAsText().contains("\"price\":42"))
 
                 val list = client.get("/")
                 assertEquals(HttpStatusCode.OK, list.status)
-                assertTrue(list.bodyAsText().contains("\"price\":7"), "list body: ${list.bodyAsText()}")
+                assertTrue(list.bodyAsText().contains("\"price\":42"), "list body: ${list.bodyAsText()}")
             }
 
             db.close()

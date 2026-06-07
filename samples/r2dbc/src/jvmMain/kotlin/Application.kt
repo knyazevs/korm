@@ -1,19 +1,21 @@
 @file:OptIn(ExperimentalUuidApi::class)
 
-package io.github.knyazevs.korm.samples.ktorkoin
+package io.github.knyazevs.korm.samples.r2dbc
 
 import io.github.knyazevs.korm.KormException
 import io.github.knyazevs.korm.Query
 import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.ktor.di.autocommit
+import io.github.knyazevs.korm.ktor.di.transaction
 import io.github.knyazevs.korm.ktor.httpStatusCode
-import io.github.knyazevs.korm.ktor.koin.autocommit
-import io.github.knyazevs.korm.ktor.koin.transaction
+import io.github.knyazevs.korm.r2dbc.createR2dbcDatabase
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.di.dependencies
+import io.ktor.server.plugins.di.provide
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -22,43 +24,35 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
-import org.koin.dsl.module
-import org.koin.dsl.onClose
-import org.koin.ktor.plugin.Koin
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * Wires korm into Ktor through Koin:
- *  - `install(Koin) { modules(...) }` registers the database; `onClose { it?.close() }` closes the
- *    pool when Koin shuts down with the application (Koin does not auto-close like Ktor DI does).
- *  - routes use the reified `call.transaction<AppCatalog> { }` / `call.autocommit<AppCatalog> { }`
- *    helpers from `korm-ktor-koin`, which resolve the database from Koin.
+ * The same korm + Ktor wiring as the `ktor-di` sample, but backed by the ASYNC r2dbc driver
+ * instead of blocking JDBC. The only difference is the registered dependency:
  *
- * Note: Koin keys by `KClass`, so generics are erased. With a single catalog this is fine; for
- * multiple catalogs register and resolve with a `named(...)` qualifier (see korm-ktor-koin docs).
+ *     provide<SuspendDatabase<AppCatalog>> { createR2dbcDatabase(...) }
+ *
+ * The routes and the `call.transaction` / `call.autocommit` helpers are byte-for-byte identical
+ * to the blocking sample — the suspend API is backend-transparent. r2dbc gives true non-blocking
+ * I/O (and pipelining) here, where JDBC would offload to a thread.
  */
 fun Application.module() {
-    install(Koin) {
-        modules(
-            module {
-                single<SuspendDatabase<AppCatalog>> {
-                    createDatabase(
-                        host = "localhost",
-                        port = 5432,
-                        database = "postgres",
-                        user = "postgres",
-                        password = "password",
-                    )
-                } onClose { it?.close() }
-            },
-        )
+    dependencies {
+        provide<SuspendDatabase<AppCatalog>> {
+            createR2dbcDatabase(
+                host = "localhost",
+                port = 5432,
+                database = "postgres",
+                user = "postgres",
+                password = "password",
+            )
+        }
     }
-
     configure()
 }
 
-/** Plugins + routes, without installing Koin — so tests can register their own modules. */
+/** Plugins + routes, without creating the database — so tests can register their own. */
 fun Application.configure() {
     install(ContentNegotiation) { json() }
     install(StatusPages) {
@@ -66,7 +60,6 @@ fun Application.configure() {
     }
 
     routing {
-        // Catalog given as a type argument; `_` lets the return type infer.
         get("/") {
             val products = call.autocommit<AppCatalog, _> { ProductTable.all() }
             call.respond(products.map { it.toDto() })

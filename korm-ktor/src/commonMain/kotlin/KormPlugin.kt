@@ -1,6 +1,5 @@
 package io.github.knyazevs.korm.ktor
 
-import io.github.knyazevs.korm.database.Database
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.application.hooks.MonitoringEvent
@@ -8,15 +7,15 @@ import io.ktor.server.application.log
 
 /** Configuration for the [Korm] plugin. */
 class KormConfig {
-    internal val managed = mutableListOf<Database<*>>()
+    internal val managed = mutableListOf<AutoCloseable>()
 
     /**
-     * Registers [db] to be [Database.close]d when the application stops. Use this only if you
-     * are NOT managing the database's lifecycle elsewhere — Ktor's built-in DI already closes
-     * `AutoCloseable` dependencies (which a [Database] is) on shutdown, so registering it there
-     * makes this plugin unnecessary.
+     * Registers [db] to be `close`d when the application stops. Accepts any [AutoCloseable] —
+     * both `Database` and `SuspendDatabase` (incl. the r2dbc driver) qualify. Use this only if
+     * you are NOT managing the database's lifecycle elsewhere — Ktor's built-in DI already closes
+     * `AutoCloseable` dependencies on shutdown, so registering it there makes this unnecessary.
      */
-    fun manage(db: Database<*>) {
+    fun manage(db: AutoCloseable) {
         managed += db
     }
 }

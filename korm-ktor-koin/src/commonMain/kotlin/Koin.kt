@@ -1,8 +1,8 @@
 package io.github.knyazevs.korm.ktor.koin
 
 import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Scope
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.SuspendScope
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.ktor.KormHandle
 import io.github.knyazevs.korm.suspendAutocommit
 import io.github.knyazevs.korm.suspendTransaction
@@ -11,14 +11,14 @@ import org.koin.core.qualifier.Qualifier
 import org.koin.ktor.ext.getKoin
 
 /**
- * Resolves the [Database] for catalog [G] from Koin, wrapped in a [KormHandle] — the chain form
- * (c): `call.korm<AppCatalog>().transaction { ... }`.
+ * Resolves the [SuspendDatabase] for catalog [G] from Koin, wrapped in a [KormHandle] — the chain
+ * form (c): `call.korm<AppCatalog>().transaction { ... }`.
  *
- * Note: Koin keys by `KClass`, so generics are erased — `get<Database<AppCatalog>>()` and
- * `get<Database<OtherCatalog>>()` resolve to the same key. If you run more than one catalog,
+ * Note: Koin keys by `KClass`, so generics are erased — `get<SuspendDatabase<AppCatalog>>()` and
+ * `get<SuspendDatabase<OtherCatalog>>()` resolve to the same key. If you run more than one catalog,
  * register and resolve them with a [qualifier]:
  * ```
- * single<Database<AppCatalog>>(named("app")) { createDatabase(...) }
+ * single<SuspendDatabase<AppCatalog>>(named("app")) { createDatabase(...) }
  * // call.korm<AppCatalog>(named("app"))
  * ```
  */
@@ -30,11 +30,11 @@ inline fun <reified G : Catalog> ApplicationCall.korm(qualifier: Qualifier? = nu
 // For a named dependency use the value form (b) or `korm<G>(qualifier).transaction { }`.
 
 suspend inline fun <reified G : Catalog, R> ApplicationCall.transaction(
-    noinline block: Scope<G>.() -> R,
+    noinline block: suspend SuspendScope<G>.() -> R,
 ): R = korm<G>().database.suspendTransaction(block)
 
 suspend inline fun <reified G : Catalog, R> ApplicationCall.autocommit(
-    noinline block: Scope<G>.() -> R,
+    noinline block: suspend SuspendScope<G>.() -> R,
 ): R = korm<G>().database.suspendAutocommit(block)
 
 // --- (b) catalog as a VALUE — `call.transaction(AppCatalog) { ... }` --------------------------
@@ -43,11 +43,11 @@ suspend inline fun <reified G : Catalog, R> ApplicationCall.autocommit(
 suspend inline fun <reified G : Catalog, R> ApplicationCall.transaction(
     catalog: G,
     qualifier: Qualifier? = null,
-    noinline block: Scope<G>.() -> R,
+    noinline block: suspend SuspendScope<G>.() -> R,
 ): R = korm<G>(qualifier).database.suspendTransaction(block)
 
 suspend inline fun <reified G : Catalog, R> ApplicationCall.autocommit(
     catalog: G,
     qualifier: Qualifier? = null,
-    noinline block: Scope<G>.() -> R,
+    noinline block: suspend SuspendScope<G>.() -> R,
 ): R = korm<G>(qualifier).database.suspendAutocommit(block)
