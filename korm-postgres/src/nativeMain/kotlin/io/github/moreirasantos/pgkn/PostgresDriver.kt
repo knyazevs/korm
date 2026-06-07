@@ -13,14 +13,20 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import libpq.*
+import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
 import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.StandardTypeMapper
+import io.github.knyazevs.korm.SuspendSqlExecutor
 import io.github.knyazevs.korm.TypeMapper
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.runConnection
+import io.github.knyazevs.korm.runPinned
 import io.github.knyazevs.korm.sqlException
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.PostgresDriverKt")
@@ -50,7 +56,7 @@ private class PostgresDriverImpl(
     user: String,
     password: String,
     private val poolSize: Int,
-) : PostgresDriver {
+) : PostgresDriver, SuspendDatabase<Nothing> {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
@@ -123,20 +129,45 @@ private class PostgresDriverImpl(
             PQclear(runQuery(conn, sql, namedParameters))
         }
 
-    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
-        withConnection { conn ->
-            val executor = NativeExecutor(conn)
-            if (!transactional) return@withConnection block(executor)
-            PQclear(doExecute(conn, "BEGIN"))
-            try {
-                val result = block(executor)
-                PQclear(doExecute(conn, "COMMIT"))
-                result
-            } catch (e: Throwable) {
-                runCatching { PQclear(doExecute(conn, "ROLLBACK")) }
-                throw e
+    // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
+    // withConnection's borrow + liveness check; acquireSuspending overrides the default to take
+    // the Channel's natural suspend path (pool.receive()) instead of offloading a blocking borrow.
+    private val connectionPool = object : ConnectionPool {
+        override fun acquire(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                runBlocking { pool.receive() }
+            } catch (_: ClosedReceiveChannelException) {
+                throw ConnectionClosedException()
             }
+            ensureAlive(connection)
+            return PgPinnedConnection(connection)
         }
+
+        override suspend fun acquireSuspending(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                pool.receive()
+            } catch (_: ClosedReceiveChannelException) {
+                throw ConnectionClosedException()
+            }
+            ensureAlive(connection)
+            return PgPinnedConnection(connection)
+        }
+    }
+
+    private inner class PgPinnedConnection(private val conn: CPointer<PGconn>) : PinnedConnection {
+        override val executor: SqlExecutor = NativeExecutor(conn)
+        override fun begin() { PQclear(doExecute(conn, "BEGIN")) }
+        override fun commit() { PQclear(doExecute(conn, "COMMIT")) }
+        override fun rollback() { PQclear(doExecute(conn, "ROLLBACK")) }
+        // Capacity == poolSize, so a borrowed connection always fits back in.
+        override fun release() { pool.trySend(conn) }
+    }
+
+    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
+        connectionPool.runPinned(transactional, block)
+
+    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R =
+        connectionPool.runConnection(transactional, block)
 
     // An SqlExecutor bound to the pinned connection for the duration of usePinned.
     private inner class NativeExecutor(private val conn: CPointer<PGconn>) : SqlExecutor {

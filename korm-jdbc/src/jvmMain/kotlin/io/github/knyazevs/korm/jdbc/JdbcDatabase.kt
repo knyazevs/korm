@@ -2,12 +2,18 @@ package io.github.knyazevs.korm.jdbc
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
+import io.github.knyazevs.korm.SuspendSqlExecutor
 import io.github.knyazevs.korm.TypeMapper
 import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.knyazevs.korm.runConnection
+import io.github.knyazevs.korm.runPinned
 import io.github.knyazevs.korm.sqlException
 import java.sql.Connection
 import java.sql.PreparedStatement
@@ -46,7 +52,7 @@ open class JdbcDatabase(
     private val wrap: ResultSetWrapper,
     private val translate: SqlExceptionTranslator = StandardSqlExceptionTranslator,
     connectionInitSql: String? = null,
-) : Database<Nothing> {
+) : Database<Nothing>, SuspendDatabase<Nothing> {
 
     private val ds: HikariDataSource = HikariDataSource(HikariConfig().apply {
         this.jdbcUrl = jdbcUrl
@@ -55,6 +61,13 @@ open class JdbcDatabase(
         this.maximumPoolSize = poolSize
         if (connectionInitSql != null) this.connectionInitSql = connectionInitSql
     })
+
+    // One pool, two entry points: usePinned (blocking) and useConnection (suspend) both
+    // run on it. acquireSuspending uses the default (offload the blocking checkout).
+    private val pool = object : ConnectionPool {
+        override fun acquire(): PinnedConnection =
+            JdbcPinnedConnection(ds.connection, dialect, typeMapper, wrap, translate)
+    }
 
     override fun close() = ds.close()
 
@@ -78,29 +91,44 @@ open class JdbcDatabase(
         ds.connection.use { executor(it).executeUpdate(sql, namedParameters) }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
-        ds.connection.use { conn ->
-            val exec = executor(conn)
-            if (!transactional) return@use block(exec)
-            val previousAutoCommit = conn.autoCommit
-            conn.autoCommit = false
-            try {
-                val result = block(exec)
-                translateSql { conn.commit() }
-                result
-            } catch (e: Throwable) {
-                runCatching { conn.rollback() }
-                throw e
-            } finally {
-                runCatching { conn.autoCommit = previousAutoCommit }
-            }
-        }
+        pool.runPinned(transactional, block)
 
-    private inline fun <T> translateSql(block: () -> T): T =
+    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R =
+        pool.runConnection(transactional, block)
+}
+
+/** A [PinnedConnection] over one borrowed JDBC connection. */
+private class JdbcPinnedConnection(
+    private val conn: Connection,
+    dialect: Dialect,
+    typeMapper: TypeMapper,
+    wrap: ResultSetWrapper,
+    private val translate: SqlExceptionTranslator,
+) : PinnedConnection {
+    override val executor: SqlExecutor = JdbcExecutor(conn, dialect, typeMapper, wrap, translate)
+    private var previousAutoCommit = true
+
+    override fun begin() {
+        previousAutoCommit = conn.autoCommit
+        conn.autoCommit = false
+    }
+
+    override fun commit() {
         try {
-            block()
+            conn.commit()
         } catch (e: SQLException) {
             throw translate(e)
         }
+    }
+
+    override fun rollback() {
+        conn.rollback()
+    }
+
+    override fun release() {
+        runCatching { conn.autoCommit = previousAutoCommit }
+        conn.close()
+    }
 }
 
 /** An [SqlExecutor] bound to one already-open JDBC connection. */
