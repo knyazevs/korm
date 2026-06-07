@@ -10,7 +10,7 @@ class SuspendTest {
 
     @Test
     fun suspendTransactionRunsTheBlock() = runTest {
-        TableTest.db.suspendTransaction {
+        TableTest.suspendDb.suspendTransaction {
             TestTable.findById(Uuid.random())
         }
         assertTrue(TableTest.databaseMockObj.internalSql.contains("SELECT"))
@@ -18,7 +18,7 @@ class SuspendTest {
 
     @Test
     fun suspendAutocommitReturnsValue() = runTest {
-        val result: List<TestEntity> = TableTest.db.suspendAutocommit { TestTable.all() }
+        val result: List<TestEntity> = TableTest.suspendDb.suspendAutocommit { TestTable.all() }
         assertEquals(emptyList(), result)
         assertTrue(TableTest.databaseMockObj.internalSql.contains("SELECT"))
     }

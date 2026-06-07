@@ -2,6 +2,7 @@ package io.github.knyazevs.korm
 
 import cnames.structs.sqlite3
 import cnames.structs.sqlite3_stmt
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.resultset.ResultSet
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CFunction
@@ -34,7 +35,7 @@ actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
     SqliteNativeDriver(path, poolSize)
 
 @OptIn(ExperimentalForeignApi::class)
-private class SqliteNativeDriver(path: String, private val poolSize: Int) : SqliteDriver {
+private class SqliteNativeDriver(path: String, private val poolSize: Int) : SqliteDriver, SuspendDatabase<Nothing> {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
@@ -90,20 +91,42 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
         withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
     }
 
-    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
-        withConnection { conn ->
-            val executor = NativeExecutor(conn)
-            if (!transactional) return@withConnection block(executor)
-            rawExec(conn, "BEGIN")
-            try {
-                val result = block(executor)
-                rawExec(conn, "COMMIT")
-                result
-            } catch (e: Throwable) {
-                runCatching { rawExec(conn, "ROLLBACK") }
-                throw e
+    // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
+    // withConnection's borrow; acquireSuspending overrides the default to take the Channel's
+    // natural suspend path (pool.receive()) instead of offloading a blocking borrow.
+    private val connectionPool = object : ConnectionPool {
+        override fun acquire(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                runBlocking { pool.receive() }
+            } catch (_: ClosedReceiveChannelException) {
+                throw QueryException("SQLite connection pool is closed")
             }
+            return SqlitePinnedConnection(connection)
         }
+
+        override suspend fun acquireSuspending(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                pool.receive()
+            } catch (_: ClosedReceiveChannelException) {
+                throw QueryException("SQLite connection pool is closed")
+            }
+            return SqlitePinnedConnection(connection)
+        }
+    }
+
+    private inner class SqlitePinnedConnection(private val conn: CPointer<sqlite3>) : PinnedConnection {
+        override val executor: SqlExecutor = NativeExecutor(conn)
+        override fun begin() { rawExec(conn, "BEGIN") }
+        override fun commit() { rawExec(conn, "COMMIT") }
+        override fun rollback() { rawExec(conn, "ROLLBACK") }
+        override fun release() { pool.trySend(conn) }
+    }
+
+    override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
+        connectionPool.runPinned(transactional, block)
+
+    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R =
+        connectionPool.runConnection(transactional, block)
 
     // An SqlExecutor bound to the pinned connection for the duration of usePinned.
     private inner class NativeExecutor(private val conn: CPointer<sqlite3>) : SqlExecutor {

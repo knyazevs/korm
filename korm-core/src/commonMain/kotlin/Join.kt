@@ -144,10 +144,15 @@ internal fun Table<*, *>.qualifiedName(dialect: Dialect): String {
 internal fun Join<*>.allColumns(): List<Column<*, *, *>> =
     tables.flatMap { it.getFieldDisplayNames().values }
 
-// Builds and runs the SELECT, reading each field positionally (columns are emitted
-// qualified, e.g. "users"."id", so colliding names don't clash).
-internal fun runSelect(exec: SqlExecutor, join: Join<*>, fields: List<Selectable<*>>): List<ResultRow> {
-    val builder = ParamBuilder(exec.dialect, exec.typeMapper, qualifyColumns = true)
+// Builds the SELECT SQL + params (columns are emitted qualified, e.g. "users"."id",
+// so colliding names don't clash). Pure — no I/O; the runners below execute it.
+private fun buildSelect(
+    join: Join<*>,
+    fields: List<Selectable<*>>,
+    dialect: Dialect,
+    typeMapper: TypeMapper,
+): Pair<String, Map<String, Any?>> {
+    val builder = ParamBuilder(dialect, typeMapper, qualifyColumns = true)
     val selectList = fields.joinToString(", ") { it.toSql(builder) }
     val from = StringBuilder(join.base.qualifiedName(builder.dialect))
     for (clause in join.clauses) {
@@ -158,8 +163,19 @@ internal fun runSelect(exec: SqlExecutor, join: Join<*>, fields: List<Selectable
     val groupBy = if (join.groupByCols.isEmpty()) ""
         else " GROUP BY ${join.groupByCols.joinToString(", ") { it.toSql(builder) }}"
     val having = join.havingExpr?.let { " HAVING ${it.toSql(builder)}" }.orEmpty()
-    val sql = "SELECT $distinct$selectList FROM $from$where$groupBy$having"
-    return exec.execute(sql, builder.params) { rs ->
-        ResultRow(fields.withIndex().associate { (i, f) -> fieldKey(f) to f.read(rs, i, exec.typeMapper) })
-    }
+    return "SELECT $distinct$selectList FROM $from$where$groupBy$having" to builder.params
+}
+
+// Reads each field positionally into a ResultRow.
+private fun mapRow(fields: List<Selectable<*>>, rs: ResultSet, typeMapper: TypeMapper): ResultRow =
+    ResultRow(fields.withIndex().associate { (i, f) -> fieldKey(f) to f.read(rs, i, typeMapper) })
+
+internal fun runSelect(exec: SqlExecutor, join: Join<*>, fields: List<Selectable<*>>): List<ResultRow> {
+    val (sql, params) = buildSelect(join, fields, exec.dialect, exec.typeMapper)
+    return exec.execute(sql, params) { rs -> mapRow(fields, rs, exec.typeMapper) }
+}
+
+internal suspend fun runSelect(exec: SuspendSqlExecutor, join: Join<*>, fields: List<Selectable<*>>): List<ResultRow> {
+    val (sql, params) = buildSelect(join, fields, exec.dialect, exec.typeMapper)
+    return exec.execute(sql, params) { rs -> mapRow(fields, rs, exec.typeMapper) }
 }

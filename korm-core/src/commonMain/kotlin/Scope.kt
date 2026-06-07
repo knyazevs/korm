@@ -2,7 +2,6 @@ package io.github.knyazevs.korm
 
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.resultset.ResultSet
-import kotlinx.coroutines.withContext
 
 /**
  * The receiver inside a [transaction] / [autocommit] block. It pins one connection
@@ -40,11 +39,11 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
 
     /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */
     fun <T : Entity> Table<G, T>.createTable(ifNotExists: Boolean = true) =
-        exec.executeUpdate(createTableSql(exec, ifNotExists))
+        exec.executeUpdate(createTableSql(exec.dialect, ifNotExists))
 
     /** Drops this table (`DROP TABLE [IF EXISTS]`). */
     fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
-        exec.executeUpdate(dropTableSql(exec, ifExists))
+        exec.executeUpdate(dropTableSql(exec.dialect, ifExists))
 
     /** Runs the query, selecting the given fields (or all columns if none are given). */
     fun Join<G>.select(vararg fields: Selectable<*>): List<ResultRow> =
@@ -115,16 +114,3 @@ fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R =
  */
 fun <G : Catalog, R> Database<G>.autocommit(block: Scope<G>.() -> R): R =
     usePinned(transactional = false) { Scope<G>(it).block() }
-
-/**
- * Coroutine-friendly [transaction]: the blocking transaction runs on [Dispatchers.IO]
- * so the calling coroutine suspends instead of blocking its thread (e.g. a ktor worker).
- * The drivers are blocking, so this offloads work rather than doing async I/O; [block]
- * runs entirely on one IO thread for the transaction's duration.
- */
-suspend fun <G : Catalog, R> Database<G>.suspendTransaction(block: Scope<G>.() -> R): R =
-    withContext(ioDispatcher) { transaction(block) }
-
-/** Coroutine-friendly [autocommit]; see [suspendTransaction]. */
-suspend fun <G : Catalog, R> Database<G>.suspendAutocommit(block: Scope<G>.() -> R): R =
-    withContext(ioDispatcher) { autocommit(block) }

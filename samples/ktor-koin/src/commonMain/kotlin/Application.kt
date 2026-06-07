@@ -4,7 +4,7 @@ package io.github.knyazevs.korm.samples.ktorkoin
 
 import io.github.knyazevs.korm.KormException
 import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.ktor.httpStatusCode
@@ -42,7 +42,7 @@ fun Application.module() {
     install(Koin) {
         modules(
             module {
-                single<Database<AppCatalog>> {
+                single<SuspendDatabase<AppCatalog>> {
                     createDatabase(
                         host = "localhost",
                         port = 5432,

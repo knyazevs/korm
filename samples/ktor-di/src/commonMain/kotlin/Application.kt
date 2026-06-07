@@ -4,7 +4,7 @@ package io.github.knyazevs.korm.samples.ktordi
 
 import io.github.knyazevs.korm.KormException
 import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.database.createDatabase
 import io.github.knyazevs.korm.eq
 import io.github.knyazevs.korm.ktor.di.autocommit
@@ -29,15 +29,15 @@ import kotlin.uuid.Uuid
 
 /**
  * Wires korm into Ktor through the built-in DI:
- *  - `dependencies { provide<Database<AppCatalog>> { ... } }` registers the database. Ktor DI keys
- *    by the full parameterized type (so catalogs don't collide) and auto-closes it on shutdown
- *    (a [Database] is `AutoCloseable`) — no lifecycle plugin needed.
+ *  - `dependencies { provide<SuspendDatabase<AppCatalog>> { ... } }` registers the database. Ktor DI
+ *    keys by the full parameterized type (so catalogs don't collide) and auto-closes it on shutdown
+ *    (a [SuspendDatabase] is `AutoCloseable`) — no lifecycle plugin needed.
  *  - routes use the reified `call.transaction<AppCatalog> { }` / `call.autocommit<AppCatalog> { }`
  *    helpers from `korm-ktor-di`, which resolve the database from DI for you.
  */
 fun Application.module() {
     dependencies {
-        provide<Database<AppCatalog>> {
+        provide<SuspendDatabase<AppCatalog>> {
             createDatabase(
                 host = "localhost",
                 port = 5432,

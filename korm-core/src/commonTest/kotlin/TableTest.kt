@@ -2,6 +2,7 @@ import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlin.uuid.Uuid
 import io.github.knyazevs.korm.*
 import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -362,6 +363,9 @@ class TableTest {
         // Same instance, viewed as Database<TestCatalog> (covariance: Database<Nothing>
         // <: Database<TestCatalog>) so transaction { } resolves the catalog tag.
         val db: Database<TestCatalog> = databaseMockObj
+
+        // Same instance, viewed as SuspendDatabase<TestCatalog>, so suspendTransaction { } resolves the tag.
+        val suspendDb: SuspendDatabase<TestCatalog> = databaseMockObj
 
         fun remoteNewLinesAndSpaces(value: String): String {
             return value.replace("\n", "").replace(" ", "")

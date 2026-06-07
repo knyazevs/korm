@@ -11,7 +11,7 @@ plugins {
 }
 
 rootProject.name = "korm"
-include("korm-core", "korm-postgres", "korm-jdbc", "korm-sqlite", "benchmarks")
+include("korm-core", "korm-postgres", "korm-jdbc", "korm-sqlite", "korm-r2dbc", "benchmarks")
 include("korm-ktor", "korm-ktor-di", "korm-ktor-koin")
 include("korm-bom")
 include(
@@ -20,4 +20,5 @@ include(
     "samples:crud-sqlite",
     "samples:sharding",
     "samples:sqlite-cache",
+    "samples:r2dbc",
 )

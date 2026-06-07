@@ -6,6 +6,7 @@ Each subdirectory is a focused, runnable sample. Run gradle commands from the re
 |---|---|---|---|
 | [ktor-di](ktor-di) | Postgres | yes (compose) | Ktor CRUD, database from Ktor's built-in DI |
 | [ktor-koin](ktor-koin) | Postgres | yes (compose) | Ktor CRUD, database from Koin |
+| [r2dbc](r2dbc) | Postgres (async) | yes (compose) | Same Ktor CRUD on the non-blocking r2dbc driver (JVM only) |
 | [sqlite-cache](sqlite-cache) | Postgres + SQLite | yes (compose) | SQLite as a read-through cache in front of Postgres |
 | [crud-sqlite](crud-sqlite) | SQLite | no | Standalone CRUD + migrations (JVM + native) |
 | [sharding](sharding) | SQLite | no | Multiple catalogs (compile-time safety) + sharding |

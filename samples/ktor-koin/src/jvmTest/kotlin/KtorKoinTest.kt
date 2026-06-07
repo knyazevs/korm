@@ -1,8 +1,9 @@
 package io.github.knyazevs.korm.samples.ktorkoin
 
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.database.Database
+import io.github.knyazevs.korm.database.SuspendDatabase
 import io.github.knyazevs.korm.database.createDatabase
+import io.github.knyazevs.korm.suspendAutocommit
+import kotlinx.coroutines.runBlocking
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -23,8 +24,8 @@ import kotlin.test.assertTrue
 
 // Top-level so `install` resolves against Application only (inside application { } both
 // Application.install and ApplicationTestBuilder.install are in scope → ambiguous).
-private fun Application.registerKoin(db: Database<AppCatalog>) {
-    install(Koin) { modules(module { single<Database<AppCatalog>> { db } }) }
+private fun Application.registerKoin(db: SuspendDatabase<AppCatalog>) {
+    install(Koin) { modules(module { single<SuspendDatabase<AppCatalog>> { db } }) }
 }
 
 /** Exercises the ktor-koin sample end-to-end against a real Postgres (Testcontainers, JVM only). */
@@ -36,14 +37,14 @@ class KtorKoinTest {
 
         val pg = PostgreSQLContainer("postgres:16-alpine").apply { start() }
         try {
-            val db: Database<AppCatalog> = createDatabase(
+            val db: SuspendDatabase<AppCatalog> = createDatabase(
                 host = pg.host,
                 port = pg.firstMappedPort,
                 database = pg.databaseName,
                 user = pg.username,
                 password = pg.password,
             )
-            db.autocommit { ProductTable.dropTable(); ProductTable.createTable() }
+            runBlocking { db.suspendAutocommit { ProductTable.dropTable(); ProductTable.createTable() } }
 
             testApplication {
                 application {
