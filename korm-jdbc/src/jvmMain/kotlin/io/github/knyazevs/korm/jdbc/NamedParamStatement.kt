@@ -12,7 +12,7 @@ import java.sql.SQLException
  * later be bound by name. `::` casts (Postgres) and quoted string literals are left
  * untouched, so the parser is backend-agnostic and shared by every JDBC backend.
  */
-class NamedParamStatement(conn: Connection, sql: String) {
+class NamedParamStatement(conn: Connection, sql: String) : AutoCloseable {
     val preparedStatement: PreparedStatement
     private val fields: List<String>
 
@@ -25,7 +25,7 @@ class NamedParamStatement(conn: Connection, sql: String) {
     }
 
     @Throws(SQLException::class)
-    fun close() {
+    override fun close() {
         preparedStatement.close()
     }
 
