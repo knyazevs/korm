@@ -1,6 +1,7 @@
 package io.github.knyazevs.korm.database
 
 import io.github.knyazevs.korm.Catalog
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.SqlExecutor
 
 /**
@@ -12,6 +13,9 @@ import io.github.knyazevs.korm.SqlExecutor
  * [io.github.knyazevs.korm.transaction] / [io.github.knyazevs.korm.autocommit].
  */
 interface Database<out G : Catalog> : SqlExecutor, AutoCloseable {
+    /** Per-database configuration; defaults to [KormConfig] defaults unless a backend overrides it. */
+    val config: KormConfig get() = KormConfig()
+
     /**
      * Pins one connection for the duration of [block]; the [SqlExecutor] passed to it
      * routes every statement to that connection. Wraps BEGIN/COMMIT/ROLLBACK when

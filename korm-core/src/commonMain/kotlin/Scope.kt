@@ -9,7 +9,11 @@ import io.github.knyazevs.korm.resultset.ResultSet
  * so using a table from a different catalog is a compile error. Raw SQL run through
  * [execute] / [executeUpdate] goes to the same pinned connection.
  */
-class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
+class Scope<G : Catalog> internal constructor(
+    private val exec: SqlExecutor,
+    /** The owning database's configuration (e.g. the default [BatchInsertMode]). */
+    internal val config: KormConfig = KormConfig(),
+) {
     private var savepointCounter = 0
 
     /**
@@ -24,8 +28,31 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
      * Inserts all [entities] in one statement. By default returns [entities] as given; pass
      * `returning = true` to fetch the stored rows back via SQL `RETURNING`.
      */
-    fun <T : Entity> Table<G, T>.insertAll(entities: List<T>, returning: Boolean = false): List<T> =
-        insertAll(entities, exec, returning)
+    fun <T : Entity> Table<G, T>.insertAll(
+        entities: List<T>,
+        returning: Boolean = false,
+        batchInsertMode: BatchInsertMode = config.batchInsertMode,
+    ): List<T> = insertAll(entities, exec, returning, batchInsertMode)
+
+    /**
+     * Insert-or-update on a single-column conflict target: inserts [entity]'s present fields,
+     * and on conflict with [onConflict] updates with [update]'s present fields. Pass
+     * `returning = true` to fetch the resulting row.
+     */
+    fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: Column<*, *, *>, update: T, returning: Boolean = false): T? =
+        upsert(entity, listOf(onConflict), update, exec, returning)
+
+    /** Insert-or-update on a composite (multi-column) conflict target; see the single-column overload. */
+    fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: List<Column<*, *, *>>, update: T, returning: Boolean = false): T? =
+        upsert(entity, onConflict, update, exec, returning)
+
+    /** Insert-or-do-nothing on a single-column conflict target; returns the affected row count (1 inserted, 0 ignored). */
+    fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: Column<*, *, *>): Long =
+        insertOrIgnore(entity, listOf(onConflict), exec)
+
+    /** Insert-or-do-nothing on a composite conflict target; see the single-column overload. */
+    fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: List<Column<*, *, *>>): Long =
+        insertOrIgnore(entity, onConflict, exec)
 
     /** Counts rows matching [query] (all rows by default). */
     fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)
@@ -133,11 +160,11 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
  * transaction (separate connection); use [Scope.savepoint] for a nested unit.
  */
 fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R =
-    usePinned(transactional = true) { Scope<G>(it).block() }
+    usePinned(transactional = true) { Scope<G>(it, config).block() }
 
 /**
  * Runs [block] on a pinned connection in autocommit (no surrounding transaction) —
  * the cheap path for reads / single statements.
  */
 fun <G : Catalog, R> Database<G>.autocommit(block: Scope<G>.() -> R): R =
-    usePinned(transactional = false) { Scope<G>(it).block() }
+    usePinned(transactional = false) { Scope<G>(it, config).block() }

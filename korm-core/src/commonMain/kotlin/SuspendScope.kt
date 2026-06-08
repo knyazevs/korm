@@ -11,7 +11,11 @@ import io.github.knyazevs.korm.resultset.ResultSet
  * the connection stays pinned. Raw SQL run through [execute] / [executeUpdate] goes to
  * the same pinned connection.
  */
-class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSqlExecutor) {
+class SuspendScope<G : Catalog> internal constructor(
+    private val exec: SuspendSqlExecutor,
+    /** The owning database's configuration (e.g. the default [BatchInsertMode]). */
+    internal val config: KormConfig = KormConfig(),
+) {
     private var savepointCounter = 0
 
     /** Inserts [entity]; see [Scope.insert]. */
@@ -19,8 +23,27 @@ class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSq
         insert(entity, exec, returning)
 
     /** Inserts all [entities] in one statement; see [Scope.insertAll]. */
-    suspend fun <T : Entity> Table<G, T>.insertAll(entities: List<T>, returning: Boolean = false): List<T> =
-        insertAll(entities, exec, returning)
+    suspend fun <T : Entity> Table<G, T>.insertAll(
+        entities: List<T>,
+        returning: Boolean = false,
+        batchInsertMode: BatchInsertMode = config.batchInsertMode,
+    ): List<T> = insertAll(entities, exec, returning, batchInsertMode)
+
+    /** Insert-or-update on a single-column conflict target; see [Scope.upsert]. */
+    suspend fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: Column<*, *, *>, update: T, returning: Boolean = false): T? =
+        upsert(entity, listOf(onConflict), update, exec, returning)
+
+    /** Insert-or-update on a composite conflict target; see [Scope.upsert]. */
+    suspend fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: List<Column<*, *, *>>, update: T, returning: Boolean = false): T? =
+        upsert(entity, onConflict, update, exec, returning)
+
+    /** Insert-or-do-nothing on a single-column conflict target; see [Scope.insertOrIgnore]. */
+    suspend fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: Column<*, *, *>): Long =
+        insertOrIgnore(entity, listOf(onConflict), exec)
+
+    /** Insert-or-do-nothing on a composite conflict target; see [Scope.insertOrIgnore]. */
+    suspend fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: List<Column<*, *, *>>): Long =
+        insertOrIgnore(entity, onConflict, exec)
 
     /** Counts rows matching [query] (all rows by default). */
     suspend fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)
@@ -121,11 +144,11 @@ class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSq
  * driver offloaded to a dispatcher depends on the backend's [SuspendDatabase.useConnection].
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendTransaction(block: suspend SuspendScope<G>.() -> R): R =
-    useConnection(transactional = true) { SuspendScope<G>(it).block() }
+    useConnection(transactional = true) { SuspendScope<G>(it, config).block() }
 
 /**
  * Runs [block] on a pinned connection in autocommit (no surrounding transaction) — the
  * suspend counterpart of [autocommit], the cheap path for reads / single statements.
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendAutocommit(block: suspend SuspendScope<G>.() -> R): R =
-    useConnection(transactional = false) { SuspendScope<G>(it).block() }
+    useConnection(transactional = false) { SuspendScope<G>(it, config).block() }

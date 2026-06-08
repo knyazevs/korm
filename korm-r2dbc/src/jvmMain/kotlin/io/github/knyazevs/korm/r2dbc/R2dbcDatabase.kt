@@ -1,6 +1,7 @@
 package io.github.knyazevs.korm.r2dbc
 
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.StandardTypeMapper
 import io.github.knyazevs.korm.SuspendSqlExecutor
@@ -28,6 +29,7 @@ class R2dbcDatabase internal constructor(
     private val pool: ConnectionPool,
     private val dialect: Dialect,
     private val typeMapper: TypeMapper,
+    override val config: KormConfig = KormConfig(),
 ) : SuspendDatabase<Nothing> {
 
     override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R {
@@ -64,6 +66,7 @@ fun createR2dbcDatabase(
     user: String,
     password: String,
     poolSize: Int = 10,
+    config: KormConfig = KormConfig(),
 ): R2dbcDatabase {
     val connectionFactory = PostgresqlConnectionFactory(
         PostgresqlConnectionConfiguration.builder()
@@ -77,5 +80,5 @@ fun createR2dbcDatabase(
     val poolConfiguration = ConnectionPoolConfiguration.builder(connectionFactory)
         .maxSize(poolSize)
         .build()
-    return R2dbcDatabase(ConnectionPool(poolConfiguration), PostgresDialect, StandardTypeMapper)
+    return R2dbcDatabase(ConnectionPool(poolConfiguration), PostgresDialect, StandardTypeMapper, config)
 }

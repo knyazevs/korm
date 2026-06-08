@@ -1,5 +1,6 @@
 package io.github.knyazevs.korm.database
 
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PostgresDriver
 
 expect fun createDatabase(
@@ -9,4 +10,5 @@ expect fun createDatabase(
     user: String,
     password: String,
     poolSize: Int = 10,
+    config: KormConfig = KormConfig(),
 ): PostgresDriver

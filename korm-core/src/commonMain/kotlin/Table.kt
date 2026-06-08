@@ -59,12 +59,6 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return hydrate(fields)
     }
 
-    private fun generateFieldToMap(dao: T): List<Pair<String, Any?>> {
-        return this.fieldDisplayName.map {
-            it.value.name to dao.fields[it.key]
-        }
-    }
-
     // Only the columns the entity actually assigned (present in its fields map),
     // so update() can tell "leave untouched" (absent) from "set to NULL" (present and null).
     private fun generatePresentFields(dao: T): List<Pair<String, Any?>> {
@@ -113,15 +107,113 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return sql to builder.params
     }
 
-    private fun insertAllSql(entities: List<T>, dialect: Dialect, typeMapper: TypeMapper, returning: Boolean): Pair<String, Map<String, Any?>> {
-        val builder = paramBuilder(dialect, typeMapper)
-        val columns = fieldDisplayName.values.joinToString(", ") { dialect.quoteIdentifier(it.name) }
-        val tuples = entities.joinToString(", ") { entity ->
-            "(${generateFieldToMap(entity).joinToString(", ") { builder.bind(it.second) }})"
+    // The present columns of [entity] (its "shape"), in table-declaration order.
+    private fun presentColumns(entity: T): List<Column<*, *, *>> =
+        fieldDisplayName.values.filter { entity.fields.containsKey(it.fieldKey) }
+
+    private class BatchGroup(val columns: List<Column<*, *, *>>, val entityIndices: List<Int>)
+
+    // Splits a batch into groups per the [BatchInsertMode]. Each group becomes one INSERT.
+    private fun batchGroups(entities: List<T>, mode: BatchInsertMode): List<BatchGroup> {
+        val shapes = entities.map { presentColumns(it) }
+        return when (mode) {
+            BatchInsertMode.Strict -> {
+                val firstKeys = shapes.first().map { it.fieldKey }
+                require(shapes.all { it.map { c -> c.fieldKey } == firstKeys }) {
+                    "insertAll(Strict) requires every entity to have the same assigned fields; " +
+                        "split the batch or use GroupByAssignedFields / UnionNulls"
+                }
+                listOf(BatchGroup(shapes.first(), entities.indices.toList()))
+            }
+            BatchInsertMode.GroupByAssignedFields -> {
+                val byShape = LinkedHashMap<List<String>, MutableList<Int>>()
+                shapes.forEachIndexed { i, cols -> byShape.getOrPut(cols.map { it.fieldKey }) { mutableListOf() }.add(i) }
+                byShape.values.map { idxs -> BatchGroup(shapes[idxs.first()], idxs) }
+            }
+            BatchInsertMode.UnionNulls -> {
+                val union = fieldDisplayName.values.filter { col -> entities.any { it.fields.containsKey(col.fieldKey) } }
+                listOf(BatchGroup(union, entities.indices.toList()))
+            }
         }
-        val base = "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES $tuples"
+    }
+
+    // One executable statement of a batch: SQL, its params, and the original input indices it
+    // covers (so RETURNING results can be scattered back into input order).
+    private class BatchStatement(val sql: String, val params: Map<String, Any?>, val indices: List<Int>)
+
+    private fun buildBatchStatements(
+        entities: List<T>,
+        mode: BatchInsertMode,
+        dialect: Dialect,
+        typeMapper: TypeMapper,
+        returning: Boolean,
+    ): List<BatchStatement> {
+        val returningSuffix = if (returning) " RETURNING ${getColumnNames(dialect).joinToString(", ")}" else ""
+        val statements = mutableListOf<BatchStatement>()
+        for (group in batchGroups(entities, mode)) {
+            if (group.columns.isEmpty()) {
+                // No assigned fields: a multi-row DEFAULT VALUES isn't valid, so emit one per row.
+                for (idx in group.entityIndices) {
+                    statements += BatchStatement(
+                        "INSERT INTO ${qualifiedTableName(dialect)} DEFAULT VALUES$returningSuffix",
+                        emptyMap(),
+                        listOf(idx),
+                    )
+                }
+            } else {
+                val builder = paramBuilder(dialect, typeMapper)
+                val colSql = group.columns.joinToString(", ") { dialect.quoteIdentifier(it.name) }
+                val tuples = group.entityIndices.joinToString(", ") { idx ->
+                    val entity = entities[idx]
+                    "(${group.columns.joinToString(", ") { col -> builder.bind(entity.fields[col.fieldKey]) }})"
+                }
+                statements += BatchStatement(
+                    "INSERT INTO ${qualifiedTableName(dialect)} ($colSql) VALUES $tuples$returningSuffix",
+                    builder.params,
+                    group.entityIndices,
+                )
+            }
+        }
+        return statements
+    }
+
+    private fun upsertSql(
+        entity: T,
+        conflict: List<Column<*, *, *>>,
+        update: T,
+        dialect: Dialect,
+        typeMapper: TypeMapper,
+        returning: Boolean,
+    ): Pair<String, Map<String, Any?>> {
+        val builder = paramBuilder(dialect, typeMapper)
+        val insertFields = generatePresentFields(entity)
+        require(insertFields.isNotEmpty()) { "upsert() needs at least one field set on the insert entity" }
+        val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
+        val values = insertFields.joinToString(", ") { builder.bind(it.second) }
+        val conflictCols = conflict.joinToString(", ") { dialect.quoteIdentifier(it.name) }
+        val updateFields = generatePresentFields(update)
+        require(updateFields.isNotEmpty()) { "upsert() needs at least one field set on the update entity" }
+        val setClause = updateFields.joinToString(", ") { "${dialect.quoteIdentifier(it.first)} = ${builder.bind(it.second)}" }
+        val base = "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values) " +
+            "ON CONFLICT ($conflictCols) DO UPDATE SET $setClause"
         val sql = if (returning) "$base RETURNING ${getColumnNames(dialect).joinToString(", ")}" else base
         return sql to builder.params
+    }
+
+    private fun insertOrIgnoreSql(
+        entity: T,
+        conflict: List<Column<*, *, *>>,
+        dialect: Dialect,
+        typeMapper: TypeMapper,
+    ): Pair<String, Map<String, Any?>> {
+        val builder = paramBuilder(dialect, typeMapper)
+        val insertFields = generatePresentFields(entity)
+        require(insertFields.isNotEmpty()) { "insertOrIgnore() needs at least one field set on the entity" }
+        val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
+        val values = insertFields.joinToString(", ") { builder.bind(it.second) }
+        val conflictCols = conflict.joinToString(", ") { dialect.quoteIdentifier(it.name) }
+        return "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values) " +
+            "ON CONFLICT ($conflictCols) DO NOTHING" to builder.params
     }
 
     private fun countSql(query: Query, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
@@ -200,14 +292,34 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
-    internal fun insertAll(entities: List<T>, exec: SqlExecutor, returning: Boolean): List<T> {
+    internal fun insertAll(entities: List<T>, exec: SqlExecutor, returning: Boolean, mode: BatchInsertMode): List<T> {
         if (entities.isEmpty()) return emptyList()
-        val (sql, params) = insertAllSql(entities, exec.dialect, exec.typeMapper, returning)
+        val statements = buildBatchStatements(entities, mode, exec.dialect, exec.typeMapper, returning)
         if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
+            for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
             return entities
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }
+        val out = arrayOfNulls<Entity>(entities.size)
+        for (s in statements) {
+            val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
+            rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+        }
+        @Suppress("UNCHECKED_CAST")
+        return out.toList() as List<T>
+    }
+
+    internal fun upsert(entity: T, conflict: List<Column<*, *, *>>, update: T, exec: SqlExecutor, returning: Boolean): T? {
+        val (sql, params) = upsertSql(entity, conflict, update, exec.dialect, exec.typeMapper, returning)
+        if (!returning) {
+            exec.executeUpdate(sql = sql, namedParameters = params)
+            return entity
+        }
+        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+    }
+
+    internal fun insertOrIgnore(entity: T, conflict: List<Column<*, *, *>>, exec: SqlExecutor): Long {
+        val (sql, params) = insertOrIgnoreSql(entity, conflict, exec.dialect, exec.typeMapper)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 
     internal fun count(query: Query, exec: SqlExecutor): Long {
@@ -253,14 +365,34 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
-    internal suspend fun insertAll(entities: List<T>, exec: SuspendSqlExecutor, returning: Boolean): List<T> {
+    internal suspend fun insertAll(entities: List<T>, exec: SuspendSqlExecutor, returning: Boolean, mode: BatchInsertMode): List<T> {
         if (entities.isEmpty()) return emptyList()
-        val (sql, params) = insertAllSql(entities, exec.dialect, exec.typeMapper, returning)
+        val statements = buildBatchStatements(entities, mode, exec.dialect, exec.typeMapper, returning)
         if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
+            for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
             return entities
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }
+        val out = arrayOfNulls<Entity>(entities.size)
+        for (s in statements) {
+            val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
+            rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+        }
+        @Suppress("UNCHECKED_CAST")
+        return out.toList() as List<T>
+    }
+
+    internal suspend fun upsert(entity: T, conflict: List<Column<*, *, *>>, update: T, exec: SuspendSqlExecutor, returning: Boolean): T? {
+        val (sql, params) = upsertSql(entity, conflict, update, exec.dialect, exec.typeMapper, returning)
+        if (!returning) {
+            exec.executeUpdate(sql = sql, namedParameters = params)
+            return entity
+        }
+        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+    }
+
+    internal suspend fun insertOrIgnore(entity: T, conflict: List<Column<*, *, *>>, exec: SuspendSqlExecutor): Long {
+        val (sql, params) = insertOrIgnoreSql(entity, conflict, exec.dialect, exec.typeMapper)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 
     internal suspend fun count(query: Query, exec: SuspendSqlExecutor): Long {

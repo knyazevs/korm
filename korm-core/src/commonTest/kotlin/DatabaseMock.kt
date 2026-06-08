@@ -1,3 +1,4 @@
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
 import io.github.knyazevs.korm.StandardDialect
@@ -11,6 +12,7 @@ class DatabaseMock: Database<Nothing>, SuspendDatabase<Nothing> {
 
     override val dialect = StandardDialect
     override val typeMapper = StandardTypeMapper
+    override var config = KormConfig()
 
     // The mock records SQL rather than pinning a real connection, so it just runs
     // the block against itself (BEGIN/COMMIT are no-ops here).

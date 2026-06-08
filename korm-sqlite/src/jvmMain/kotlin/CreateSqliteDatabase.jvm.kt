@@ -20,14 +20,15 @@ private fun sqliteJdbcUrl(path: String): String =
         "jdbc:sqlite:$path?journal_mode=WAL&foreign_keys=on&busy_timeout=5000"
     }
 
-private class SqliteJdbcDriver(path: String, poolSize: Int) : JdbcDatabase(
+private class SqliteJdbcDriver(path: String, poolSize: Int, config: KormConfig) : JdbcDatabase(
     jdbcUrl = sqliteJdbcUrl(path),
     poolSize = poolSize,
     dialect = SqliteDialect,
     typeMapper = StandardTypeMapper,
     wrap = ::SqliteResultSetWrapper,
     translate = sqliteTranslator,
+    config = config,
 ), SqliteDriver
 
-actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
-    SqliteJdbcDriver(path, poolSize)
+actual fun createSqliteDatabase(path: String, poolSize: Int, config: KormConfig): SqliteDriver =
+    SqliteJdbcDriver(path, poolSize, config)

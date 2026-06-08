@@ -1,6 +1,7 @@
 package io.github.knyazevs.korm.database
 
 import io.github.knyazevs.korm.Catalog
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.SuspendSqlExecutor
 
 /**
@@ -12,6 +13,9 @@ import io.github.knyazevs.korm.SuspendSqlExecutor
  * implements only this one.
  */
 interface SuspendDatabase<out G : Catalog> : AutoCloseable {
+    /** Per-database configuration; defaults to [KormConfig] defaults unless a backend overrides it. */
+    val config: KormConfig get() = KormConfig()
+
     /**
      * Pins one connection for the duration of [block]; the [SuspendSqlExecutor] passed
      * to it routes every statement to that connection. Wraps BEGIN/COMMIT/ROLLBACK when

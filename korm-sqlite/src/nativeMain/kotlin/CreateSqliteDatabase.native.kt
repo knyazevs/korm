@@ -31,11 +31,11 @@ import csqlite.*
 private val SQLITE_TRANSIENT: CPointer<CFunction<(COpaquePointer?) -> Unit>>? = (-1L).toCPointer()
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
-    SqliteNativeDriver(path, poolSize)
+actual fun createSqliteDatabase(path: String, poolSize: Int, config: KormConfig): SqliteDriver =
+    SqliteNativeDriver(path, poolSize, config)
 
 @OptIn(ExperimentalForeignApi::class)
-private class SqliteNativeDriver(path: String, private val poolSize: Int) : SqliteDriver, SuspendDatabase<Nothing> {
+private class SqliteNativeDriver(path: String, private val poolSize: Int, override val config: KormConfig) : SqliteDriver, SuspendDatabase<Nothing> {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }

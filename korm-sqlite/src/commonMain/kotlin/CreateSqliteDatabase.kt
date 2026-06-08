@@ -12,4 +12,8 @@ package io.github.knyazevs.korm
  *   default is 1 (everything serialised, no `database is locked`); raise it for
  *   concurrent reads (WAL permits many readers alongside one writer).
  */
-expect fun createSqliteDatabase(path: String = ":memory:", poolSize: Int = 1): SqliteDriver
+expect fun createSqliteDatabase(
+    path: String = ":memory:",
+    poolSize: Int = 1,
+    config: KormConfig = KormConfig(),
+): SqliteDriver

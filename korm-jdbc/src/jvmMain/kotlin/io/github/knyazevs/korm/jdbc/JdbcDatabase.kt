@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
@@ -52,6 +53,7 @@ open class JdbcDatabase(
     private val wrap: ResultSetWrapper,
     private val translate: SqlExceptionTranslator = StandardSqlExceptionTranslator,
     connectionInitSql: String? = null,
+    override val config: KormConfig = KormConfig(),
 ) : Database<Nothing>, SuspendDatabase<Nothing> {
 
     private val ds: HikariDataSource = HikariDataSource(HikariConfig().apply {

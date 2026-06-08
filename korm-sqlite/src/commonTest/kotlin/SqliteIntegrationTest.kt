@@ -90,6 +90,60 @@ class SqliteIntegrationTest {
         assertNull(db.autocommit { Products.findById(id) })
     }
 
+    @Test
+    fun testUpsertInsertOrIgnoreAndBatchOrder() {
+        db.transaction { Products.createTable() }
+        val id = Uuid.random()
+
+        // upsert as insert (no conflict).
+        db.transaction {
+            Products.upsert(
+                entity = Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 1; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+                update = Product().apply { qty = 2 },
+            )
+        }
+        assertEquals(1, db.autocommit { Products.findById(id) }?.qty)
+
+        // upsert again on the same id → DO UPDATE applies the patch.
+        db.transaction {
+            Products.upsert(
+                entity = Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 99; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+                update = Product().apply { qty = 2 },
+            )
+        }
+        assertEquals(2, db.autocommit { Products.findById(id) }?.qty)
+
+        // insertOrIgnore: existing id → 0 affected, new id → 1 affected.
+        assertEquals(0L, db.transaction {
+            Products.insertOrIgnore(
+                Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 5; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+            )
+        })
+        assertEquals(1L, db.transaction {
+            Products.insertOrIgnore(
+                Product().apply { this.id = Uuid.random(); price = BigDecimal.fromInt(1); qty = 5; displayName = "b"; note = null; rank = null },
+                onConflict = Products.id,
+            )
+        })
+
+        // GroupByAssignedFields batch with returning: two shapes, results keep input order.
+        val idA = Uuid.random(); val idB = Uuid.random(); val idC = Uuid.random()
+        val rows = db.transaction {
+            Products.insertAll(
+                listOf(
+                    Product().apply { this.id = idA; price = BigDecimal.fromInt(1); qty = 1; displayName = "A"; note = null; rank = null },
+                    Product().apply { this.id = idB; price = BigDecimal.fromInt(1); qty = 2; displayName = "B" }, // different shape (no note/rank)
+                    Product().apply { this.id = idC; price = BigDecimal.fromInt(1); qty = 3; displayName = "C"; note = null; rank = null },
+                ),
+                returning = true,
+            )
+        }
+        assertEquals(listOf("A", "B", "C"), rows.map { it.displayName })
+    }
+
     /** A value containing a quote round-trips intact (proves parameterization). */
     @Test
     fun testValueWithQuoteRoundTrips() {

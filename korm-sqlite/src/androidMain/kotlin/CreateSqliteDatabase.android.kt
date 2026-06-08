@@ -15,15 +15,15 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 
-actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
-    SqliteAndroidDriver(path, poolSize)
+actual fun createSqliteDatabase(path: String, poolSize: Int, config: KormConfig): SqliteDriver =
+    SqliteAndroidDriver(path, poolSize, config)
 
 // Android can't use the Kotlin/Native sqlite3 cinterop (it runs on the JVM/ART), so it
 // gets this driver on top of androidx.sqlite's bundled SQLite — which ships its own native
 // library, so it works on-device without depending on the framework's sqlite. The shape
 // mirrors the native driver: a fixed pool of connections handed out one-at-a-time via a
 // Channel that doubles as a blocking "free connection" queue.
-private class SqliteAndroidDriver(path: String, private val poolSize: Int) : SqliteDriver {
+private class SqliteAndroidDriver(path: String, private val poolSize: Int, override val config: KormConfig) : SqliteDriver {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }

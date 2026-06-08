@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import libpq.*
 import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
@@ -39,6 +40,7 @@ fun FPostgresDriver(
     user: String,
     password: String,
     poolSize: Int = 10,
+    config: KormConfig = KormConfig(),
 ): PostgresDriver = PostgresDriverImpl(
     host = host,
     port = port,
@@ -46,6 +48,7 @@ fun FPostgresDriver(
     user = user,
     password = password,
     poolSize = poolSize,
+    config = config,
 )
 
 @OptIn(ExperimentalForeignApi::class)
@@ -56,6 +59,7 @@ private class PostgresDriverImpl(
     user: String,
     password: String,
     private val poolSize: Int,
+    override val config: KormConfig,
 ) : PostgresDriver, SuspendDatabase<Nothing> {
 
     init {

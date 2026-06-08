@@ -222,6 +222,65 @@ class TableTest {
     }
 
     @Test
+    fun testStrictBatchRejectsDifferentShapes() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.insertAll(
+                    listOf(
+                        TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                        TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 2; text = "b"; nullableTest = "x" },
+                    ),
+                    batchInsertMode = BatchInsertMode.Strict,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testUnionNullsBatchUsesUnionOfColumns() {
+        db.transaction {
+            TestTable.insertAll(
+                listOf(
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 2; text = "b"; nullableTest = "x" },
+                ),
+                batchInsertMode = BatchInsertMode.UnionNulls,
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        // One statement: the union of all assigned columns, two value tuples.
+        assertTrue(sql.contains("""("id","price","position","text","nullableTest")VALUES"""), sql)
+        assertTrue(sql.contains("),("), sql)
+    }
+
+    @Test
+    fun testUpsertSql() {
+        db.transaction {
+            TestTable.upsert(
+                entity = TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                onConflict = TestTable.id,
+                update = TestEntity().apply { position = 2 },
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""ONCONFLICT("id")DOUPDATESET"position"="""), sql)
+    }
+
+    @Test
+    fun testInsertOrIgnoreSql() {
+        databaseMockObj.result = 1L
+        val n = db.transaction {
+            TestTable.insertOrIgnore(
+                TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                onConflict = TestTable.id,
+            )
+        }
+        assertEquals(1L, n)
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""ONCONFLICT("id")DONOTHING"""))
+        databaseMockObj.result = null
+    }
+
+    @Test
     fun testInsert() {
         val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)
