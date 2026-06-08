@@ -30,7 +30,15 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
     /** Counts rows matching [query] (all rows by default). */
     fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)
 
+    /** Block form of [count]: `Users.count { where { Users.deletedAt eq null } }`. */
+    fun <T : Entity> Table<G, T>.count(block: QueryBuilder.() -> Unit): Long =
+        count(QueryBuilder().apply(block).build(), exec)
+
     fun <T : Entity> Table<G, T>.find(query: Query): List<T> = select(query, exec)
+
+    /** Block form of [find]: `Users.find { where { ... }; orderBy DESC col; limit = 50 }`. */
+    fun <T : Entity> Table<G, T>.find(block: QueryBuilder.() -> Unit): List<T> =
+        select(QueryBuilder().apply(block).build(), exec)
     fun <T : Entity> Table<G, T>.findById(id: Any): T? = selectById(id, exec)
     fun <T : Entity> Table<G, T>.all(): List<T> = selectAll(exec)
     fun <T : Entity> Table<G, T>.update(query: Query, entity: T) = updateRows(query, entity, exec)

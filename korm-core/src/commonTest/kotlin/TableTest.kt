@@ -119,6 +119,59 @@ class TableTest {
     }
 
     @Test
+    fun testFindBlockDslMatchesQuery() {
+        val price = BigDecimal.fromInt(100)
+        // Block DSL: two where{} blocks AND together, ordering + limit/offset.
+        db.transaction {
+            TestTable.find {
+                where { TestTable.price eq price }
+                where { TestTable.position gtEq 1 }
+                orderBy DESC TestTable.position
+                limit = 50
+                offset = 10
+            }
+        }
+        val blockSql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        val blockParams = databaseMockObj.internalParams
+
+        // Equivalent explicit Query(...) value form.
+        db.transaction {
+            TestTable.find(
+                Query(
+                    whereExpression = (TestTable.price eq price) and (TestTable.position gtEq 1),
+                    orderBy = mapOf(TestTable.position to AscDescOrder.DESC),
+                    limit = 50u,
+                    offset = 10u,
+                )
+            )
+        }
+        // The block DSL parenthesizes AND-combined blocks; assert structure rather than
+        // exact equality, and that both forms select the same params.
+        assertTrue(blockSql.contains("""("price"=:p0)AND("position">=:p1)"""), blockSql)
+        assertTrue(blockSql.contains("""ORDERBY"position"DESC"""), blockSql)
+        assertTrue(blockSql.contains("LIMIT50"), blockSql)
+        assertTrue(blockSql.contains("OFFSET10"), blockSql)
+        assertEquals(mapOf("p0" to price.toString(), "p1" to 1), blockParams)
+    }
+
+    @Test
+    fun testEmptyFindBlockIsAllRows() {
+        db.transaction { TestTable.find { } }
+        assertFalse(databaseMockObj.internalSql.contains("WHERE"), "empty block must not emit WHERE")
+        assertTrue(databaseMockObj.internalParams.isEmpty())
+    }
+
+    @Test
+    fun testNullPredicates() {
+        db.transaction { TestTable.find(Query(TestTable.nullableTest eq null)) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNULL"""))
+        assertTrue(databaseMockObj.internalParams.isEmpty())
+
+        db.transaction { TestTable.find(Query(TestTable.nullableTest neq null)) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNOTNULL"""))
+    }
+
+    @Test
     fun testInsert() {
         val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)

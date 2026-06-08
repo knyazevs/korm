@@ -11,6 +11,7 @@ import io.github.knyazevs.korm.count
 import io.github.knyazevs.korm.createSqliteDatabase
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.gtEq
 import io.github.knyazevs.korm.innerJoin
 import io.github.knyazevs.korm.transaction
 import kotlin.test.Test
@@ -60,6 +61,18 @@ class SqliteIntegrationTest {
         // Parameterized WHERE on a typed value.
         val byQty = db.autocommit { Products.find(Query(Products.qty eq 5)) }.filter { it.id == id }
         assertEquals(1, byQty.size)
+
+        // Block DSL: where{} + orderBy + limit, and a null predicate.
+        val viaDsl = db.autocommit {
+            Products.find {
+                where { Products.qty gtEq 5 }
+                where { Products.note eq null }
+                orderBy DESC Products.qty
+                limit = 10
+            }
+        }.filter { it.id == id }
+        assertEquals(1, viaDsl.size)
+        assertEquals(1L, db.autocommit { Products.count { where { Products.id eq id } } })
 
         // Partial update: only the set field goes into SET.
         db.transaction { Products.update(Query(Products.id eq id), Product().apply { this.qty = 9 }) }
