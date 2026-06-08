@@ -4,6 +4,60 @@ All notable changes to korm are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — API redesign
+
+A breaking redesign of the core API. Korm now models runtime query/insert/update mapping
+only — schema ownership moves out to migrations / raw SQL. (Pre-1.0, so breaking changes
+bump the minor version.)
+
+### Added
+- **Read query block DSL** over `Query(...)`: `Table.find { where { … }; orderBy DESC …;
+  limit = …; offset = … }` and `Table.count { where { … } }`. Multiple `where { }` blocks
+  AND together (each parenthesized); `Query(...)` value API is unchanged.
+- **Null predicates** `column eq null` / `column neq null`, rendering `IS NULL` /
+  `IS NOT NULL` while keeping the comparison vocabulary uniform.
+- **Mutation block DSL**: `Table.update(patch) { where { … } }` and
+  `Table.deleteWhere { where { … } }`, mirroring the read DSL.
+- **`upsert(entity, onConflict, update, returning)`** and **`insertOrIgnore(entity,
+  onConflict)`** for single- and composite-column conflict targets, rendered cross-dialect
+  as `ON CONFLICT … DO UPDATE` / `DO NOTHING`.
+- **Per-database `KormConfig`** (with `batchInsertMode`), threaded through
+  `createDatabase` / `createSqliteDatabase` / `createR2dbcDatabase` and carried on the
+  `Database` / `SuspendDatabase` handle.
+- **Batch insert modes** for `insertAll`: `Strict`, `GroupByAssignedFields` (default,
+  preserves input order on `returning`) and `UnionNulls`.
+
+### Changed
+- **Type-safe column nullability + fluent column API**. Nullability is now encoded in the
+  type: `val note by Column.Text().nullable()` (entity property `String?`),
+  `val id by Column.UUID().primaryKey()` (non-null PK). `Column` splits into
+  `NotNullColumn` / `NullableColumn`; `.nullable()` and `.primaryKey()` are mutually
+  exclusive in the type system. Custom SQL name via constructor `name = …`. Removed the
+  `nullable=` / `primaryKey=` constructor params and the per-type `*Type` classes.
+- **`Table` takes the SQL table name directly** (`Table("users", ::User)`); the `schema`
+  concept and `Table.Meta` are removed (rely on the connection's search_path / migrations).
+  `Entity.fields` is now internal (with `replaceFields` / `isSet` / `unset` escape hatches);
+  user entities are just `class User : Entity()`, and `@Serializable` is no longer required
+  on them.
+- **`Scope`/`SuspendScope` `new()` / `new(List)` renamed to `insert()` / `insertAll()`.**
+- **`executeUpdate` returns the affected-row count** (`Long`) across JDBC, native libpq,
+  native/Android SQLite and r2dbc; `update()` and `deleteWhere()` propagate it (0 = no row
+  matched, for not-found / optimistic locking).
+- A single `insert` now omits absent fields (so DB defaults / generated values apply) and
+  emits `INSERT … DEFAULT VALUES` when nothing is set; an explicit `null` is still bound as
+  `NULL`.
+
+### Removed
+- **`createTable()` / `dropTable()`** (from `Scope` / `SuspendScope`), the
+  `createTableSql` / `dropTableSql` builders on `Table`, and `Dialect.sqlType` (with its
+  `PostgresDialect` / `SqliteDialect` overrides). Korm no longer owns schema DDL — create
+  schema via raw `CREATE TABLE` (`execSql` / `executeUpdate`) or a migration tool
+  (Flyway, Liquibase, …).
+
+### Fixed
+- **JDBC**: `JdbcExecutor` now closes the `PreparedStatement` after each execute (previously
+  every prepared statement leaked until the pooled connection was returned).
+
 ## [0.1.0] — first public release
 
 First release published to Maven Central (group `io.github.knyazevs.korm`), with artifacts
@@ -33,4 +87,5 @@ for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
 - Publishing moved from the retired OSSRH endpoint to the **Maven Central Portal**, driven
   by the `com.vanniktech.maven.publish` plugin.
 
+[0.2.0]: https://github.com/knyazevs/korm/releases/tag/v0.2.0
 [0.1.0]: https://github.com/knyazevs/korm/releases/tag/v0.1.0
