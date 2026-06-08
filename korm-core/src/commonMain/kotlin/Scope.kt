@@ -17,14 +17,14 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
      * path). Pass `returning = true` to fetch the stored row back via SQL `RETURNING`, e.g. to
      * read database-generated columns; then it returns that row (or null if none).
      */
-    fun <T : Entity> Table<G, T>.new(entity: T, returning: Boolean = false): T? =
+    fun <T : Entity> Table<G, T>.insert(entity: T, returning: Boolean = false): T? =
         insert(entity, exec, returning)
 
     /**
      * Inserts all [entities] in one statement. By default returns [entities] as given; pass
      * `returning = true` to fetch the stored rows back via SQL `RETURNING`.
      */
-    fun <T : Entity> Table<G, T>.new(entities: List<T>, returning: Boolean = false): List<T> =
+    fun <T : Entity> Table<G, T>.insertAll(entities: List<T>, returning: Boolean = false): List<T> =
         insertAll(entities, exec, returning)
 
     /** Counts rows matching [query] (all rows by default). */
@@ -41,8 +41,27 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
         select(QueryBuilder().apply(block).build(), exec)
     fun <T : Entity> Table<G, T>.findById(id: Any): T? = selectById(id, exec)
     fun <T : Entity> Table<G, T>.all(): List<T> = selectAll(exec)
-    fun <T : Entity> Table<G, T>.update(query: Query, entity: T) = updateRows(query, entity, exec)
-    fun <T : Entity> Table<G, T>.deleteWhere(query: Query) = deleteRows(query, exec)
+    /** Updates rows matching [query] with the present fields of [entity]; returns the affected row count. */
+    fun <T : Entity> Table<G, T>.update(query: Query, entity: T): Long = updateRows(query, entity, exec)
+
+    /**
+     * Block form of [update]: `Users.update(patch) { where { Users.id eq id } }`. Multiple
+     * `where { }` blocks AND together; an empty block updates every row. Returns the affected
+     * row count (e.g. 0 means no row matched — useful for not-found / optimistic-locking checks).
+     */
+    fun <T : Entity> Table<G, T>.update(entity: T, block: QueryBuilder.() -> Unit): Long =
+        updateRows(QueryBuilder().apply(block).build(), entity, exec)
+
+    /** Deletes rows matching [query]; returns the affected row count. */
+    fun <T : Entity> Table<G, T>.deleteWhere(query: Query): Long = deleteRows(query, exec)
+
+    /**
+     * Block form of [deleteWhere]: `Users.deleteWhere { where { Users.deletedAt neq null } }`.
+     * An empty block deletes every row. Returns the affected row count.
+     */
+    fun <T : Entity> Table<G, T>.deleteWhere(block: QueryBuilder.() -> Unit): Long =
+        deleteRows(QueryBuilder().apply(block).build(), exec)
+
     fun <T : Entity> Table<G, T>.execSql(sql: String) = runRaw(sql, exec)
 
     /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */

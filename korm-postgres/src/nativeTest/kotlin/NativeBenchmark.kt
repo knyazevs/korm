@@ -55,7 +55,7 @@ private fun runOp(db: Database<BenchCatalog>, op: Op) {
         Op.FIND_BY_ID -> db.autocommit { BenchTable.findById(benchSeedId) }
         Op.SELECT_WHERE -> db.autocommit { BenchTable.find(Query(BenchTable.name eq "seed")) }
         Op.INSERT -> db.transaction {
-            BenchTable.new(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insert(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
         }
     }
 }
@@ -80,7 +80,7 @@ class NativeBenchmark {
             BenchTable.dropTable()
             BenchTable.createTable()
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
-            BenchTable.new(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insert(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
 
         val threads = 8

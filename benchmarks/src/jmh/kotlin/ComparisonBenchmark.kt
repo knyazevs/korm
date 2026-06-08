@@ -125,7 +125,7 @@ open class ComparisonBenchmark {
             CmpTable.dropTable()
             CmpTable.createTable()
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
-            CmpTable.new(CmpRow().apply { id = seededKormId; name = "seed"; amount = KormBigDecimal.fromInt(1) })
+            CmpTable.insert(CmpRow().apply { id = seededKormId; name = "seed"; amount = KormBigDecimal.fromInt(1) })
         }
 
         exposedDs = HikariDataSource(HikariConfig().apply {
@@ -161,7 +161,7 @@ open class ComparisonBenchmark {
 
     @Benchmark
     fun kormInsert(): Any? = kormDb.transaction {
-        CmpTable.new(CmpRow().apply { id = KormUuid.random(); name = "x"; amount = KormBigDecimal.fromInt(1) })
+        CmpTable.insert(CmpRow().apply { id = KormUuid.random(); name = "x"; amount = KormBigDecimal.fromInt(1) })
     }
 
     @Benchmark

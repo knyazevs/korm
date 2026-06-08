@@ -65,7 +65,7 @@ class R2dbcIntegrationTest {
             val id = Uuid.random()
             database.suspendTransaction {
                 Widgets.createTable()
-                Widgets.new(Widget().apply {
+                Widgets.insert(Widget().apply {
                     this.id = id
                     this.name = "async-widget"
                     this.qty = 7
@@ -94,7 +94,7 @@ class R2dbcIntegrationTest {
 
             assertFailsWith<IllegalStateException> {
                 database.suspendTransaction {
-                    Widgets.new(Widget().apply {
+                    Widgets.insert(Widget().apply {
                         this.id = id
                         this.name = "doomed"
                         this.qty = 1
@@ -115,11 +115,11 @@ class R2dbcIntegrationTest {
             database.suspendTransaction { Widgets.createTable() }
             val id = Uuid.random()
             database.suspendTransaction {
-                Widgets.new(Widget().apply { this.id = id; this.name = "dup"; this.qty = 1 })
+                Widgets.insert(Widget().apply { this.id = id; this.name = "dup"; this.qty = 1 })
             }
             assertFailsWith<UniqueViolationException> {
                 database.suspendTransaction {
-                    Widgets.new(Widget().apply { this.id = id; this.name = "dup2"; this.qty = 2 })
+                    Widgets.insert(Widget().apply { this.id = id; this.name = "dup2"; this.qty = 2 })
                 }
             }
         }

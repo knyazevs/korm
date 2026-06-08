@@ -44,7 +44,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         ItDatabase.transaction {
-        ItProducts.new(ItProduct().apply {
+        ItProducts.insert(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
             this.qty = 5
@@ -85,7 +85,7 @@ class TableIntegrationTest {
         val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE it_products; --"
         ItDatabase.transaction {
-        ItProducts.new(ItProduct().apply {
+        ItProducts.insert(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(1)
             this.qty = 1
@@ -120,7 +120,7 @@ class TableIntegrationTest {
         repeat(30) { i ->
             val id = Uuid.random()
             ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(i)
                 this.qty = i
@@ -183,7 +183,7 @@ class TableIntegrationTest {
         val id = Uuid.random()
         assertFailsWith<RuntimeException> {
             ItDatabase.transaction {
-                ItProducts.new(ItProduct().apply {
+                ItProducts.insert(ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(1)
                     this.qty = 1
@@ -208,7 +208,7 @@ class TableIntegrationTest {
         val kept = Uuid.random()
         val rolled = Uuid.random()
         ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = kept
                 this.price = BigDecimal.fromInt(1)
                 this.qty = 1
@@ -218,7 +218,7 @@ class TableIntegrationTest {
             })
             runCatching {
                 savepoint {
-                    ItProducts.new(ItProduct().apply {
+                    ItProducts.insert(ItProduct().apply {
                         this.id = rolled
                         this.price = BigDecimal.fromInt(2)
                         this.qty = 2
@@ -240,7 +240,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         val returned = ItDatabase.transaction {
-            ItProducts.new(
+            ItProducts.insert(
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(7)
@@ -263,7 +263,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val ids = List(3) { Uuid.random() }
         val inserted = ItDatabase.transaction {
-            ItProducts.new(ids.mapIndexed { i, id ->
+            ItProducts.insertAll(ids.mapIndexed { i, id ->
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(i)
@@ -314,7 +314,7 @@ class TableIntegrationTest {
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         ItDatabase.transaction {
             AllTypes.createTable()
-            AllTypes.new(AllTypesEntity().apply {
+            AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
                 this.aDouble = 2.5
@@ -374,8 +374,8 @@ class TableIntegrationTest {
         ItDatabase.transaction {
             Authors.createTable()
             Books.createTable()
-            Authors.new(Author().apply { id = authorId; name = "Ada" })
-            Books.new(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
+            Authors.insert(Author().apply { id = authorId; name = "Ada" })
+            Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
 
         // A — ResultRow
@@ -410,7 +410,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val ids = List(3) { Uuid.random() }
         ItDatabase.transaction {
-            ItProducts.new(ids.mapIndexed { i, id ->
+            ItProducts.insertAll(ids.mapIndexed { i, id ->
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(10)
@@ -439,14 +439,14 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
             })
         }
         assertFailsWith<UniqueViolationException> {
             ItDatabase.transaction {
-                ItProducts.new(ItProduct().apply {
+                ItProducts.insert(ItProduct().apply {
                     this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
                     this.displayName = "dup2"; this.note = null; this.rank = null
                 })
@@ -610,6 +610,6 @@ object ItDatabase : Database<ItCatalog> {
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         driver.execute(sql, paramSource)
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         driver.executeUpdate(sql, namedParameters)
 }

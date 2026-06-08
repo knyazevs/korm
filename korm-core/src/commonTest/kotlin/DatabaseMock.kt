@@ -52,9 +52,10 @@ class DatabaseMock: Database<Nothing>, SuspendDatabase<Nothing> {
         return (result as Long?) ?: 0L
     }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long {
         internalSql = sql
         internalParams = namedParameters
+        return (result as Long?) ?: 0L
     }
 }
 

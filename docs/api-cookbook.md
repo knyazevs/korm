@@ -46,7 +46,7 @@ val user = User().apply {
 }
 
 db.transaction {
-    Users.new(user)
+    Users.insert(user)
 }
 ```
 
@@ -54,7 +54,7 @@ db.transaction {
 
 ```kotlin
 val saved: User? = db.transaction {
-    Users.new(user, returning = true)
+    Users.insert(user, returning = true)
 }
 ```
 
@@ -64,7 +64,7 @@ Use `returning = true` when the database may fill values you want to read back.
 
 ```kotlin
 val saved: List<User> = db.transaction {
-    Users.new(listOf(user1, user2, user3), returning = true)
+    Users.insertAll(listOf(user1, user2, user3), returning = true)
 }
 ```
 
@@ -179,8 +179,8 @@ This example assumes an `AuditEvents` table and `AuditEvent` entity in the same 
 
 ```kotlin
 fun Scope<App>.registerUser(user: User) {
-    Users.new(user)
-    AuditEvents.new(AuditEvent.forUser(user.id))
+    Users.insert(user)
+    AuditEvents.insert(AuditEvent.forUser(user.id))
 }
 
 db.transaction {
@@ -206,7 +206,7 @@ The same table DSL works with blocking and suspend scopes.
 ```kotlin
 try {
     db.transaction {
-        Users.new(user)
+        Users.insert(user)
     }
 } catch (e: UniqueViolationException) {
     // Return 409 Conflict or equivalent application error.

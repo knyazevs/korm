@@ -18,8 +18,8 @@ rejects `Table<CacheCatalog, *>` operations at compile time.
 
 ```kotlin
 db.transaction {           // db: Database<Main>
-    Users.new(user)        // OK: Users is Table<Main, User>
-    CacheRows.new(row)     // Compile error if CacheRows is Table<CacheCatalog, CacheRow>
+    Users.insert(user)        // OK: Users is Table<Main, User>
+    CacheRows.insert(row)     // Compile error if CacheRows is Table<CacheCatalog, CacheRow>
 }
 ```
 

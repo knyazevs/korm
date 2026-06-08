@@ -7,7 +7,7 @@ executor used by table, query and migration operations.
 
 ```kotlin
 db.transaction {
-    Users.new(user)
+    Users.insert(user)
 }
 
 val users = db.autocommit {
@@ -27,10 +27,10 @@ transaction.
 
 ```kotlin
 db.transaction {
-    Users.new(user)
+    Users.insert(user)
 
     savepoint {
-        Audit.new(entry)
+        Audit.insert(entry)
     }
 }
 ```
@@ -45,7 +45,7 @@ transaction instead of opening a second connection.
 
 ```kotlin
 fun Scope<App>.createUser(user: User) {
-    Users.new(user)
+    Users.insert(user)
 }
 
 db.transaction {
@@ -57,7 +57,7 @@ The suspend variant:
 
 ```kotlin
 suspend fun SuspendScope<App>.createUser(user: User) {
-    Users.new(user)
+    Users.insert(user)
 }
 ```
 
@@ -84,7 +84,7 @@ val db: SuspendDatabase<App> = createDatabase(
 
 suspend fun handler() {
     db.suspendTransaction {
-        Users.new(user)
+        Users.insert(user)
     }
 
     val users = db.suspendAutocommit {
@@ -117,7 +117,7 @@ val db: SuspendDatabase<App> = createR2dbcDatabase(
 )
 
 db.suspendTransaction {
-    Users.new(user, returning = true)
+    Users.insert(user, returning = true)
 }
 ```
 
@@ -151,7 +151,7 @@ Backend errors are normalized to Korm exceptions where possible.
 
 ```kotlin
 try {
-    db.transaction { Users.new(user) }
+    db.transaction { Users.insert(user) }
 } catch (e: UniqueViolationException) {
     // Duplicate key, SQLSTATE 23505 on PostgreSQL.
 }

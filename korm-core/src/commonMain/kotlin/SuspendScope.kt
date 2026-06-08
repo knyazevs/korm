@@ -14,12 +14,12 @@ import io.github.knyazevs.korm.resultset.ResultSet
 class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSqlExecutor) {
     private var savepointCounter = 0
 
-    /** Inserts [entity]; see [Scope.new]. */
-    suspend fun <T : Entity> Table<G, T>.new(entity: T, returning: Boolean = false): T? =
+    /** Inserts [entity]; see [Scope.insert]. */
+    suspend fun <T : Entity> Table<G, T>.insert(entity: T, returning: Boolean = false): T? =
         insert(entity, exec, returning)
 
-    /** Inserts all [entities] in one statement; see [Scope.new]. */
-    suspend fun <T : Entity> Table<G, T>.new(entities: List<T>, returning: Boolean = false): List<T> =
+    /** Inserts all [entities] in one statement; see [Scope.insertAll]. */
+    suspend fun <T : Entity> Table<G, T>.insertAll(entities: List<T>, returning: Boolean = false): List<T> =
         insertAll(entities, exec, returning)
 
     /** Counts rows matching [query] (all rows by default). */
@@ -36,8 +36,20 @@ class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSq
         select(QueryBuilder().apply(block).build(), exec)
     suspend fun <T : Entity> Table<G, T>.findById(id: Any): T? = selectById(id, exec)
     suspend fun <T : Entity> Table<G, T>.all(): List<T> = selectAll(exec)
-    suspend fun <T : Entity> Table<G, T>.update(query: Query, entity: T) = updateRows(query, entity, exec)
-    suspend fun <T : Entity> Table<G, T>.deleteWhere(query: Query) = deleteRows(query, exec)
+    /** Updates rows matching [query] with the present fields of [entity]; returns the affected row count. */
+    suspend fun <T : Entity> Table<G, T>.update(query: Query, entity: T): Long = updateRows(query, entity, exec)
+
+    /** Block form of [update]; see [Scope.update]. */
+    suspend fun <T : Entity> Table<G, T>.update(entity: T, block: QueryBuilder.() -> Unit): Long =
+        updateRows(QueryBuilder().apply(block).build(), entity, exec)
+
+    /** Deletes rows matching [query]; returns the affected row count. */
+    suspend fun <T : Entity> Table<G, T>.deleteWhere(query: Query): Long = deleteRows(query, exec)
+
+    /** Block form of [deleteWhere]; see [Scope.deleteWhere]. */
+    suspend fun <T : Entity> Table<G, T>.deleteWhere(block: QueryBuilder.() -> Unit): Long =
+        deleteRows(QueryBuilder().apply(block).build(), exec)
+
     suspend fun <T : Entity> Table<G, T>.execSql(sql: String) = runRaw(sql, exec)
 
     /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */

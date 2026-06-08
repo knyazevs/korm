@@ -67,7 +67,7 @@ open class KormBenchmark {
         )
         db.transaction {
             BenchTable.createTable()
-            BenchTable.new(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insert(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
     }
 
@@ -79,7 +79,7 @@ open class KormBenchmark {
 
     @Benchmark
     fun insert(): Any? = db.transaction {
-        BenchTable.new(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
+        BenchTable.insert(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
     }
 
     @Benchmark

@@ -110,7 +110,7 @@ User-facing table operations are available inside scopes:
 
 ```kotlin
 db.transaction {
-    Users.new(user)
+    Users.insert(user)
     Users.find(Query(Users.age gtEq 18))
 }
 ```

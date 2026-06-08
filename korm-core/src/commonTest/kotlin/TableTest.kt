@@ -107,7 +107,7 @@ class TableTest {
 
         // INSERT renders the custom SQL name.
         db.transaction {
-            Named.new(NamedEntity().apply {
+            Named.insert(NamedEntity().apply {
                 id = Uuid.random()
                 createdAt = kotlinx.datetime.Clock.System.now()
             })
@@ -172,6 +172,56 @@ class TableTest {
     }
 
     @Test
+    fun testInsertOmitsAbsentFields() {
+        // nullableTest is never assigned → it must not appear in the INSERT.
+        db.transaction {
+            TestTable.insert(TestEntity().apply {
+                id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "x"
+            })
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""("id","price","position","text")"""), sql)
+        assertFalse(sql.contains("nullableTest"), sql)
+    }
+
+    @Test
+    fun testInsertEmptyEntityUsesDefaultValues() {
+        db.transaction { TestTable.insert(TestEntity()) }
+        assertEquals(
+            """INSERTINTO"products"DEFAULTVALUES""",
+            remoteNewLinesAndSpaces(databaseMockObj.internalSql),
+        )
+    }
+
+    @Test
+    fun testUpdateBlockDslReturnsAffectedRows() {
+        val uuid = Uuid.random()
+        databaseMockObj.result = 1L
+        val affected = db.transaction {
+            TestTable.update(TestEntity().apply { position = 9 }) {
+                where { TestTable.id eq uuid }
+            }
+        }
+        assertEquals(1L, affected)
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""UPDATE"products"SET"position"=:p0"""), sql)
+        assertTrue(sql.contains("""WHERE"id"=:p1"""), sql)
+        databaseMockObj.result = null
+    }
+
+    @Test
+    fun testDeleteBlockDslReturnsAffectedRows() {
+        databaseMockObj.result = 2L
+        val affected = db.transaction { TestTable.deleteWhere { where { TestTable.position eq 5 } } }
+        assertEquals(2L, affected)
+        assertEquals(
+            """DELETEFROM"products"WHERE"position"=:p0""",
+            remoteNewLinesAndSpaces(databaseMockObj.internalSql),
+        )
+        databaseMockObj.result = null
+    }
+
+    @Test
     fun testInsert() {
         val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)
@@ -181,7 +231,7 @@ class TableTest {
                         ("id", "price", "position", "text", "nullableTest")
                         VALUES (:p0, :p1, :p2, :p3, :p4)"""
         db.transaction {
-            TestTable.new(TestEntity().apply {
+            TestTable.insert(TestEntity().apply {
                 this.id = uuid
                 this.price = price
                 this.position = position
@@ -209,7 +259,7 @@ class TableTest {
                         VALUES (:p0, :p1, :p2, :p3, :p4)
                         RETURNING "id", "price", "position", "text", "nullableTest""""
         db.transaction {
-            TestTable.new(
+            TestTable.insert(
                 TestEntity().apply {
                     this.id = Uuid.random()
                     this.price = BigDecimal.fromInt(1)

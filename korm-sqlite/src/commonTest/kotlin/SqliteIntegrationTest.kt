@@ -39,7 +39,7 @@ class SqliteIntegrationTest {
         val id = Uuid.random()
         db.transaction {
             Products.createTable()
-            Products.new(Product().apply {
+            Products.insert(Product().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(100)
                 this.qty = 5
@@ -74,11 +74,19 @@ class SqliteIntegrationTest {
         assertEquals(1, viaDsl.size)
         assertEquals(1L, db.autocommit { Products.count { where { Products.id eq id } } })
 
-        // Partial update: only the set field goes into SET.
-        db.transaction { Products.update(Query(Products.id eq id), Product().apply { this.qty = 9 }) }
+        // Partial update via block DSL; returns the affected row count.
+        val updated = db.transaction {
+            Products.update(Product().apply { this.qty = 9 }) { where { Products.id eq id } }
+        }
+        assertEquals(1L, updated)
         assertEquals(9, db.autocommit { Products.findById(id) }?.qty)
+        // No row matches → 0 affected.
+        assertEquals(0L, db.transaction {
+            Products.update(Product().apply { this.qty = 1 }) { where { Products.id eq Uuid.random() } }
+        })
 
-        db.transaction { Products.deleteWhere(Query(Products.id eq id)) }
+        val deleted = db.transaction { Products.deleteWhere { where { Products.id eq id } } }
+        assertEquals(1L, deleted)
         assertNull(db.autocommit { Products.findById(id) })
     }
 
@@ -89,7 +97,7 @@ class SqliteIntegrationTest {
         val tricky = "O'Brien'; DROP TABLE products; --"
         db.transaction {
             Products.createTable()
-            Products.new(Product().apply {
+            Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = tricky; this.note = null; this.rank = null
             })
@@ -109,7 +117,7 @@ class SqliteIntegrationTest {
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         db.transaction {
             AllTypes.createTable()
-            AllTypes.new(AllTypesEntity().apply {
+            AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
                 this.aDouble = 2.5
@@ -150,7 +158,7 @@ class SqliteIntegrationTest {
         val tag = "batch-${Uuid.random()}"
         db.transaction {
             Products.createTable()
-            Products.new(ids.mapIndexed { i, id ->
+            Products.insertAll(ids.mapIndexed { i, id ->
                 Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(i); this.qty = i
                     this.displayName = tag; this.note = null; this.rank = null
@@ -169,7 +177,7 @@ class SqliteIntegrationTest {
         db.transaction { Products.createTable() }
         assertFailsWith<RuntimeException> {
             db.transaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                     this.displayName = "rollback"; this.note = null; this.rank = null
                 })
@@ -185,14 +193,14 @@ class SqliteIntegrationTest {
         val id = Uuid.random()
         db.transaction {
             Products.createTable()
-            Products.new(Product().apply {
+            Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
             })
         }
         assertFailsWith<UniqueViolationException> {
             db.transaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
                     this.displayName = "dup2"; this.note = null; this.rank = null
                 })
@@ -233,8 +241,8 @@ class SqliteIntegrationTest {
         db.transaction {
             Authors.createTable()
             Books.createTable()
-            Authors.new(Author().apply { id = authorId; name = "Ada" })
-            Books.new(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
+            Authors.insert(Author().apply { id = authorId; name = "Ada" })
+            Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
 
         val rows = db.autocommit {

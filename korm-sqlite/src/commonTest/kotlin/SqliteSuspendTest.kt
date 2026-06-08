@@ -24,7 +24,7 @@ class SqliteSuspendTest {
         val id = Uuid.random()
         db.suspendTransaction {
             Products.createTable()
-            Products.new(Product().apply {
+            Products.insert(Product().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(42)
                 this.qty = 3
@@ -47,7 +47,7 @@ class SqliteSuspendTest {
 
         assertFailsWith<IllegalStateException> {
             db.suspendTransaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(1)
                     this.qty = 1

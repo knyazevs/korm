@@ -26,7 +26,7 @@ class CrudSqliteTest {
             db.migrate(listOf(Migration("001-create-users") { Users.createTable() }))
 
             db.transaction {
-                Users.new(listOf(user(1, "Alice", 30), user(2, "Bob", 25), user(3, "Carol", 41)))
+                Users.insertAll(listOf(user(1, "Alice", 30), user(2, "Bob", 25), user(3, "Carol", 41)))
             }
 
             assertEquals("Carol", db.autocommit { Users.findById(3) }?.name)

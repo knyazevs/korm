@@ -88,7 +88,7 @@ val user = User().apply {
 }
 
 db.transaction {
-    Users.new(user)
+    Users.insert(user)
 }
 
 val ada: User? = db.autocommit {

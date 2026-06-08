@@ -99,10 +99,16 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
 
     private fun insertSql(entity: T, dialect: Dialect, typeMapper: TypeMapper, returning: Boolean): Pair<String, Map<String, Any?>> {
         val builder = paramBuilder(dialect, typeMapper)
-        val generatedFields = generateFieldToMap(entity)
-        val columns = generatedFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
-        val values = generatedFields.joinToString(", ") { builder.bind(it.second) }
-        val base = "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values)"
+        // Only the present fields go into the INSERT: an absent field is omitted (so the
+        // database can apply its default / generated value), an explicit null is bound as NULL.
+        val presentFields = generatePresentFields(entity)
+        val base = if (presentFields.isEmpty()) {
+            "INSERT INTO ${qualifiedTableName(dialect)} DEFAULT VALUES"
+        } else {
+            val columns = presentFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
+            val values = presentFields.joinToString(", ") { builder.bind(it.second) }
+            "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values)"
+        }
         val sql = if (returning) "$base RETURNING ${getColumnNames(dialect).joinToString(", ")}" else base
         return sql to builder.params
     }
@@ -209,14 +215,14 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return exec.execute(sql, params) { rs -> rs.getLong(0) ?: 0L }.firstOrNull() ?: 0L
     }
 
-    internal fun updateRows(query: Query, entity: T, exec: SqlExecutor) {
+    internal fun updateRows(query: Query, entity: T, exec: SqlExecutor): Long {
         val (sql, params) = updateSql(query, entity, exec.dialect, exec.typeMapper)
-        exec.executeUpdate(sql = sql, namedParameters = params)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 
-    internal fun deleteRows(query: Query, exec: SqlExecutor) {
+    internal fun deleteRows(query: Query, exec: SqlExecutor): Long {
         val (sql, params) = deleteSql(query, exec.dialect, exec.typeMapper)
-        exec.executeUpdate(sql = sql, namedParameters = params)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 
     // ---- suspend runners (called by SuspendScope) — same *Sql helpers, suspend execution ----
@@ -262,13 +268,13 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return exec.execute(sql, params) { rs -> rs.getLong(0) ?: 0L }.firstOrNull() ?: 0L
     }
 
-    internal suspend fun updateRows(query: Query, entity: T, exec: SuspendSqlExecutor) {
+    internal suspend fun updateRows(query: Query, entity: T, exec: SuspendSqlExecutor): Long {
         val (sql, params) = updateSql(query, entity, exec.dialect, exec.typeMapper)
-        exec.executeUpdate(sql = sql, namedParameters = params)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 
-    internal suspend fun deleteRows(query: Query, exec: SuspendSqlExecutor) {
+    internal suspend fun deleteRows(query: Query, exec: SuspendSqlExecutor): Long {
         val (sql, params) = deleteSql(query, exec.dialect, exec.typeMapper)
-        exec.executeUpdate(sql = sql, namedParameters = params)
+        return exec.executeUpdate(sql = sql, namedParameters = params)
     }
 }

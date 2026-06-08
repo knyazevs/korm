@@ -122,12 +122,9 @@ private class PostgresDriverImpl(
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         withConnection { conn -> doExecute(conn, sql, paramSource).returnCount() }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
-        withConnection { conn ->
-            // Free the result even though it is discarded — PQclear used to be skipped
-            // here, leaking the PGresult for every parameterless update / DDL statement.
-            PQclear(runQuery(conn, sql, namedParameters))
-        }
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+        // returnCount() reads PQcmdTuples and PQclears the result, so nothing leaks.
+        withConnection { conn -> runQuery(conn, sql, namedParameters).returnCount() }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow + liveness check; acquireSuspending overrides the default to take
@@ -186,8 +183,8 @@ private class PostgresDriverImpl(
         override fun execute(sql: String, paramSource: SqlParameterSource) =
             doExecute(conn, sql, paramSource).returnCount()
 
-        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
-            PQclear(runQuery(conn, sql, namedParameters))
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+            runQuery(conn, sql, namedParameters).returnCount()
     }
 
     override fun close() {

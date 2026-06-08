@@ -87,9 +87,8 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         withConnection { conn -> updateOrCount(conn, sql, sourceBinder(paramSource)) }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
-    }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow; acquireSuspending overrides the default to take the Channel's
@@ -145,9 +144,8 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
         override fun execute(sql: String, paramSource: SqlParameterSource) =
             updateOrCount(conn, sql, sourceBinder(paramSource))
 
-        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
             updateOrCount(conn, sql, mapBinder(namedParameters))
-        }
     }
 
     override fun close() {

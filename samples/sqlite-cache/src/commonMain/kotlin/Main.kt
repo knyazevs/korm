@@ -59,7 +59,7 @@ class ProductRepository(
             return null
         }
         println("cache MISS $id -> populate from Postgres")
-        cache.transaction { CachedProducts.new(fromPg.toCacheRow()) }
+        cache.transaction { CachedProducts.insert(fromPg.toCacheRow()) }
         return fromPg
     }
 }
@@ -80,8 +80,8 @@ fun main() {
             pg.transaction {
                 PgProducts.dropTable()
                 PgProducts.createTable()
-                PgProducts.new(PgProduct().apply { id = 1; name = "Keyboard" })
-                PgProducts.new(PgProduct().apply { id = 2; name = "Mouse" })
+                PgProducts.insert(PgProduct().apply { id = 1; name = "Keyboard" })
+                PgProducts.insert(PgProduct().apply { id = 2; name = "Mouse" })
             }
             cache.autocommit { CachedProducts.createTable() }
 

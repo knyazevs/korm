@@ -65,12 +65,8 @@ internal class R2dbcExecutor(
     override suspend fun execute(sql: String, paramSource: SqlParameterSource): Long =
         execute(sql, paramSource.toMap())
 
-    override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Unit =
-        translating {
-            prepare(sql, namedParameters).execute().asFlow().collect { result ->
-                result.rowsUpdated.asFlow().collect { }
-            }
-        }
+    override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+        execute(sql, namedParameters)
 
     // Map r2dbc's exceptions to korm's typed ones via the same SQLSTATE helper the JDBC
     // backend uses (UniqueViolation 23505, ForeignKey 23503, ...).

@@ -71,8 +71,8 @@ Keep transaction blocks small:
 
 ```kotlin
 db.transaction {
-    Users.new(user)
-    Profiles.new(profile)
+    Users.insert(user)
+    Profiles.insert(profile)
 }
 ```
 
@@ -110,7 +110,7 @@ At application boundaries, catch Korm exceptions and map them to domain errors:
 ```kotlin
 try {
     db.transaction {
-        Users.new(user)
+        Users.insert(user)
     }
 } catch (e: UniqueViolationException) {
     throw DuplicateUserEmail()

@@ -49,7 +49,7 @@ class ShardedAccounts(private val shards: List<Database<AccountsCatalog>>) {
 
     fun put(account: Account): Int {
         val shard = shardOf(account.id!!)
-        shards[shard].transaction { Accounts.new(account) }
+        shards[shard].transaction { Accounts.insert(account) }
         return shard
     }
 
@@ -75,7 +75,7 @@ fun main() {
 
         (1..6).forEach { id ->
             val shard = accounts.put(account(id, "owner-$id"))
-            auditDb.transaction { AuditLog.new(AuditEntry().apply { this.id = id; message = "created $id on shard $shard" }) }
+            auditDb.transaction { AuditLog.insert(AuditEntry().apply { this.id = id; message = "created $id on shard $shard" }) }
         }
 
         println("rows per shard = ${accounts.countPerShard()}")     // even ids on shard 0, odd on shard 1

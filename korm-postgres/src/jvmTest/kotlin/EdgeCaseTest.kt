@@ -50,7 +50,7 @@ class EdgeCaseTest {
     fun nullableColumnsRoundTripNull() {
         val id = Uuid.random()
         ItDatabase.transaction {
-            EdgeTable.new(EdgeRow().apply { this.id = id; n = null; t = null; big = null; num = 1 })
+            EdgeTable.insert(EdgeRow().apply { this.id = id; n = null; t = null; big = null; num = 1 })
         }
         val row = ItDatabase.autocommit { EdgeTable.findById(id) }!!
         assertNull(row.n)
@@ -62,7 +62,7 @@ class EdgeCaseTest {
     @Test
     fun leftJoinMissingRightIsNull() {
         val pid = Uuid.random()
-        ItDatabase.transaction { EdgeTable.new(EdgeRow().apply { id = pid; num = 1 }) }
+        ItDatabase.transaction { EdgeTable.insert(EdgeRow().apply { id = pid; num = 1 }) }
         val rows = ItDatabase.autocommit {
             (EdgeTable leftJoin EdgeChild on (EdgeTable.id eq EdgeChild.parentId))
                 .where(EdgeTable.id eq pid)
@@ -95,14 +95,14 @@ class EdgeCaseTest {
     fun valueWithSpecialCharactersRoundTrips() {
         val id = Uuid.random()
         val tricky = "a'b\"c\\d\neé\t--; DROP TABLE edge; --"
-        ItDatabase.transaction { EdgeTable.new(EdgeRow().apply { this.id = id; t = tricky; num = 1 }) }
+        ItDatabase.transaction { EdgeTable.insert(EdgeRow().apply { this.id = id; t = tricky; num = 1 }) }
         assertEquals(tricky, ItDatabase.autocommit { EdgeTable.findById(id) }?.t)
     }
 
     @Test
     fun boundaryIntegerValuesRoundTrip() {
         val id = Uuid.random()
-        ItDatabase.transaction { EdgeTable.new(EdgeRow().apply { this.id = id; n = Int.MIN_VALUE; num = Int.MAX_VALUE }) }
+        ItDatabase.transaction { EdgeTable.insert(EdgeRow().apply { this.id = id; n = Int.MIN_VALUE; num = Int.MAX_VALUE }) }
         val row = ItDatabase.autocommit { EdgeTable.findById(id) }!!
         assertEquals(Int.MIN_VALUE, row.n)
         assertEquals(Int.MAX_VALUE, row.num)
@@ -118,7 +118,7 @@ class EdgeCaseTest {
 
     @Test
     fun batchInsertEmptyListIsNoOp() {
-        val inserted = ItDatabase.transaction { EdgeTable.new(emptyList<EdgeRow>()) }
+        val inserted = ItDatabase.transaction { EdgeTable.insertAll(emptyList<EdgeRow>()) }
         assertTrue(inserted.isEmpty())
     }
 
@@ -128,12 +128,12 @@ class EdgeCaseTest {
         val mid = Uuid.random()
         val inner = Uuid.random()
         ItDatabase.transaction {
-            EdgeTable.new(EdgeRow().apply { id = keep; num = 1 })
+            EdgeTable.insert(EdgeRow().apply { id = keep; num = 1 })
             runCatching {
                 savepoint {
-                    EdgeTable.new(EdgeRow().apply { id = mid; num = 2 })
+                    EdgeTable.insert(EdgeRow().apply { id = mid; num = 2 })
                     savepoint {
-                        EdgeTable.new(EdgeRow().apply { id = inner; num = 3 })
+                        EdgeTable.insert(EdgeRow().apply { id = inner; num = 3 })
                         throw RuntimeException("boom")
                     }
                 }
@@ -147,7 +147,7 @@ class EdgeCaseTest {
     @Test
     fun reservedWordColumnNameRoundTrips() {
         val id = Uuid.random()
-        ItDatabase.transaction { Reserved.new(ReservedRow().apply { this.id = id; order = 7 }) }
+        ItDatabase.transaction { Reserved.insert(ReservedRow().apply { this.id = id; order = 7 }) }
         assertEquals(7, ItDatabase.autocommit { Reserved.findById(id) }?.order)
     }
 }

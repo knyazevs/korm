@@ -41,7 +41,7 @@ fun Application.module() {
 
         post("/users") {
             val saved = call.transaction(database) {
-                Users.new(user, returning = true)
+                Users.insert(user, returning = true)
             }
             call.respond(HttpStatusCode.Created, saved)
         }
@@ -124,7 +124,7 @@ register databases with named qualifiers and resolve with the matching qualifier
 single<SuspendDatabase<App>>(named("app")) { createDatabase(/* ... */) }
 
 call.transaction(App, named("app")) {
-    Users.new(user)
+    Users.insert(user)
 }
 ```
 

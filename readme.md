@@ -122,7 +122,7 @@ module details.
 ```kotlin
 db.transaction {
     Users.createTable()
-    Users.new(User().apply {
+    Users.insert(User().apply {
         id = Uuid.random()
         name = "Ada"
         age = 36

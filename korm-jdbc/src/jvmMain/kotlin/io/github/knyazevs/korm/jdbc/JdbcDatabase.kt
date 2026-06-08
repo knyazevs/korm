@@ -87,7 +87,7 @@ open class JdbcDatabase(
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         ds.connection.use { executor(it).execute(sql, paramSource) }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         ds.connection.use { executor(it).executeUpdate(sql, namedParameters) }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
@@ -181,14 +181,13 @@ class JdbcExecutor(
         }
     }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         translateSql {
             NamedParamStatement(conn, sql).use { statement ->
                 for ((key, value) in namedParameters) statement.setAny(key, value)
-                statement.executeUpdate()
+                statement.executeUpdate().toLong()
             }
         }
-    }
 }
 
 /**

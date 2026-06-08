@@ -34,7 +34,7 @@ class SqliteCacheTest {
                     pgDb.transaction {
                         PgProducts.dropTable()
                         PgProducts.createTable()
-                        PgProducts.new(PgProduct().apply { id = 1; name = "Keyboard" })
+                        PgProducts.insert(PgProduct().apply { id = 1; name = "Keyboard" })
                     }
                     cache.autocommit { CachedProducts.createTable() }
 

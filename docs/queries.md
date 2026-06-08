@@ -64,14 +64,14 @@ Users.find(
 ## Insert, Returning and Count
 
 ```kotlin
-db.transaction { Users.new(user) }
+db.transaction { Users.insert(user) }
 
 val saved: User? = db.transaction {
-    Users.new(user, returning = true)
+    Users.insert(user, returning = true)
 }
 
 val savedAll: List<User> = db.transaction {
-    Users.new(listOf(user1, user2), returning = true)
+    Users.insertAll(listOf(user1, user2), returning = true)
 }
 
 val total: Long = db.autocommit {
