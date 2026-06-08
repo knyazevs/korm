@@ -28,14 +28,14 @@ import kotlin.uuid.Uuid
 
 object Bench : Catalog
 
-class BenchRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class BenchRow : Entity() {
     var id by BenchTable.id
     var name by BenchTable.name
     var amount by BenchTable.amount
 }
 
-object BenchTable : Table<Bench, BenchRow>(Table.Meta("bench"), ::BenchRow) {
-    val id by Column.UUID(primaryKey = true)
+object BenchTable : Table<Bench, BenchRow>("bench", ::BenchRow) {
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val amount by Column.BigDecimal()
 
@@ -66,8 +66,8 @@ open class KormBenchmark {
             poolSize = 8,
         )
         db.transaction {
-            BenchTable.createTable()
-            BenchTable.new(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
+            BenchTable.execSql(benchDdl)
+            BenchTable.insert(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
     }
 
@@ -79,7 +79,7 @@ open class KormBenchmark {
 
     @Benchmark
     fun insert(): Any? = db.transaction {
-        BenchTable.new(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
+        BenchTable.insert(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
     }
 
     @Benchmark
@@ -88,3 +88,5 @@ open class KormBenchmark {
     @Benchmark
     fun selectWhere(): Any? = db.autocommit { BenchTable.find(Query(BenchTable.name eq "seed")) }
 }
+
+private val benchDdl = """CREATE TABLE IF NOT EXISTS "bench" ("id" uuid NOT NULL, "name" text NOT NULL, "amount" numeric NOT NULL, PRIMARY KEY ("id"))"""

@@ -64,8 +64,8 @@ class R2dbcIntegrationTest {
         runBlocking {
             val id = Uuid.random()
             database.suspendTransaction {
-                Widgets.createTable()
-                Widgets.new(Widget().apply {
+                Widgets.execSql(widgetsDdl)
+                Widgets.insert(Widget().apply {
                     this.id = id
                     this.name = "async-widget"
                     this.qty = 7
@@ -89,12 +89,12 @@ class R2dbcIntegrationTest {
         if (!dockerAvailable) return
         val database = db!!
         runBlocking {
-            database.suspendTransaction { Widgets.createTable() }
+            database.suspendTransaction { Widgets.execSql(widgetsDdl) }
             val id = Uuid.random()
 
             assertFailsWith<IllegalStateException> {
                 database.suspendTransaction {
-                    Widgets.new(Widget().apply {
+                    Widgets.insert(Widget().apply {
                         this.id = id
                         this.name = "doomed"
                         this.qty = 1
@@ -112,14 +112,14 @@ class R2dbcIntegrationTest {
         if (!dockerAvailable) return
         val database = db!!
         runBlocking {
-            database.suspendTransaction { Widgets.createTable() }
+            database.suspendTransaction { Widgets.execSql(widgetsDdl) }
             val id = Uuid.random()
             database.suspendTransaction {
-                Widgets.new(Widget().apply { this.id = id; this.name = "dup"; this.qty = 1 })
+                Widgets.insert(Widget().apply { this.id = id; this.name = "dup"; this.qty = 1 })
             }
             assertFailsWith<UniqueViolationException> {
                 database.suspendTransaction {
-                    Widgets.new(Widget().apply { this.id = id; this.name = "dup2"; this.qty = 2 })
+                    Widgets.insert(Widget().apply { this.id = id; this.name = "dup2"; this.qty = 2 })
                 }
             }
         }
@@ -128,16 +128,18 @@ class R2dbcIntegrationTest {
 
 object R2Catalog : Catalog
 
-class Widget(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Widget : Entity() {
     var id by Widgets.id
     var name by Widgets.name
     var qty by Widgets.qty
 }
 
-object Widgets : Table<R2Catalog, Widget>(Table.Meta("widgets"), ::Widget) {
-    val id by Column.UUID(primaryKey = true)
+object Widgets : Table<R2Catalog, Widget>("widgets", ::Widget) {
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val qty by Column.Int()
 
     init { id; name; qty }
 }
+
+private val widgetsDdl = """CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid NOT NULL, "name" text NOT NULL, "qty" integer NOT NULL, PRIMARY KEY ("id"))"""

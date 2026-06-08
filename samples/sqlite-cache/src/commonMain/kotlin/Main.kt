@@ -19,26 +19,22 @@ object CacheCatalog : Catalog
 /** The platform-agnostic domain object the app actually works with. */
 data class Product(val id: Int, val name: String)
 
-object PgProducts : Table<PgCatalog, PgProduct>(Meta("products"), ::PgProduct) {
-    val id by Column.Int(primaryKey = true)
+object PgProducts : Table<PgCatalog, PgProduct>("products", ::PgProduct) {
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
-
-    init { id; name }
 }
 
-object CachedProducts : Table<CacheCatalog, CacheProduct>(Meta("products"), ::CacheProduct) {
-    val id by Column.Int(primaryKey = true)
+object CachedProducts : Table<CacheCatalog, CacheProduct>("products", ::CacheProduct) {
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
-
-    init { id; name }
 }
 
-class PgProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class PgProduct : Entity() {
     var id by PgProducts.id
     var name by PgProducts.name
 }
 
-class CacheProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CacheProduct : Entity() {
     var id by CachedProducts.id
     var name by CachedProducts.name
 }
@@ -63,7 +59,7 @@ class ProductRepository(
             return null
         }
         println("cache MISS $id -> populate from Postgres")
-        cache.transaction { CachedProducts.new(fromPg.toCacheRow()) }
+        cache.transaction { CachedProducts.insert(fromPg.toCacheRow()) }
         return fromPg
     }
 }
@@ -82,12 +78,12 @@ fun main() {
         cache.use {
             // Seed Postgres (the source of truth).
             pg.transaction {
-                PgProducts.dropTable()
-                PgProducts.createTable()
-                PgProducts.new(PgProduct().apply { id = 1; name = "Keyboard" })
-                PgProducts.new(PgProduct().apply { id = 2; name = "Mouse" })
+                PgProducts.execSql("DROP TABLE IF EXISTS \"products\"")
+                PgProducts.execSql(pgProductsDdl)
+                PgProducts.insert(PgProduct().apply { id = 1; name = "Keyboard" })
+                PgProducts.insert(PgProduct().apply { id = 2; name = "Mouse" })
             }
-            cache.autocommit { CachedProducts.createTable() }
+            cache.autocommit { CachedProducts.execSql(cachedProductsDdl) }
 
             val repo = ProductRepository(pg, cache)
             println("get(1) = ${repo.get(1)?.name}") // MISS -> populate
@@ -97,3 +93,7 @@ fun main() {
         }
     }
 }
+
+// Schema owned by the app, not Korm. PgProducts is Postgres; CachedProducts is SQLite.
+internal val pgProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" integer NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))"""
+internal val cachedProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))"""

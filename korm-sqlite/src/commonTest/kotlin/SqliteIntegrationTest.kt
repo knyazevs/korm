@@ -11,6 +11,7 @@ import io.github.knyazevs.korm.count
 import io.github.knyazevs.korm.createSqliteDatabase
 import io.github.knyazevs.korm.database.Database
 import io.github.knyazevs.korm.eq
+import io.github.knyazevs.korm.gtEq
 import io.github.knyazevs.korm.innerJoin
 import io.github.knyazevs.korm.transaction
 import kotlin.test.Test
@@ -23,9 +24,8 @@ import kotlin.uuid.Uuid
  * End-to-end tests for the SQLite backend. They run on every target (JVM via
  * sqlite-jdbc, Native via the sqlite3 cinterop driver) against a shared in-memory
  * database, so no external server / Docker is needed. The schema is created through
- * [Table.createTable], which exercises [io.github.knyazevs.korm.SqliteDialect]'s
- * type mapping; the all-types round-trip is the key check that SQLite's text storage
- * and the verbatim temporal parsing line up.
+ * raw DDL (Korm does not own schema management); the all-types round-trip is the key
+ * check that SQLite's text storage and the verbatim temporal parsing line up.
  */
 class SqliteIntegrationTest {
 
@@ -37,8 +37,8 @@ class SqliteIntegrationTest {
     fun testInsertFindUpdateDeleteRoundTrip() {
         val id = Uuid.random()
         db.transaction {
-            Products.createTable()
-            Products.new(Product().apply {
+            Products.execSql(productsDdl)
+            Products.insert(Product().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(100)
                 this.qty = 5
@@ -61,12 +61,86 @@ class SqliteIntegrationTest {
         val byQty = db.autocommit { Products.find(Query(Products.qty eq 5)) }.filter { it.id == id }
         assertEquals(1, byQty.size)
 
-        // Partial update: only the set field goes into SET.
-        db.transaction { Products.update(Query(Products.id eq id), Product().apply { this.qty = 9 }) }
-        assertEquals(9, db.autocommit { Products.findById(id) }?.qty)
+        // Block DSL: where{} + orderBy + limit, and a null predicate.
+        val viaDsl = db.autocommit {
+            Products.find {
+                where { Products.qty gtEq 5 }
+                where { Products.note eq null }
+                orderBy DESC Products.qty
+                limit = 10
+            }
+        }.filter { it.id == id }
+        assertEquals(1, viaDsl.size)
+        assertEquals(1L, db.autocommit { Products.count { where { Products.id eq id } } })
 
-        db.transaction { Products.deleteWhere(Query(Products.id eq id)) }
+        // Partial update via block DSL; returns the affected row count.
+        val updated = db.transaction {
+            Products.update(Product().apply { this.qty = 9 }) { where { Products.id eq id } }
+        }
+        assertEquals(1L, updated)
+        assertEquals(9, db.autocommit { Products.findById(id) }?.qty)
+        // No row matches → 0 affected.
+        assertEquals(0L, db.transaction {
+            Products.update(Product().apply { this.qty = 1 }) { where { Products.id eq Uuid.random() } }
+        })
+
+        val deleted = db.transaction { Products.deleteWhere { where { Products.id eq id } } }
+        assertEquals(1L, deleted)
         assertNull(db.autocommit { Products.findById(id) })
+    }
+
+    @Test
+    fun testUpsertInsertOrIgnoreAndBatchOrder() {
+        db.transaction { Products.execSql(productsDdl) }
+        val id = Uuid.random()
+
+        // upsert as insert (no conflict).
+        db.transaction {
+            Products.upsert(
+                entity = Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 1; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+                update = Product().apply { qty = 2 },
+            )
+        }
+        assertEquals(1, db.autocommit { Products.findById(id) }?.qty)
+
+        // upsert again on the same id → DO UPDATE applies the patch.
+        db.transaction {
+            Products.upsert(
+                entity = Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 99; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+                update = Product().apply { qty = 2 },
+            )
+        }
+        assertEquals(2, db.autocommit { Products.findById(id) }?.qty)
+
+        // insertOrIgnore: existing id → 0 affected, new id → 1 affected.
+        assertEquals(0L, db.transaction {
+            Products.insertOrIgnore(
+                Product().apply { this.id = id; price = BigDecimal.fromInt(1); qty = 5; displayName = "a"; note = null; rank = null },
+                onConflict = Products.id,
+            )
+        })
+        assertEquals(1L, db.transaction {
+            Products.insertOrIgnore(
+                Product().apply { this.id = Uuid.random(); price = BigDecimal.fromInt(1); qty = 5; displayName = "b"; note = null; rank = null },
+                onConflict = Products.id,
+            )
+        })
+
+        // GroupByAssignedFields batch with returning: two shapes, results keep input order.
+        val idA = Uuid.random(); val idB = Uuid.random(); val idC = Uuid.random()
+        val rows = db.transaction {
+            Products.insertAll(
+                listOf(
+                    Product().apply { this.id = idA; price = BigDecimal.fromInt(1); qty = 1; displayName = "A"; note = null; rank = null },
+                    Product().apply { this.id = idB; price = BigDecimal.fromInt(1); qty = 2; displayName = "B" }, // different shape (no note/rank)
+                    Product().apply { this.id = idC; price = BigDecimal.fromInt(1); qty = 3; displayName = "C"; note = null; rank = null },
+                ),
+                returning = true,
+            )
+        }
+        assertEquals(listOf("A", "B", "C"), rows.map { it.displayName })
     }
 
     /** A value containing a quote round-trips intact (proves parameterization). */
@@ -75,8 +149,8 @@ class SqliteIntegrationTest {
         val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE products; --"
         db.transaction {
-            Products.createTable()
-            Products.new(Product().apply {
+            Products.execSql(productsDdl)
+            Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = tricky; this.note = null; this.rank = null
             })
@@ -95,8 +169,8 @@ class SqliteIntegrationTest {
         val time = kotlinx.datetime.LocalTime.parse("03:04:05")
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         db.transaction {
-            AllTypes.createTable()
-            AllTypes.new(AllTypesEntity().apply {
+            AllTypes.execSql(allTypesDdl)
+            AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
                 this.aDouble = 2.5
@@ -136,8 +210,8 @@ class SqliteIntegrationTest {
         val ids = List(3) { Uuid.random() }
         val tag = "batch-${Uuid.random()}"
         db.transaction {
-            Products.createTable()
-            Products.new(ids.mapIndexed { i, id ->
+            Products.execSql(productsDdl)
+            Products.insertAll(ids.mapIndexed { i, id ->
                 Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(i); this.qty = i
                     this.displayName = tag; this.note = null; this.rank = null
@@ -153,10 +227,10 @@ class SqliteIntegrationTest {
     @Test
     fun testTransactionRollsBackOnException() {
         val id = Uuid.random()
-        db.transaction { Products.createTable() }
+        db.transaction { Products.execSql(productsDdl) }
         assertFailsWith<RuntimeException> {
             db.transaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                     this.displayName = "rollback"; this.note = null; this.rank = null
                 })
@@ -171,15 +245,15 @@ class SqliteIntegrationTest {
     fun testUniqueViolationIsTyped() {
         val id = Uuid.random()
         db.transaction {
-            Products.createTable()
-            Products.new(Product().apply {
+            Products.execSql(productsDdl)
+            Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
             })
         }
         assertFailsWith<UniqueViolationException> {
             db.transaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
                     this.displayName = "dup2"; this.note = null; this.rank = null
                 })
@@ -191,7 +265,7 @@ class SqliteIntegrationTest {
     /**
      * A foreign-key violation surfaces as a typed ForeignKeyViolationException —
      * proving the `foreign_keys=ON` pragma is applied (SQLite defaults it OFF).
-     * The FK constraint is created via raw DDL since createTable() emits only PKs.
+     * The FK constraint is created via raw DDL.
      */
     @Test
     fun testForeignKeyViolationIsTyped() {
@@ -218,10 +292,10 @@ class SqliteIntegrationTest {
         val authorId = Uuid.random()
         val bookId = Uuid.random()
         db.transaction {
-            Authors.createTable()
-            Books.createTable()
-            Authors.new(Author().apply { id = authorId; name = "Ada" })
-            Books.new(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
+            Authors.insert(Author().apply { id = authorId; name = "Ada" })
+            Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
 
         val rows = db.autocommit {
@@ -243,7 +317,7 @@ class SqliteIntegrationTest {
 
 object SqCatalog : Catalog
 
-class Product(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Product : Entity() {
     var id by Products.id
     var price by Products.price
     var qty by Products.qty
@@ -252,44 +326,44 @@ class Product(override var fields: MutableMap<String, Any?> = mutableMapOf()) : 
     var rank by Products.rank
 }
 
-object Products : Table<SqCatalog, Product>(Table.Meta("products"), ::Product) {
-    val id by Column.UUID(primaryKey = true)
+object Products : Table<SqCatalog, Product>("products", ::Product) {
+    val id by Column.UUID().primaryKey()
     val price by Column.BigDecimal()
     val qty by Column.Int()
     val displayName by Column.Text()
-    val note by Column.Text(true)
-    val rank by Column.Int(true)
+    val note by Column.Text().nullable()
+    val rank by Column.Int().nullable()
 
     init { id; price; qty; displayName; note; rank }
 }
 
-class Author(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Author : Entity() {
     var id by Authors.id
     var name by Authors.name
 }
 
-object Authors : Table<SqCatalog, Author>(Table.Meta("authors"), ::Author) {
-    val id by Column.UUID(primaryKey = true)
+object Authors : Table<SqCatalog, Author>("authors", ::Author) {
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
 
     init { id; name }
 }
 
-class Book(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Book : Entity() {
     var id by Books.id
     var authorId by Books.authorId
     var title by Books.title
 }
 
-object Books : Table<SqCatalog, Book>(Table.Meta("books"), ::Book) {
-    val id by Column.UUID(primaryKey = true)
+object Books : Table<SqCatalog, Book>("books", ::Book) {
+    val id by Column.UUID().primaryKey()
     val authorId by Column.UUID()
     val title by Column.Text()
 
     init { id; authorId; title }
 }
 
-class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class AllTypesEntity : Entity() {
     var id by AllTypes.id
     var anInt by AllTypes.anInt
     var aDouble by AllTypes.aDouble
@@ -306,8 +380,8 @@ class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapO
     var aDateTime by AllTypes.aDateTime
 }
 
-object AllTypes : Table<SqCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
-    val id by Column.UUID(primaryKey = true)
+object AllTypes : Table<SqCatalog, AllTypesEntity>("all_types", ::AllTypesEntity) {
+    val id by Column.UUID().primaryKey()
     val anInt by Column.Int()
     val aDouble by Column.Double()
     val aBool by Column.Boolean()
@@ -327,3 +401,10 @@ object AllTypes : Table<SqCatalog, AllTypesEntity>(Table.Meta("all_types"), ::Al
         aLong; aFloat; aShort; aDate; aTime; aDateTime
     }
 }
+
+// ---- Raw schema DDL for tests (Korm no longer owns createTable). SQLite type affinity:
+// INTEGER / REAL / TEXT; non-native values (UUID, decimal, json, temporals) live as TEXT. ----
+internal val productsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" TEXT NOT NULL, "price" TEXT NOT NULL, "qty" INTEGER NOT NULL, "displayName" TEXT NOT NULL, "note" TEXT, "rank" INTEGER, PRIMARY KEY ("id"))"""
+internal val authorsDdl = """CREATE TABLE IF NOT EXISTS "authors" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))"""
+internal val booksDdl = """CREATE TABLE IF NOT EXISTS "books" ("id" TEXT NOT NULL, "authorId" TEXT NOT NULL, "title" TEXT NOT NULL, PRIMARY KEY ("id"))"""
+internal val allTypesDdl = """CREATE TABLE IF NOT EXISTS "all_types" ("id" TEXT NOT NULL, "anInt" INTEGER NOT NULL, "aDouble" REAL NOT NULL, "aBool" INTEGER NOT NULL, "aText" TEXT NOT NULL, "aDecimal" TEXT NOT NULL, "anInstant" TEXT NOT NULL, "aJson" TEXT NOT NULL, "aLong" INTEGER NOT NULL, "aFloat" REAL NOT NULL, "aShort" INTEGER NOT NULL, "aDate" TEXT NOT NULL, "aTime" TEXT NOT NULL, "aDateTime" TEXT NOT NULL, PRIMARY KEY ("id"))"""

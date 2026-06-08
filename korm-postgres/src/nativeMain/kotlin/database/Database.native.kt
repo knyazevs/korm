@@ -1,5 +1,7 @@
 package io.github.knyazevs.korm.database
 
+import io.github.knyazevs.korm.KormConfig
+
 actual fun createDatabase(
     host: String,
     port: Int,
@@ -7,4 +9,5 @@ actual fun createDatabase(
     user: String,
     password: String,
     poolSize: Int,
-) = io.github.moreirasantos.pgkn.FPostgresDriver(host, port, database, user, password, poolSize)
+    config: KormConfig,
+) = io.github.moreirasantos.pgkn.FPostgresDriver(host, port, database, user, password, poolSize, config)

@@ -15,18 +15,27 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 
-actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
-    SqliteAndroidDriver(path, poolSize)
+actual fun createSqliteDatabase(path: String, poolSize: Int, config: KormConfig): SqliteDriver =
+    SqliteAndroidDriver(path, poolSize, config)
 
 // Android can't use the Kotlin/Native sqlite3 cinterop (it runs on the JVM/ART), so it
 // gets this driver on top of androidx.sqlite's bundled SQLite — which ships its own native
 // library, so it works on-device without depending on the framework's sqlite. The shape
 // mirrors the native driver: a fixed pool of connections handed out one-at-a-time via a
 // Channel that doubles as a blocking "free connection" queue.
-private class SqliteAndroidDriver(path: String, private val poolSize: Int) : SqliteDriver {
+private class SqliteAndroidDriver(path: String, private val poolSize: Int, override val config: KormConfig) : SqliteDriver {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
+        // androidx.sqlite opens `:memory:` private per connection (no shared-cache URI),
+        // unlike the JVM/native targets where a pooled `:memory:` is shared. Reject a larger
+        // pool here instead of silently giving each caller its own empty database; use a file
+        // path for a shared pooled database, or keep poolSize = 1 for in-memory.
+        require(path != ":memory:" || poolSize == 1) {
+            "Android :memory: databases are private per connection; use poolSize = 1 " +
+                "(a larger pool would give each caller a separate empty database). " +
+                "Use a file path for a shared pooled database."
+        }
     }
 
     override val dialect: Dialect = SqliteDialect
@@ -35,9 +44,8 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int) : Sql
     private val isMemory = path == ":memory:"
     private val driver = BundledSQLiteDriver()
 
-    // NOTE: a `:memory:` database is private to its connection here (no shared-cache URI),
-    // so for an in-memory database use the default poolSize = 1 — a pool of >1 would give
-    // each caller its own empty database. File-backed databases pool freely (WAL below).
+    // A `:memory:` database is private to its connection here (poolSize is forced to 1 above);
+    // file-backed databases pool freely (WAL below).
     private val connections: List<SQLiteConnection> = List(poolSize) {
         driver.open(path).also { initPragmas(it, file = !isMemory) }
     }
@@ -73,24 +81,45 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int) : Sql
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         withConnection { conn -> updateOrCount(conn, sql, sourceBinder(paramSource)) }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
+
+    // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
+    // withConnection's borrow; acquireSuspending overrides the default to take the Channel's
+    // natural suspend path (pool.receive()) instead of offloading a blocking borrow.
+    private val connectionPool = object : ConnectionPool {
+        override fun acquire(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                runBlocking { pool.receive() }
+            } catch (_: ClosedReceiveChannelException) {
+                throw QueryException("SQLite connection pool is closed")
+            }
+            return SqlitePinnedConnection(connection)
+        }
+
+        override suspend fun acquireSuspending(): PinnedConnection {
+            val connection = pool.tryReceive().getOrNull() ?: try {
+                pool.receive()
+            } catch (_: ClosedReceiveChannelException) {
+                throw QueryException("SQLite connection pool is closed")
+            }
+            return SqlitePinnedConnection(connection)
+        }
+    }
+
+    private inner class SqlitePinnedConnection(private val conn: SQLiteConnection) : PinnedConnection {
+        override val executor: SqlExecutor = AndroidExecutor(conn)
+        override fun begin() { rawExec(conn, "BEGIN") }
+        override fun commit() { rawExec(conn, "COMMIT") }
+        override fun rollback() { rawExec(conn, "ROLLBACK") }
+        override fun release() { pool.trySend(conn) }
     }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
-        withConnection { conn ->
-            val executor = AndroidExecutor(conn)
-            if (!transactional) return@withConnection block(executor)
-            rawExec(conn, "BEGIN")
-            try {
-                val result = block(executor)
-                rawExec(conn, "COMMIT")
-                result
-            } catch (e: Throwable) {
-                runCatching { rawExec(conn, "ROLLBACK") }
-                throw e
-            }
-        }
+        connectionPool.runPinned(transactional, block)
+
+    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R =
+        connectionPool.runConnection(transactional, block)
 
     // An SqlExecutor bound to the pinned connection for the duration of usePinned.
     private inner class AndroidExecutor(private val conn: SQLiteConnection) : SqlExecutor {
@@ -109,9 +138,8 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int) : Sql
         override fun execute(sql: String, paramSource: SqlParameterSource) =
             updateOrCount(conn, sql, sourceBinder(paramSource))
 
-        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
             updateOrCount(conn, sql, mapBinder(namedParameters))
-        }
     }
 
     override fun close() {
@@ -144,7 +172,10 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int) : Sql
         getValue: (String) -> Any?,
     ) {
         fields.forEachIndexed { index, name ->
-            if (!hasValue(name)) return@forEachIndexed // unbound placeholders default to NULL
+            // An unbound placeholder defaults to NULL; a missing key is a typo, not an
+            // explicit null, so reject it to fail fast like the JDBC path. Explicit `null`
+            // values are still bound (hasValue is true, getValue returns null) below.
+            require(hasValue(name)) { "No value supplied for parameter \"$name\"" }
             bindValue(stmt, index + 1, getValue(name))
         }
     }

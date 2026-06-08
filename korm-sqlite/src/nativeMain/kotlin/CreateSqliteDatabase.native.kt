@@ -31,11 +31,11 @@ import csqlite.*
 private val SQLITE_TRANSIENT: CPointer<CFunction<(COpaquePointer?) -> Unit>>? = (-1L).toCPointer()
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun createSqliteDatabase(path: String, poolSize: Int): SqliteDriver =
-    SqliteNativeDriver(path, poolSize)
+actual fun createSqliteDatabase(path: String, poolSize: Int, config: KormConfig): SqliteDriver =
+    SqliteNativeDriver(path, poolSize, config)
 
 @OptIn(ExperimentalForeignApi::class)
-private class SqliteNativeDriver(path: String, private val poolSize: Int) : SqliteDriver, SuspendDatabase<Nothing> {
+private class SqliteNativeDriver(path: String, private val poolSize: Int, override val config: KormConfig) : SqliteDriver, SuspendDatabase<Nothing> {
 
     init {
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
@@ -87,9 +87,8 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         withConnection { conn -> updateOrCount(conn, sql, sourceBinder(paramSource)) }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
-    }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow; acquireSuspending overrides the default to take the Channel's
@@ -145,9 +144,8 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
         override fun execute(sql: String, paramSource: SqlParameterSource) =
             updateOrCount(conn, sql, sourceBinder(paramSource))
 
-        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
             updateOrCount(conn, sql, mapBinder(namedParameters))
-        }
     }
 
     override fun close() {
@@ -180,7 +178,10 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int) : Sqli
         val count = sqlite3_bind_parameter_count(stmt)
         for (i in 1..count) {
             val name = sqlite3_bind_parameter_name(stmt, i)?.toKString()?.removePrefix(":") ?: continue
-            if (!hasValue(name)) continue // unbound placeholders default to NULL
+            // SQLite leaves an unbound placeholder as NULL; a missing key is a typo, not an
+            // explicit null, so reject it to fail fast like the JDBC path. Explicit `null`
+            // values are still bound (hasValue is true, getValue returns null) below.
+            require(hasValue(name)) { "No value supplied for parameter \"$name\"" }
             bindValue(stmt, i, getValue(name))
         }
     }

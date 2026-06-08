@@ -140,6 +140,17 @@ class IsNullOp(private val column: Expression, private val negated: Boolean) : E
 fun Column<*, *, *>.isNull(): Expression = IsNullOp(this, false)
 fun Column<*, *, *>.isNotNull(): Expression = IsNullOp(this, true)
 
+// `column eq null` / `column neq null` render as IS [NOT] NULL. The `Nothing?` parameter
+// makes the null literal bind here instead of the typed `eq(value: Z)` overload, so the
+// comparison vocabulary stays uniform (`note eq null` reads like `age gtEq 18`).
+infix fun Column<*, *, *>.eq(value: Nothing?): Expression = IsNullOp(this, false)
+infix fun Column<*, *, *>.neq(value: Nothing?): Expression = IsNullOp(this, true)
+
+/** Groups an expression in parentheses so it composes safely with surrounding `AND`/`OR`. */
+class ParenExpression(private val expr: Expression) : Expression {
+    override fun toSql(builder: ParamBuilder): String = "(${expr.toSql(builder)})"
+}
+
 /** Negates an expression: `NOT (expr)`. */
 class NotOp(private val expr: Expression) : Expression {
     override fun toSql(builder: ParamBuilder): String = "NOT (${expr.toSql(builder)})"

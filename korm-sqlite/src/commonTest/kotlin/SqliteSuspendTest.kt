@@ -23,8 +23,8 @@ class SqliteSuspendTest {
     fun suspendCrudRoundTrip() = runTest {
         val id = Uuid.random()
         db.suspendTransaction {
-            Products.createTable()
-            Products.new(Product().apply {
+            Products.execSql(productsDdl)
+            Products.insert(Product().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(42)
                 this.qty = 3
@@ -43,11 +43,11 @@ class SqliteSuspendTest {
     @Test
     fun suspendTransactionRollsBackOnThrow() = runTest {
         val id = Uuid.random()
-        db.suspendTransaction { Products.createTable() }
+        db.suspendTransaction { Products.execSql(productsDdl) }
 
         assertFailsWith<IllegalStateException> {
             db.suspendTransaction {
-                Products.new(Product().apply {
+                Products.insert(Product().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(1)
                     this.qty = 1

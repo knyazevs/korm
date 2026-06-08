@@ -44,7 +44,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         ItDatabase.transaction {
-        ItProducts.new(ItProduct().apply {
+        ItProducts.insert(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
             this.qty = 5
@@ -85,7 +85,7 @@ class TableIntegrationTest {
         val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE it_products; --"
         ItDatabase.transaction {
-        ItProducts.new(ItProduct().apply {
+        ItProducts.insert(ItProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(1)
             this.qty = 1
@@ -120,7 +120,7 @@ class TableIntegrationTest {
         repeat(30) { i ->
             val id = Uuid.random()
             ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(i)
                 this.qty = i
@@ -183,7 +183,7 @@ class TableIntegrationTest {
         val id = Uuid.random()
         assertFailsWith<RuntimeException> {
             ItDatabase.transaction {
-                ItProducts.new(ItProduct().apply {
+                ItProducts.insert(ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(1)
                     this.qty = 1
@@ -208,7 +208,7 @@ class TableIntegrationTest {
         val kept = Uuid.random()
         val rolled = Uuid.random()
         ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = kept
                 this.price = BigDecimal.fromInt(1)
                 this.qty = 1
@@ -218,7 +218,7 @@ class TableIntegrationTest {
             })
             runCatching {
                 savepoint {
-                    ItProducts.new(ItProduct().apply {
+                    ItProducts.insert(ItProduct().apply {
                         this.id = rolled
                         this.price = BigDecimal.fromInt(2)
                         this.qty = 2
@@ -240,7 +240,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         val returned = ItDatabase.transaction {
-            ItProducts.new(
+            ItProducts.insert(
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(7)
@@ -263,7 +263,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val ids = List(3) { Uuid.random() }
         val inserted = ItDatabase.transaction {
-            ItProducts.new(ids.mapIndexed { i, id ->
+            ItProducts.insertAll(ids.mapIndexed { i, id ->
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(i)
@@ -313,8 +313,8 @@ class TableIntegrationTest {
         val time = kotlinx.datetime.LocalTime.parse("03:04:05")
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         ItDatabase.transaction {
-            AllTypes.createTable()
-            AllTypes.new(AllTypesEntity().apply {
+            AllTypes.execSql(allTypesDdl)
+            AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
                 this.aDouble = 2.5
@@ -372,10 +372,10 @@ class TableIntegrationTest {
         val authorId = Uuid.random()
         val bookId = Uuid.random()
         ItDatabase.transaction {
-            Authors.createTable()
-            Books.createTable()
-            Authors.new(Author().apply { id = authorId; name = "Ada" })
-            Books.new(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
+            Authors.insert(Author().apply { id = authorId; name = "Ada" })
+            Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
 
         // A — ResultRow
@@ -401,7 +401,7 @@ class TableIntegrationTest {
         assertEquals("Ada", pairs.single().first.name)
         assertEquals(bookId, pairs.single().second.id)
 
-        ItDatabase.transaction { Books.dropTable(); Authors.dropTable() }
+        ItDatabase.transaction { Books.execSql("DROP TABLE IF EXISTS \"books\""); Authors.execSql("DROP TABLE IF EXISTS \"authors\"") }
     }
 
     /** GROUP BY with COUNT(*) aggregates rows per group. */
@@ -410,7 +410,7 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val ids = List(3) { Uuid.random() }
         ItDatabase.transaction {
-            ItProducts.new(ids.mapIndexed { i, id ->
+            ItProducts.insertAll(ids.mapIndexed { i, id ->
                 ItProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(10)
@@ -439,14 +439,14 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         val id = Uuid.random()
         ItDatabase.transaction {
-            ItProducts.new(ItProduct().apply {
+            ItProducts.insert(ItProduct().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
             })
         }
         assertFailsWith<UniqueViolationException> {
             ItDatabase.transaction {
-                ItProducts.new(ItProduct().apply {
+                ItProducts.insert(ItProduct().apply {
                     this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
                     this.displayName = "dup2"; this.note = null; this.rank = null
                 })
@@ -461,25 +461,25 @@ class TableIntegrationTest {
         assumeTrue(DockerClientFactory.instance().isDockerAvailable, "Docker is not available")
 }
 
-class Author(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Author : Entity() {
     var id by Authors.id
     var name by Authors.name
 }
 
-object Authors : Table<ItCatalog, Author>(Table.Meta("authors"), ::Author) {
+object Authors : Table<ItCatalog, Author>("authors", ::Author) {
     val id by Column.UUID()
     val name by Column.Text()
 
     init { id; name }
 }
 
-class Book(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Book : Entity() {
     var id by Books.id
     var authorId by Books.authorId
     var title by Books.title
 }
 
-object Books : Table<ItCatalog, Book>(Table.Meta("books"), ::Book) {
+object Books : Table<ItCatalog, Book>("books", ::Book) {
     val id by Column.UUID()
     val authorId by Column.UUID()
     val title by Column.Text()
@@ -487,7 +487,7 @@ object Books : Table<ItCatalog, Book>(Table.Meta("books"), ::Book) {
     init { id; authorId; title }
 }
 
-class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class ItProduct : Entity() {
     var id by ItProducts.id
     var price by ItProducts.price
     var qty by ItProducts.qty
@@ -498,7 +498,7 @@ class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) 
 
 object ItCatalog : Catalog
 
-class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class AllTypesEntity : Entity() {
     var id by AllTypes.id
     var anInt by AllTypes.anInt
     var aDouble by AllTypes.aDouble
@@ -515,7 +515,7 @@ class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapO
     var aDateTime by AllTypes.aDateTime
 }
 
-object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
+object AllTypes : Table<ItCatalog, AllTypesEntity>("all_types", ::AllTypesEntity) {
     val id by Column.UUID()
     val anInt by Column.Int()
     val aDouble by Column.Double()
@@ -537,13 +537,13 @@ object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::Al
     }
 }
 
-object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct) {
+object ItProducts : Table<ItCatalog, ItProduct>("it_products", ::ItProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
     val displayName by Column.Text()
-    val note by Column.Text(true)
-    val rank by Column.Int(true)
+    val note by Column.Text().nullable()
+    val rank by Column.Int().nullable()
 
     init {
         id;price;qty;displayName;note;rank
@@ -610,6 +610,11 @@ object ItDatabase : Database<ItCatalog> {
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         driver.execute(sql, paramSource)
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         driver.executeUpdate(sql, namedParameters)
 }
+
+// Raw schema DDL for tests (Korm no longer owns createTable). Postgres types.
+private val allTypesDdl = """CREATE TABLE IF NOT EXISTS "all_types" ("id" uuid NOT NULL, "anInt" integer NOT NULL, "aDouble" double precision NOT NULL, "aBool" boolean NOT NULL, "aText" text NOT NULL, "aDecimal" numeric NOT NULL, "anInstant" timestamptz NOT NULL, "aJson" jsonb NOT NULL, "aLong" bigint NOT NULL, "aFloat" real NOT NULL, "aShort" smallint NOT NULL, "aDate" date NOT NULL, "aTime" time NOT NULL, "aDateTime" timestamp NOT NULL, PRIMARY KEY ("id"))"""
+private val authorsDdl = """CREATE TABLE IF NOT EXISTS "authors" ("id" uuid NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))"""
+private val booksDdl = """CREATE TABLE IF NOT EXISTS "books" ("id" uuid NOT NULL, "authorId" uuid NOT NULL, "title" text NOT NULL, PRIMARY KEY ("id"))"""

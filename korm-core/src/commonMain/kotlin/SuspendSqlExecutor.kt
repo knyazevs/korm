@@ -22,5 +22,6 @@ interface SuspendSqlExecutor {
     suspend fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T>
     suspend fun execute(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
     suspend fun execute(sql: String, paramSource: SqlParameterSource): Long
-    suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
+    /** Runs an INSERT/UPDATE/DELETE/DDL statement and returns the backend-reported affected row count. */
+    suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
 }

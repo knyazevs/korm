@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import libpq.*
 import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
@@ -39,6 +40,7 @@ fun FPostgresDriver(
     user: String,
     password: String,
     poolSize: Int = 10,
+    config: KormConfig = KormConfig(),
 ): PostgresDriver = PostgresDriverImpl(
     host = host,
     port = port,
@@ -46,6 +48,7 @@ fun FPostgresDriver(
     user = user,
     password = password,
     poolSize = poolSize,
+    config = config,
 )
 
 @OptIn(ExperimentalForeignApi::class)
@@ -56,6 +59,7 @@ private class PostgresDriverImpl(
     user: String,
     password: String,
     private val poolSize: Int,
+    override val config: KormConfig,
 ) : PostgresDriver, SuspendDatabase<Nothing> {
 
     init {
@@ -122,12 +126,9 @@ private class PostgresDriverImpl(
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         withConnection { conn -> doExecute(conn, sql, paramSource).returnCount() }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
-        withConnection { conn ->
-            // Free the result even though it is discarded — PQclear used to be skipped
-            // here, leaking the PGresult for every parameterless update / DDL statement.
-            PQclear(runQuery(conn, sql, namedParameters))
-        }
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+        // returnCount() reads PQcmdTuples and PQclears the result, so nothing leaks.
+        withConnection { conn -> runQuery(conn, sql, namedParameters).returnCount() }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow + liveness check; acquireSuspending overrides the default to take
@@ -186,8 +187,8 @@ private class PostgresDriverImpl(
         override fun execute(sql: String, paramSource: SqlParameterSource) =
             doExecute(conn, sql, paramSource).returnCount()
 
-        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
-            PQclear(runQuery(conn, sql, namedParameters))
+        override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+            runQuery(conn, sql, namedParameters).returnCount()
     }
 
     override fun close() {

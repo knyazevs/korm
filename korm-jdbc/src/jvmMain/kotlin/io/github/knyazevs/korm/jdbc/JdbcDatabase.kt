@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.knyazevs.korm.ConnectionPool
 import io.github.knyazevs.korm.Dialect
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PinnedConnection
 import io.github.knyazevs.korm.SqlExecutor
 import io.github.knyazevs.korm.SqlParameterSource
@@ -52,6 +53,7 @@ open class JdbcDatabase(
     private val wrap: ResultSetWrapper,
     private val translate: SqlExceptionTranslator = StandardSqlExceptionTranslator,
     connectionInitSql: String? = null,
+    override val config: KormConfig = KormConfig(),
 ) : Database<Nothing>, SuspendDatabase<Nothing> {
 
     private val ds: HikariDataSource = HikariDataSource(HikariConfig().apply {
@@ -87,7 +89,7 @@ open class JdbcDatabase(
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         ds.connection.use { executor(it).execute(sql, paramSource) }
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         ds.connection.use { executor(it).executeUpdate(sql, namedParameters) }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
@@ -147,39 +149,47 @@ class JdbcExecutor(
             throw translate(e)
         }
 
+    // Statements are closed after each call so pgjdbc can return the server-prepared
+    // statement to its cache (enabling reuse on the next call) instead of leaking it —
+    // a leaked statement forces a deferred CloseStatement + an extra protocol round-trip,
+    // and defeats reuse (re-Parse) when the same query runs again on the connection.
     override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
         translateSql {
-            val statement = NamedParamStatement(conn, sql)
-            for ((key, value) in namedParameters) statement.setAny(key, value)
-            wrap(statement.executeQuery()).handleResults(handler)
+            NamedParamStatement(conn, sql).use { statement ->
+                for ((key, value) in namedParameters) statement.setAny(key, value)
+                wrap(statement.executeQuery()).handleResults(handler)
+            }
         }
 
     override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
         translateSql {
-            val statement = NamedParamStatement(conn, sql)
-            statement.bind(paramSource)
-            wrap(statement.executeQuery()).handleResults(handler)
+            NamedParamStatement(conn, sql).use { statement ->
+                statement.bind(paramSource)
+                wrap(statement.executeQuery()).handleResults(handler)
+            }
         }
 
     override fun execute(sql: String, namedParameters: Map<String, Any?>): Long = translateSql {
-        val statement = NamedParamStatement(conn, sql)
-        for ((key, value) in namedParameters) statement.setAny(key, value)
-        statement.preparedStatement.runReturningCount()
+        NamedParamStatement(conn, sql).use { statement ->
+            for ((key, value) in namedParameters) statement.setAny(key, value)
+            statement.preparedStatement.runReturningCount()
+        }
     }
 
     override fun execute(sql: String, paramSource: SqlParameterSource): Long = translateSql {
-        val statement = NamedParamStatement(conn, sql)
-        statement.bind(paramSource)
-        statement.preparedStatement.runReturningCount()
-    }
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) {
-        translateSql {
-            val statement = NamedParamStatement(conn, sql)
-            for ((key, value) in namedParameters) statement.setAny(key, value)
-            statement.executeUpdate()
+        NamedParamStatement(conn, sql).use { statement ->
+            statement.bind(paramSource)
+            statement.preparedStatement.runReturningCount()
         }
     }
+
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+        translateSql {
+            NamedParamStatement(conn, sql).use { statement ->
+                for ((key, value) in namedParameters) statement.setAny(key, value)
+                statement.executeUpdate().toLong()
+            }
+        }
 }
 
 /**

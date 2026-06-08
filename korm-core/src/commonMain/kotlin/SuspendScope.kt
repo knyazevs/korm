@@ -11,34 +11,69 @@ import io.github.knyazevs.korm.resultset.ResultSet
  * the connection stays pinned. Raw SQL run through [execute] / [executeUpdate] goes to
  * the same pinned connection.
  */
-class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSqlExecutor) {
+class SuspendScope<G : Catalog> internal constructor(
+    private val exec: SuspendSqlExecutor,
+    /** The owning database's configuration (e.g. the default [BatchInsertMode]). */
+    internal val config: KormConfig = KormConfig(),
+) {
     private var savepointCounter = 0
 
-    /** Inserts [entity]; see [Scope.new]. */
-    suspend fun <T : Entity> Table<G, T>.new(entity: T, returning: Boolean = false): T? =
+    /** Inserts [entity]; see [Scope.insert]. */
+    suspend fun <T : Entity> Table<G, T>.insert(entity: T, returning: Boolean = false): T? =
         insert(entity, exec, returning)
 
-    /** Inserts all [entities] in one statement; see [Scope.new]. */
-    suspend fun <T : Entity> Table<G, T>.new(entities: List<T>, returning: Boolean = false): List<T> =
-        insertAll(entities, exec, returning)
+    /** Inserts all [entities] in one statement; see [Scope.insertAll]. */
+    suspend fun <T : Entity> Table<G, T>.insertAll(
+        entities: List<T>,
+        returning: Boolean = false,
+        batchInsertMode: BatchInsertMode = config.batchInsertMode,
+    ): List<T> = insertAll(entities, exec, returning, batchInsertMode)
+
+    /** Insert-or-update on a single-column conflict target; see [Scope.upsert]. */
+    suspend fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: Column<*, *, *>, update: T, returning: Boolean = false): T? =
+        upsert(entity, listOf(onConflict), update, exec, returning)
+
+    /** Insert-or-update on a composite conflict target; see [Scope.upsert]. */
+    suspend fun <T : Entity> Table<G, T>.upsert(entity: T, onConflict: List<Column<*, *, *>>, update: T, returning: Boolean = false): T? =
+        upsert(entity, onConflict, update, exec, returning)
+
+    /** Insert-or-do-nothing on a single-column conflict target; see [Scope.insertOrIgnore]. */
+    suspend fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: Column<*, *, *>): Long =
+        insertOrIgnore(entity, listOf(onConflict), exec)
+
+    /** Insert-or-do-nothing on a composite conflict target; see [Scope.insertOrIgnore]. */
+    suspend fun <T : Entity> Table<G, T>.insertOrIgnore(entity: T, onConflict: List<Column<*, *, *>>): Long =
+        insertOrIgnore(entity, onConflict, exec)
 
     /** Counts rows matching [query] (all rows by default). */
     suspend fun <T : Entity> Table<G, T>.count(query: Query = Query()): Long = count(query, exec)
 
+    /** Block form of [count]; see [Scope.count]. */
+    suspend fun <T : Entity> Table<G, T>.count(block: QueryBuilder.() -> Unit): Long =
+        count(QueryBuilder().apply(block).build(), exec)
+
     suspend fun <T : Entity> Table<G, T>.find(query: Query): List<T> = select(query, exec)
+
+    /** Block form of [find]; see [Scope.find]. */
+    suspend fun <T : Entity> Table<G, T>.find(block: QueryBuilder.() -> Unit): List<T> =
+        select(QueryBuilder().apply(block).build(), exec)
     suspend fun <T : Entity> Table<G, T>.findById(id: Any): T? = selectById(id, exec)
     suspend fun <T : Entity> Table<G, T>.all(): List<T> = selectAll(exec)
-    suspend fun <T : Entity> Table<G, T>.update(query: Query, entity: T) = updateRows(query, entity, exec)
-    suspend fun <T : Entity> Table<G, T>.deleteWhere(query: Query) = deleteRows(query, exec)
+    /** Updates rows matching [query] with the present fields of [entity]; returns the affected row count. */
+    suspend fun <T : Entity> Table<G, T>.update(query: Query, entity: T): Long = updateRows(query, entity, exec)
+
+    /** Block form of [update]; see [Scope.update]. */
+    suspend fun <T : Entity> Table<G, T>.update(entity: T, block: QueryBuilder.() -> Unit): Long =
+        updateRows(QueryBuilder().apply(block).build(), entity, exec)
+
+    /** Deletes rows matching [query]; returns the affected row count. */
+    suspend fun <T : Entity> Table<G, T>.deleteWhere(query: Query): Long = deleteRows(query, exec)
+
+    /** Block form of [deleteWhere]; see [Scope.deleteWhere]. */
+    suspend fun <T : Entity> Table<G, T>.deleteWhere(block: QueryBuilder.() -> Unit): Long =
+        deleteRows(QueryBuilder().apply(block).build(), exec)
+
     suspend fun <T : Entity> Table<G, T>.execSql(sql: String) = runRaw(sql, exec)
-
-    /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */
-    suspend fun <T : Entity> Table<G, T>.createTable(ifNotExists: Boolean = true) =
-        exec.executeUpdate(createTableSql(exec.dialect, ifNotExists))
-
-    /** Drops this table (`DROP TABLE [IF EXISTS]`). */
-    suspend fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
-        exec.executeUpdate(dropTableSql(exec.dialect, ifExists))
 
     /** Runs the query, selecting the given fields (or all columns if none are given). */
     suspend fun Join<G>.select(vararg fields: Selectable<*>): List<ResultRow> =
@@ -62,8 +97,8 @@ class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSq
         val bCols = right.getFieldDisplayNames()
         val rows = runSelect(exec, asJoin(), (aCols.values + bCols.values).toList())
         return rows.map { row ->
-            left.factory(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
-                right.factory(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
+            left.hydrate(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
+                right.hydrate(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
         }
     }
 
@@ -101,11 +136,11 @@ class SuspendScope<G : Catalog> internal constructor(private val exec: SuspendSq
  * driver offloaded to a dispatcher depends on the backend's [SuspendDatabase.useConnection].
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendTransaction(block: suspend SuspendScope<G>.() -> R): R =
-    useConnection(transactional = true) { SuspendScope<G>(it).block() }
+    useConnection(transactional = true) { SuspendScope<G>(it, config).block() }
 
 /**
  * Runs [block] on a pinned connection in autocommit (no surrounding transaction) — the
  * suspend counterpart of [autocommit], the cheap path for reads / single statements.
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendAutocommit(block: suspend SuspendScope<G>.() -> R): R =
-    useConnection(transactional = false) { SuspendScope<G>(it).block() }
+    useConnection(transactional = false) { SuspendScope<G>(it, config).block() }

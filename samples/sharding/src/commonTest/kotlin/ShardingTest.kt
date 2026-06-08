@@ -24,11 +24,11 @@ class ShardingTest {
         try {
             val accounts = ShardedAccounts(shards)
             accounts.createTables()
-            auditDb.autocommit { AuditLog.createTable() }
+            auditDb.autocommit { AuditLog.execSql(auditDdl) }
 
             (1..6).forEach { id ->
                 accounts.put(Account().apply { this.id = id; owner = "owner-$id" })
-                auditDb.transaction { AuditLog.new(AuditEntry().apply { this.id = id; message = "created $id" }) }
+                auditDb.transaction { AuditLog.insert(AuditEntry().apply { this.id = id; message = "created $id" }) }
             }
 
             assertEquals(listOf(3L, 3L), accounts.countPerShard()) // even ids -> shard 0, odd -> shard 1

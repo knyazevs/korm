@@ -16,5 +16,6 @@ interface SqlExecutor {
     fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T>
     fun execute(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
     fun execute(sql: String, paramSource: SqlParameterSource): Long
-    fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap())
+    /** Runs an INSERT/UPDATE/DELETE/DDL statement and returns the backend-reported affected row count. */
+    fun executeUpdate(sql: String, namedParameters: Map<String, Any?> = emptyMap()): Long
 }

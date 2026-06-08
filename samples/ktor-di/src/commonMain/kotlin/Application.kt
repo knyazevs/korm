@@ -67,7 +67,7 @@ fun Application.configure() {
         put("/create") {
             val created = call.receive<ProductDTO>().toDomain().apply { id = Uuid.random() }
             // returning = true fetches the stored row back (RETURNING).
-            val stored = call.transaction<AppCatalog, _> { ProductTable.new(created, returning = true) }
+            val stored = call.transaction<AppCatalog, _> { ProductTable.insert(created, returning = true) }
             call.respond(stored!!.toDto())
         }
         post("/update") {

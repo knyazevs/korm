@@ -15,10 +15,4 @@ object PostgresDialect : Dialect by StandardDialect {
         is JsonElement -> ":$name::jsonb"
         else -> StandardDialect.renderBind(name, value)
     }
-
-    override fun sqlType(type: Column.ColumnNameEnum): String = when (type) {
-        Column.ColumnNameEnum.Instant -> "timestamptz"
-        Column.ColumnNameEnum.Json -> "jsonb"
-        else -> StandardDialect.sqlType(type)
-    }
 }

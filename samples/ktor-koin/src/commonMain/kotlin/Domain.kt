@@ -13,15 +13,13 @@ import kotlin.uuid.Uuid
 
 object AppCatalog : Catalog
 
-object ProductTable : Table<AppCatalog, ProductEntity>(Meta("products"), ::ProductEntity) {
-    val id by Column.UUID(primaryKey = true)
+object ProductTable : Table<AppCatalog, ProductEntity>("products", ::ProductEntity) {
+    val id by Column.UUID().primaryKey()
     val price by Column.Int()
     val payload by Column.Json()
-
-    init { id; price; payload }
 }
 
-class ProductEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class ProductEntity : Entity() {
     var id by ProductTable.id
     var price by ProductTable.price
     var payload by ProductTable.payload
@@ -30,10 +28,12 @@ class ProductEntity(override var fields: MutableMap<String, Any?> = mutableMapOf
 @Serializable
 data class ProductDTO(val id: Uuid? = null, val price: Int? = null, val payload: JsonElement? = null) {
     fun toDomain(): ProductEntity = ProductEntity().apply {
-        id = this@ProductDTO.id
-        price = this@ProductDTO.price
-        payload = this@ProductDTO.payload
+        this@ProductDTO.id?.let { id = it }
+        this@ProductDTO.price?.let { price = it }
+        this@ProductDTO.payload?.let { payload = it }
     }
 }
 
 fun ProductEntity.toDto() = ProductDTO(id, price, payload)
+
+internal val productTableDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" uuid NOT NULL, "price" integer NOT NULL, "payload" jsonb NOT NULL, PRIMARY KEY ("id"))"""

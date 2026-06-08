@@ -55,7 +55,7 @@ class NativeTableIntegrationTest {
 
         val id = Uuid.random()
         NativeDatabase.transaction {
-        NativeProducts.new(NativeProduct().apply {
+        NativeProducts.insert(NativeProduct().apply {
             this.id = id
             this.price = BigDecimal.fromInt(100)
             this.qty = 5
@@ -121,7 +121,7 @@ class NativeTableIntegrationTest {
         val id = Uuid.random()
         assertFailsWith<RuntimeException> {
             NativeDatabase.transaction {
-                NativeProducts.new(NativeProduct().apply {
+                NativeProducts.insert(NativeProduct().apply {
                     this.id = id
                     this.price = BigDecimal.fromInt(1)
                     this.qty = 1
@@ -144,14 +144,14 @@ class NativeTableIntegrationTest {
         }
         val id = Uuid.random()
         NativeDatabase.transaction {
-            NativeProducts.new(NativeProduct().apply {
+            NativeProducts.insert(NativeProduct().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
             })
         }
         assertFailsWith<UniqueViolationException> {
             NativeDatabase.transaction {
-                NativeProducts.new(NativeProduct().apply {
+                NativeProducts.insert(NativeProduct().apply {
                     this.id = id; this.price = BigDecimal.fromInt(2); this.qty = 2
                     this.displayName = "dup2"; this.note = null; this.rank = null
                 })
@@ -208,7 +208,7 @@ class NativeTableIntegrationTest {
     }
 }
 
-class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class NativeProduct : Entity() {
     var id by NativeProducts.id
     var price by NativeProducts.price
     var qty by NativeProducts.qty
@@ -219,13 +219,13 @@ class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf
 
 object NativeCatalog : Catalog
 
-object NativeProducts : Table<NativeCatalog, NativeProduct>(Table.Meta("native_products"), ::NativeProduct) {
+object NativeProducts : Table<NativeCatalog, NativeProduct>("native_products", ::NativeProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()
     val displayName by Column.Text()
-    val note by Column.Text(true)
-    val rank by Column.Int(true)
+    val note by Column.Text().nullable()
+    val rank by Column.Int().nullable()
 
     init {
         id;price;qty;displayName;note;rank
@@ -276,6 +276,6 @@ object NativeDatabase : Database<NativeCatalog> {
     override fun execute(sql: String, paramSource: SqlParameterSource): Long =
         driver.execute(sql, paramSource)
 
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>) =
+    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         driver.executeUpdate(sql, namedParameters)
 }

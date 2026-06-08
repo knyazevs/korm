@@ -9,7 +9,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class TestEntity : Entity() {
     var id by TestTable.id
     var price by TestTable.price
     var position by TestTable.position
@@ -19,56 +19,331 @@ class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf())
 
 object TestCatalog : Catalog
 
-object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity) {
+object TestTable : Table<TestCatalog, TestEntity>("products", ::TestEntity) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val position by Column.Int()
     val text by Column.Text()
-    val nullableTest by Column.Text(true)
-
-    init {
-        id;price;position;text;nullableTest
-    }
+    val nullableTest by Column.Text().nullable()
 }
 
 
-class TestOrderEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class TestOrderEntity : Entity() {
     var orderId by TestOrders.orderId
     var productId by TestOrders.productId
 }
 
-object TestOrders : Table<TestCatalog, TestOrderEntity>(Meta("orders"), ::TestOrderEntity) {
+object TestOrders : Table<TestCatalog, TestOrderEntity>("orders", ::TestOrderEntity) {
     val orderId by Column.UUID()
     val productId by Column.UUID()
-
-    init { orderId; productId }
 }
 
-class CodedEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CodedEntity : Entity() {
     var code by Coded.code
     var amount by Coded.amount
 }
 
-object Coded : Table<TestCatalog, CodedEntity>(Meta("coded"), ::CodedEntity) {
-    val code by Column.Text(primaryKey = true)
+object Coded : Table<TestCatalog, CodedEntity>("coded", ::CodedEntity) {
+    val code by Column.Text().primaryKey()
     val amount by Column.Int()
-
-    init { code; amount }
 }
 
-class CompositeKeyEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CompositeKeyEntity : Entity() {
     var left by CompositeKey.left
     var right by CompositeKey.right
 }
 
-object CompositeKey : Table<TestCatalog, CompositeKeyEntity>(Meta("composite"), ::CompositeKeyEntity) {
-    val left by Column.UUID(primaryKey = true)
-    val right by Column.Int(primaryKey = true)
+object CompositeKey : Table<TestCatalog, CompositeKeyEntity>("composite", ::CompositeKeyEntity) {
+    val left by Column.UUID().primaryKey()
+    val right by Column.Int().primaryKey()
+}
 
-    init { left; right }
+class NamedEntity : Entity() {
+    var id by Named.id
+    var createdAt by Named.createdAt
+}
+
+object Named : Table<TestCatalog, NamedEntity>("named", ::NamedEntity) {
+    val id by Column.UUID().primaryKey()
+    val createdAt by Column.Instant(name = "created_at")
 }
 
 class TableTest {
+
+    @Test
+    fun testColumnsRegisterWhenDeclared() {
+        assertEquals(
+            listOf("id", "price", "position", "text", "nullableTest"),
+            TestTable.getFieldDisplayNames().keys.toList(),
+        )
+        assertEquals(TestTable.id, TestTable.getFieldDisplayNames()["id"])
+        assertEquals(listOf(TestTable.id), TestTable.primaryKey)
+    }
+
+    @Test
+    fun testIsSetAndUnset() {
+        val e = TestEntity()
+        // Never assigned → absent.
+        assertFalse(e.isSet(TestTable.nullableTest))
+        // Explicit null counts as set.
+        e.nullableTest = null
+        assertTrue(e.isSet(TestTable.nullableTest))
+        assertEquals(null, e.nullableTest)
+        // unset() returns it to absent.
+        e.unset(TestTable.nullableTest)
+        assertFalse(e.isSet(TestTable.nullableTest))
+        // A concrete value is set.
+        e.text = "hi"
+        assertTrue(e.isSet(TestTable.text))
+    }
+
+    @Test
+    fun testCustomColumnNameSplitsSqlNameFromFieldKey() {
+        // The SQL identifier uses the custom name; the entity field key follows the property.
+        assertEquals("created_at", Named.createdAt.name)
+        assertEquals("createdAt", Named.createdAt.fieldKey)
+        assertTrue(Named.getFieldDisplayNames().containsKey("createdAt"))
+        assertFalse(Named.getFieldDisplayNames().containsKey("created_at"))
+
+        // INSERT renders the custom SQL name.
+        db.transaction {
+            Named.insert(NamedEntity().apply {
+                id = Uuid.random()
+                createdAt = kotlinx.datetime.Clock.System.now()
+            })
+        }
+        assertTrue(
+            databaseMockObj.internalSql.contains("\"created_at\""),
+            "expected custom SQL name in: ${databaseMockObj.internalSql}",
+        )
+    }
+
+    @Test
+    fun testFindBlockDslMatchesQuery() {
+        val price = BigDecimal.fromInt(100)
+        // Block DSL: two where{} blocks AND together, ordering + limit/offset.
+        db.transaction {
+            TestTable.find {
+                where { TestTable.price eq price }
+                where { TestTable.position gtEq 1 }
+                orderBy DESC TestTable.position
+                limit = 50
+                offset = 10
+            }
+        }
+        val blockSql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        val blockParams = databaseMockObj.internalParams
+
+        // Equivalent explicit Query(...) value form.
+        db.transaction {
+            TestTable.find(
+                Query(
+                    whereExpression = (TestTable.price eq price) and (TestTable.position gtEq 1),
+                    orderBy = mapOf(TestTable.position to AscDescOrder.DESC),
+                    limit = 50u,
+                    offset = 10u,
+                )
+            )
+        }
+        // The block DSL parenthesizes AND-combined blocks; assert structure rather than
+        // exact equality, and that both forms select the same params.
+        assertTrue(blockSql.contains("""("price"=:p0)AND("position">=:p1)"""), blockSql)
+        assertTrue(blockSql.contains("""ORDERBY"position"DESC"""), blockSql)
+        assertTrue(blockSql.contains("LIMIT50"), blockSql)
+        assertTrue(blockSql.contains("OFFSET10"), blockSql)
+        assertEquals(mapOf("p0" to price.toString(), "p1" to 1), blockParams)
+    }
+
+    @Test
+    fun testEmptyFindBlockIsAllRows() {
+        db.transaction { TestTable.find { } }
+        assertFalse(databaseMockObj.internalSql.contains("WHERE"), "empty block must not emit WHERE")
+        assertTrue(databaseMockObj.internalParams.isEmpty())
+    }
+
+    @Test
+    fun testNegativeLimitIsRejected() {
+        // Regression: a negative limit must fail fast instead of wrapping via toUInt() into
+        // a huge LIMIT (-1 -> 4294967295).
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction { TestTable.find { limit = -1 } }
+        }
+    }
+
+    @Test
+    fun testNegativeOffsetIsRejected() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction { TestTable.find { offset = -1 } }
+        }
+    }
+
+    @Test
+    fun testNullPredicates() {
+        db.transaction { TestTable.find(Query(TestTable.nullableTest eq null)) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNULL"""))
+        assertTrue(databaseMockObj.internalParams.isEmpty())
+
+        db.transaction { TestTable.find(Query(TestTable.nullableTest neq null)) }
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNOTNULL"""))
+    }
+
+    @Test
+    fun testInsertOmitsAbsentFields() {
+        // nullableTest is never assigned → it must not appear in the INSERT.
+        db.transaction {
+            TestTable.insert(TestEntity().apply {
+                id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "x"
+            })
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""("id","price","position","text")"""), sql)
+        assertFalse(sql.contains("nullableTest"), sql)
+    }
+
+    @Test
+    fun testInsertEmptyEntityUsesDefaultValues() {
+        db.transaction { TestTable.insert(TestEntity()) }
+        assertEquals(
+            """INSERTINTO"products"DEFAULTVALUES""",
+            remoteNewLinesAndSpaces(databaseMockObj.internalSql),
+        )
+    }
+
+    @Test
+    fun testUpdateBlockDslReturnsAffectedRows() {
+        val uuid = Uuid.random()
+        databaseMockObj.result = 1L
+        val affected = db.transaction {
+            TestTable.update(TestEntity().apply { position = 9 }) {
+                where { TestTable.id eq uuid }
+            }
+        }
+        assertEquals(1L, affected)
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""UPDATE"products"SET"position"=:p0"""), sql)
+        assertTrue(sql.contains("""WHERE"id"=:p1"""), sql)
+        databaseMockObj.result = null
+    }
+
+    @Test
+    fun testDeleteBlockDslReturnsAffectedRows() {
+        databaseMockObj.result = 2L
+        val affected = db.transaction { TestTable.deleteWhere { where { TestTable.position eq 5 } } }
+        assertEquals(2L, affected)
+        assertEquals(
+            """DELETEFROM"products"WHERE"position"=:p0""",
+            remoteNewLinesAndSpaces(databaseMockObj.internalSql),
+        )
+        databaseMockObj.result = null
+    }
+
+    @Test
+    fun testStrictBatchRejectsDifferentShapes() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.insertAll(
+                    listOf(
+                        TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                        TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 2; text = "b"; nullableTest = "x" },
+                    ),
+                    batchInsertMode = BatchInsertMode.Strict,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testUnionNullsBatchUsesUnionOfColumns() {
+        db.transaction {
+            TestTable.insertAll(
+                listOf(
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 2; text = "b"; nullableTest = "x" },
+                ),
+                batchInsertMode = BatchInsertMode.UnionNulls,
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        // One statement: the union of all assigned columns, two value tuples.
+        assertTrue(sql.contains("""("id","price","position","text","nullableTest")VALUES"""), sql)
+        assertTrue(sql.contains("),("), sql)
+    }
+
+    @Test
+    fun testUpsertSql() {
+        db.transaction {
+            TestTable.upsert(
+                entity = TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                onConflict = TestTable.id,
+                update = TestEntity().apply { position = 2 },
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("""ONCONFLICT("id")DOUPDATESET"position"="""), sql)
+    }
+
+    @Test
+    fun testInsertOrIgnoreSql() {
+        databaseMockObj.result = 1L
+        val n = db.transaction {
+            TestTable.insertOrIgnore(
+                TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                onConflict = TestTable.id,
+            )
+        }
+        assertEquals(1L, n)
+        assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""ONCONFLICT("id")DONOTHING"""))
+        databaseMockObj.result = null
+    }
+
+    @Test
+    fun testUpsertRejectsEmptyConflictTarget() {
+        // Regression (#30): an empty conflict list would render invalid SQL `ON CONFLICT ()`.
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.upsert(
+                    entity = TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    onConflict = emptyList(),
+                    update = TestEntity().apply { position = 2 },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testInsertOrIgnoreRejectsEmptyConflictTarget() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.insertOrIgnore(
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    onConflict = emptyList(),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testCountIgnoresOrderLimitOffset() {
+        // Regression (#29): count must ignore ORDER BY / LIMIT / OFFSET — an OFFSET would skip
+        // the single COUNT row and read as 0.
+        db.transaction {
+            TestTable.count(
+                Query(
+                    whereExpression = TestTable.position eq 1,
+                    limit = 10u,
+                    offset = 10u,
+                    orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
+                )
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("SELECTCOUNT(*)"), sql)
+        assertTrue(sql.contains(""""position"=:p0"""), sql)
+        assertFalse(sql.contains("ORDERBY"), sql)
+        assertFalse(sql.contains("LIMIT"), sql)
+        assertFalse(sql.contains("OFFSET"), sql)
+        assertEquals(mapOf("p0" to 1), databaseMockObj.internalParams)
+    }
 
     @Test
     fun testInsert() {
@@ -80,7 +355,7 @@ class TableTest {
                         ("id", "price", "position", "text", "nullableTest")
                         VALUES (:p0, :p1, :p2, :p3, :p4)"""
         db.transaction {
-            TestTable.new(TestEntity().apply {
+            TestTable.insert(TestEntity().apply {
                 this.id = uuid
                 this.price = price
                 this.position = position
@@ -108,7 +383,7 @@ class TableTest {
                         VALUES (:p0, :p1, :p2, :p3, :p4)
                         RETURNING "id", "price", "position", "text", "nullableTest""""
         db.transaction {
-            TestTable.new(
+            TestTable.insert(
                 TestEntity().apply {
                     this.id = Uuid.random()
                     this.price = BigDecimal.fromInt(1)
@@ -264,22 +539,6 @@ class TableTest {
     }
 
     @Test
-    fun testCreateTableGeneratesDdlFromColumns() {
-        val expectedResult = """
-            CREATE TABLE IF NOT EXISTS "products" (
-                "id" uuid NOT NULL,
-                "price" numeric NOT NULL,
-                "position" integer NOT NULL,
-                "text" text NOT NULL,
-                "nullableTest" text,
-                PRIMARY KEY ("id")
-            )
-        """
-        db.transaction { TestTable.createTable() }
-        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-    }
-
-    @Test
     fun testInListLikeIsNullAndNotOperators() {
         db.transaction { TestTable.find(Query(TestTable.position inList listOf(1, 2))) }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""position"IN(:p0,:p1)"""))
@@ -339,15 +598,6 @@ class TableTest {
         db.autocommit { Coded.findById("abc") }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""WHERE"code"=:p0"""))
         assertEquals(mapOf("p0" to "abc"), databaseMockObj.internalParams)
-    }
-
-    @Test
-    fun testCreateTableEmitsCompositePrimaryKey() {
-        db.transaction { CompositeKey.createTable() }
-        assertTrue(
-            remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""PRIMARYKEY("left","right")"""),
-            databaseMockObj.internalSql,
-        )
     }
 
     @Test

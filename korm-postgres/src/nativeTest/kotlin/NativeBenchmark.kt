@@ -32,14 +32,14 @@ private fun benchDriver(poolSize: Int): Database<BenchCatalog> = createDatabase(
 
 object BenchCatalog : Catalog
 
-class BenchRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class BenchRow : Entity() {
     var id by BenchTable.id
     var name by BenchTable.name
     var amount by BenchTable.amount
 }
 
-object BenchTable : Table<BenchCatalog, BenchRow>(Table.Meta("cmp_bench"), ::BenchRow) {
-    val id by Column.UUID(primaryKey = true)
+object BenchTable : Table<BenchCatalog, BenchRow>("cmp_bench", ::BenchRow) {
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val amount by Column.BigDecimal()
 
@@ -55,7 +55,7 @@ private fun runOp(db: Database<BenchCatalog>, op: Op) {
         Op.FIND_BY_ID -> db.autocommit { BenchTable.findById(benchSeedId) }
         Op.SELECT_WHERE -> db.autocommit { BenchTable.find(Query(BenchTable.name eq "seed")) }
         Op.INSERT -> db.transaction {
-            BenchTable.new(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insert(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
         }
     }
 }
@@ -77,10 +77,10 @@ class NativeBenchmark {
         // Fresh table + an index on `name` so selectWhere is an index lookup (matches the JVM
         // harness) rather than a sequential scan that degrades as inserts bloat the table.
         driver.transaction {
-            BenchTable.dropTable()
-            BenchTable.createTable()
+            BenchTable.execSql("DROP TABLE IF EXISTS \"cmp_bench\"")
+            BenchTable.execSql(benchDdl)
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
-            BenchTable.new(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insert(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
 
         val threads = 8
@@ -109,3 +109,5 @@ class NativeBenchmark {
         return threads.toLong() * opsPerThread * 1000.0 / elapsedMs
     }
 }
+
+private val benchDdl = """CREATE TABLE IF NOT EXISTS "cmp_bench" ("id" uuid NOT NULL, "name" text NOT NULL, "amount" numeric NOT NULL, PRIMARY KEY ("id"))"""

@@ -29,6 +29,9 @@ internal class R2dbcExecutor(
         val parsed = parseNamedParams(sql)
         val statement = connection.createStatement(parsed.sql)
         parsed.names.forEachIndexed { index, name ->
+            // A missing key is a typo, not an explicit null: reject it so raw SQL fails fast
+            // instead of silently binding NULL. An explicit `null` value is still bound below.
+            require(namedParameters.containsKey(name)) { "No value supplied for parameter \"$name\"" }
             when (val value = namedParameters[name]) {
                 // korm's TypeMapper has already reduced values to String/primitive; a null
                 // binds as text and any ::cast in the SQL turns it into a typed NULL.
@@ -65,12 +68,8 @@ internal class R2dbcExecutor(
     override suspend fun execute(sql: String, paramSource: SqlParameterSource): Long =
         execute(sql, paramSource.toMap())
 
-    override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Unit =
-        translating {
-            prepare(sql, namedParameters).execute().asFlow().collect { result ->
-                result.rowsUpdated.asFlow().collect { }
-            }
-        }
+    override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+        execute(sql, namedParameters)
 
     // Map r2dbc's exceptions to korm's typed ones via the same SQLSTATE helper the JDBC
     // backend uses (UniqueViolation 23505, ForeignKey 23503, ...).

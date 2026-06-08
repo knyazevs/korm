@@ -16,15 +16,13 @@ import io.github.knyazevs.korm.autocommit
 
 object Shop : Catalog
 
-object Users : Table<Shop, User>(Meta("users"), ::User) {
-    val id by Column.Int(primaryKey = true)
+object Users : Table<Shop, User>("users", ::User) {
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
     val age by Column.Int()
-
-    init { id; name; age }
 }
 
-class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class User : Entity() {
     var id by Users.id
     var name by Users.name
     var age by Users.age
@@ -41,12 +39,12 @@ fun main() {
         // Migrations are idempotent and recorded in korm_migrations — safe to run on every start.
         db.migrate(
             listOf(
-                Migration("001-create-users") { Users.createTable() },
+                Migration("001-create-users") { Users.execSql(usersDdl) },
             ),
         )
 
         db.transaction {
-            Users.new(listOf(user(1, "Alice", 30), user(2, "Bob", 25), user(3, "Carol", 41)))
+            Users.insertAll(listOf(user(1, "Alice", 30), user(2, "Bob", 25), user(3, "Carol", 41)))
         }
 
         val carol = db.autocommit { Users.findById(3) }
@@ -62,3 +60,6 @@ fun main() {
         println("remaining  = ${remaining.map { "${it.name}(${it.age})" }}")
     }
 }
+
+// Schema is owned by the app (raw SQL / migrations), not Korm.
+internal val usersDdl = """CREATE TABLE IF NOT EXISTS "users" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, "age" INTEGER NOT NULL, PRIMARY KEY ("id"))"""

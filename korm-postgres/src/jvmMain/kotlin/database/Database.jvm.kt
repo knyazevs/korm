@@ -1,5 +1,6 @@
 package io.github.knyazevs.korm.database
 
+import io.github.knyazevs.korm.KormConfig
 import io.github.knyazevs.korm.PgResultSetWrapper
 import io.github.knyazevs.korm.PostgresDialect
 import io.github.knyazevs.korm.PostgresDriver
@@ -24,6 +25,7 @@ private class PostgresJdbcDriver(
     user: String,
     password: String,
     poolSize: Int,
+    config: KormConfig,
 ) : JdbcDatabase(
     jdbcUrl = "jdbc:postgresql://$host:$port/$database?stringtype=unspecified&prepareThreshold=1",
     username = user,
@@ -32,6 +34,7 @@ private class PostgresJdbcDriver(
     dialect = PostgresDialect,
     typeMapper = StandardTypeMapper,
     wrap = ::PgResultSetWrapper,
+    config = config,
 ), PostgresDriver
 
 actual fun createDatabase(
@@ -41,4 +44,5 @@ actual fun createDatabase(
     user: String,
     password: String,
     poolSize: Int,
-): PostgresDriver = PostgresJdbcDriver(host, port, database, user, password, poolSize)
+    config: KormConfig,
+): PostgresDriver = PostgresJdbcDriver(host, port, database, user, password, poolSize, config)
