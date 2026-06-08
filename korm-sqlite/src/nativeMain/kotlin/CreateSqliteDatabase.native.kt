@@ -178,7 +178,10 @@ private class SqliteNativeDriver(path: String, private val poolSize: Int, overri
         val count = sqlite3_bind_parameter_count(stmt)
         for (i in 1..count) {
             val name = sqlite3_bind_parameter_name(stmt, i)?.toKString()?.removePrefix(":") ?: continue
-            if (!hasValue(name)) continue // unbound placeholders default to NULL
+            // SQLite leaves an unbound placeholder as NULL; a missing key is a typo, not an
+            // explicit null, so reject it to fail fast like the JDBC path. Explicit `null`
+            // values are still bound (hasValue is true, getValue returns null) below.
+            require(hasValue(name)) { "No value supplied for parameter \"$name\"" }
             bindValue(stmt, i, getValue(name))
         }
     }

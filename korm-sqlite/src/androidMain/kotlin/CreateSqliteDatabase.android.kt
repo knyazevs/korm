@@ -142,7 +142,10 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int, overr
         getValue: (String) -> Any?,
     ) {
         fields.forEachIndexed { index, name ->
-            if (!hasValue(name)) return@forEachIndexed // unbound placeholders default to NULL
+            // An unbound placeholder defaults to NULL; a missing key is a typo, not an
+            // explicit null, so reject it to fail fast like the JDBC path. Explicit `null`
+            // values are still bound (hasValue is true, getValue returns null) below.
+            require(hasValue(name)) { "No value supplied for parameter \"$name\"" }
             bindValue(stmt, index + 1, getValue(name))
         }
     }

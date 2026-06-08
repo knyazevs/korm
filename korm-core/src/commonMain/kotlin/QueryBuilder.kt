@@ -39,6 +39,10 @@ class QueryBuilder {
     }
 
     internal fun build(): Query {
+        // Reject negative limit/offset: toUInt() would wrap (-1 -> 4294967295) and render a
+        // huge LIMIT instead of failing fast on what is almost always bad user input.
+        require(limit == null || limit!! >= 0) { "limit must be >= 0, was $limit" }
+        require(offset == null || offset!! >= 0) { "offset must be >= 0, was $offset" }
         val whereExpression = when (conditions.size) {
             0 -> null
             1 -> conditions[0]

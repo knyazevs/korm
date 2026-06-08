@@ -162,6 +162,22 @@ class TableTest {
     }
 
     @Test
+    fun testNegativeLimitIsRejected() {
+        // Regression: a negative limit must fail fast instead of wrapping via toUInt() into
+        // a huge LIMIT (-1 -> 4294967295).
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction { TestTable.find { limit = -1 } }
+        }
+    }
+
+    @Test
+    fun testNegativeOffsetIsRejected() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction { TestTable.find { offset = -1 } }
+        }
+    }
+
+    @Test
     fun testNullPredicates() {
         db.transaction { TestTable.find(Query(TestTable.nullableTest eq null)) }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""nullableTest"ISNULL"""))

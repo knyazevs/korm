@@ -35,6 +35,29 @@ internal class ParsedSql private constructor(val sql: String, val fields: List<S
                             if (ch == c) break
                         }
                     }
+                    c == '-' && i + 1 < sql.length && sql[i + 1] == '-' -> {
+                        // Single-line comment: copy verbatim to end of line so ':name' in it
+                        // is not treated as a parameter.
+                        while (i < sql.length && sql[i] != '\n') {
+                            out.append(sql[i])
+                            i++
+                        }
+                    }
+                    c == '/' && i + 1 < sql.length && sql[i + 1] == '*' -> {
+                        // Block comment: copy verbatim through the closing "*/" (or to the
+                        // end if unterminated) so ':name' inside it is not a parameter.
+                        out.append("/*")
+                        i += 2
+                        while (i < sql.length) {
+                            if (sql[i] == '*' && i + 1 < sql.length && sql[i + 1] == '/') {
+                                out.append("*/")
+                                i += 2
+                                break
+                            }
+                            out.append(sql[i])
+                            i++
+                        }
+                    }
                     c == ':' && i + 1 < sql.length && sql[i + 1] == ':' -> {
                         // Postgres "::" cast operator, not a parameter.
                         out.append("::")
