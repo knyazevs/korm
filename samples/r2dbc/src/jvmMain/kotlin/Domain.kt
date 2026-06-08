@@ -36,3 +36,5 @@ data class ProductDTO(val id: Uuid? = null, val price: Int? = null, val payload:
 }
 
 fun ProductEntity.toDto() = ProductDTO(id, price, payload)
+
+internal val productTableDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" uuid NOT NULL, "price" integer NOT NULL, "payload" jsonb NOT NULL, PRIMARY KEY ("id"))"""

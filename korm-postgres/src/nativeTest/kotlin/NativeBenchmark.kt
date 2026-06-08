@@ -77,8 +77,8 @@ class NativeBenchmark {
         // Fresh table + an index on `name` so selectWhere is an index lookup (matches the JVM
         // harness) rather than a sequential scan that degrades as inserts bloat the table.
         driver.transaction {
-            BenchTable.dropTable()
-            BenchTable.createTable()
+            BenchTable.execSql("DROP TABLE IF EXISTS \"cmp_bench\"")
+            BenchTable.execSql(benchDdl)
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
             BenchTable.insert(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
@@ -109,3 +109,5 @@ class NativeBenchmark {
         return threads.toLong() * opsPerThread * 1000.0 / elapsedMs
     }
 }
+
+private val benchDdl = """CREATE TABLE IF NOT EXISTS "cmp_bench" ("id" uuid NOT NULL, "name" text NOT NULL, "amount" numeric NOT NULL, PRIMARY KEY ("id"))"""

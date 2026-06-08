@@ -64,7 +64,7 @@ class R2dbcIntegrationTest {
         runBlocking {
             val id = Uuid.random()
             database.suspendTransaction {
-                Widgets.createTable()
+                Widgets.execSql(widgetsDdl)
                 Widgets.insert(Widget().apply {
                     this.id = id
                     this.name = "async-widget"
@@ -89,7 +89,7 @@ class R2dbcIntegrationTest {
         if (!dockerAvailable) return
         val database = db!!
         runBlocking {
-            database.suspendTransaction { Widgets.createTable() }
+            database.suspendTransaction { Widgets.execSql(widgetsDdl) }
             val id = Uuid.random()
 
             assertFailsWith<IllegalStateException> {
@@ -112,7 +112,7 @@ class R2dbcIntegrationTest {
         if (!dockerAvailable) return
         val database = db!!
         runBlocking {
-            database.suspendTransaction { Widgets.createTable() }
+            database.suspendTransaction { Widgets.execSql(widgetsDdl) }
             val id = Uuid.random()
             database.suspendTransaction {
                 Widgets.insert(Widget().apply { this.id = id; this.name = "dup"; this.qty = 1 })
@@ -141,3 +141,5 @@ object Widgets : Table<R2Catalog, Widget>("widgets", ::Widget) {
 
     init { id; name; qty }
 }
+
+private val widgetsDdl = """CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid NOT NULL, "name" text NOT NULL, "qty" integer NOT NULL, PRIMARY KEY ("id"))"""

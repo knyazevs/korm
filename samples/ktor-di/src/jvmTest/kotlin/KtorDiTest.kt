@@ -36,7 +36,7 @@ class KtorDiTest {
                 user = pg.username,
                 password = pg.password,
             )
-            runBlocking { db.suspendAutocommit { ProductTable.dropTable(); ProductTable.createTable() } }
+            runBlocking { db.suspendAutocommit { ProductTable.execSql("DROP TABLE IF EXISTS \"products\""); ProductTable.execSql(productTableDdl) } }
 
             testApplication {
                 application {

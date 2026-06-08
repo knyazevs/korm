@@ -313,7 +313,7 @@ class TableIntegrationTest {
         val time = kotlinx.datetime.LocalTime.parse("03:04:05")
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         ItDatabase.transaction {
-            AllTypes.createTable()
+            AllTypes.execSql(allTypesDdl)
             AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
@@ -372,8 +372,8 @@ class TableIntegrationTest {
         val authorId = Uuid.random()
         val bookId = Uuid.random()
         ItDatabase.transaction {
-            Authors.createTable()
-            Books.createTable()
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
             Authors.insert(Author().apply { id = authorId; name = "Ada" })
             Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
@@ -401,7 +401,7 @@ class TableIntegrationTest {
         assertEquals("Ada", pairs.single().first.name)
         assertEquals(bookId, pairs.single().second.id)
 
-        ItDatabase.transaction { Books.dropTable(); Authors.dropTable() }
+        ItDatabase.transaction { Books.execSql("DROP TABLE IF EXISTS \"books\""); Authors.execSql("DROP TABLE IF EXISTS \"authors\"") }
     }
 
     /** GROUP BY with COUNT(*) aggregates rows per group. */
@@ -613,3 +613,8 @@ object ItDatabase : Database<ItCatalog> {
     override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         driver.executeUpdate(sql, namedParameters)
 }
+
+// Raw schema DDL for tests (Korm no longer owns createTable). Postgres types.
+private val allTypesDdl = """CREATE TABLE IF NOT EXISTS "all_types" ("id" uuid NOT NULL, "anInt" integer NOT NULL, "aDouble" double precision NOT NULL, "aBool" boolean NOT NULL, "aText" text NOT NULL, "aDecimal" numeric NOT NULL, "anInstant" timestamptz NOT NULL, "aJson" jsonb NOT NULL, "aLong" bigint NOT NULL, "aFloat" real NOT NULL, "aShort" smallint NOT NULL, "aDate" date NOT NULL, "aTime" time NOT NULL, "aDateTime" timestamp NOT NULL, PRIMARY KEY ("id"))"""
+private val authorsDdl = """CREATE TABLE IF NOT EXISTS "authors" ("id" uuid NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))"""
+private val booksDdl = """CREATE TABLE IF NOT EXISTS "books" ("id" uuid NOT NULL, "authorId" uuid NOT NULL, "title" text NOT NULL, PRIMARY KEY ("id"))"""

@@ -78,12 +78,12 @@ fun main() {
         cache.use {
             // Seed Postgres (the source of truth).
             pg.transaction {
-                PgProducts.dropTable()
-                PgProducts.createTable()
+                PgProducts.execSql("DROP TABLE IF EXISTS \"products\"")
+                PgProducts.execSql(pgProductsDdl)
                 PgProducts.insert(PgProduct().apply { id = 1; name = "Keyboard" })
                 PgProducts.insert(PgProduct().apply { id = 2; name = "Mouse" })
             }
-            cache.autocommit { CachedProducts.createTable() }
+            cache.autocommit { CachedProducts.execSql(cachedProductsDdl) }
 
             val repo = ProductRepository(pg, cache)
             println("get(1) = ${repo.get(1)?.name}") // MISS -> populate
@@ -93,3 +93,7 @@ fun main() {
         }
     }
 }
+
+// Schema owned by the app, not Korm. PgProducts is Postgres; CachedProducts is SQLite.
+internal val pgProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" integer NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))"""
+internal val cachedProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))"""

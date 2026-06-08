@@ -66,7 +66,7 @@ open class KormBenchmark {
             poolSize = 8,
         )
         db.transaction {
-            BenchTable.createTable()
+            BenchTable.execSql(benchDdl)
             BenchTable.insert(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
     }
@@ -88,3 +88,5 @@ open class KormBenchmark {
     @Benchmark
     fun selectWhere(): Any? = db.autocommit { BenchTable.find(Query(BenchTable.name eq "seed")) }
 }
+
+private val benchDdl = """CREATE TABLE IF NOT EXISTS "bench" ("id" uuid NOT NULL, "name" text NOT NULL, "amount" numeric NOT NULL, PRIMARY KEY ("id"))"""

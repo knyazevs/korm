@@ -474,22 +474,6 @@ class TableTest {
     }
 
     @Test
-    fun testCreateTableGeneratesDdlFromColumns() {
-        val expectedResult = """
-            CREATE TABLE IF NOT EXISTS "products" (
-                "id" uuid NOT NULL,
-                "price" numeric NOT NULL,
-                "position" integer NOT NULL,
-                "text" text NOT NULL,
-                "nullableTest" text,
-                PRIMARY KEY ("id")
-            )
-        """
-        db.transaction { TestTable.createTable() }
-        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-    }
-
-    @Test
     fun testInListLikeIsNullAndNotOperators() {
         db.transaction { TestTable.find(Query(TestTable.position inList listOf(1, 2))) }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains(""""position"IN(:p0,:p1)"""))
@@ -549,15 +533,6 @@ class TableTest {
         db.autocommit { Coded.findById("abc") }
         assertTrue(remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""WHERE"code"=:p0"""))
         assertEquals(mapOf("p0" to "abc"), databaseMockObj.internalParams)
-    }
-
-    @Test
-    fun testCreateTableEmitsCompositePrimaryKey() {
-        db.transaction { CompositeKey.createTable() }
-        assertTrue(
-            remoteNewLinesAndSpaces(databaseMockObj.internalSql).contains("""PRIMARYKEY("left","right")"""),
-            databaseMockObj.internalSql,
-        )
     }
 
     @Test

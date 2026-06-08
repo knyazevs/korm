@@ -91,14 +91,6 @@ class Scope<G : Catalog> internal constructor(
 
     fun <T : Entity> Table<G, T>.execSql(sql: String) = runRaw(sql, exec)
 
-    /** Creates this table from its column definitions (`CREATE TABLE [IF NOT EXISTS]`). */
-    fun <T : Entity> Table<G, T>.createTable(ifNotExists: Boolean = true) =
-        exec.executeUpdate(createTableSql(exec.dialect, ifNotExists))
-
-    /** Drops this table (`DROP TABLE [IF EXISTS]`). */
-    fun <T : Entity> Table<G, T>.dropTable(ifExists: Boolean = true) =
-        exec.executeUpdate(dropTableSql(exec.dialect, ifExists))
-
     /** Runs the query, selecting the given fields (or all columns if none are given). */
     fun Join<G>.select(vararg fields: Selectable<*>): List<ResultRow> =
         runSelect(exec, this, if (fields.isEmpty()) allColumns() else fields.toList())

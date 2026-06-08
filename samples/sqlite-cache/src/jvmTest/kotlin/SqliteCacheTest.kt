@@ -32,11 +32,11 @@ class SqliteCacheTest {
             pgDb.use {
                 cache.use {
                     pgDb.transaction {
-                        PgProducts.dropTable()
-                        PgProducts.createTable()
+                        PgProducts.execSql("DROP TABLE IF EXISTS \"products\"")
+                        PgProducts.execSql(pgProductsDdl)
                         PgProducts.insert(PgProduct().apply { id = 1; name = "Keyboard" })
                     }
-                    cache.autocommit { CachedProducts.createTable() }
+                    cache.autocommit { CachedProducts.execSql(cachedProductsDdl) }
 
                     val repo = ProductRepository(pgDb, cache)
 

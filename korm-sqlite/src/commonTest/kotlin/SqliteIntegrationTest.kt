@@ -24,9 +24,8 @@ import kotlin.uuid.Uuid
  * End-to-end tests for the SQLite backend. They run on every target (JVM via
  * sqlite-jdbc, Native via the sqlite3 cinterop driver) against a shared in-memory
  * database, so no external server / Docker is needed. The schema is created through
- * [Table.createTable], which exercises [io.github.knyazevs.korm.SqliteDialect]'s
- * type mapping; the all-types round-trip is the key check that SQLite's text storage
- * and the verbatim temporal parsing line up.
+ * raw DDL (Korm does not own schema management); the all-types round-trip is the key
+ * check that SQLite's text storage and the verbatim temporal parsing line up.
  */
 class SqliteIntegrationTest {
 
@@ -38,7 +37,7 @@ class SqliteIntegrationTest {
     fun testInsertFindUpdateDeleteRoundTrip() {
         val id = Uuid.random()
         db.transaction {
-            Products.createTable()
+            Products.execSql(productsDdl)
             Products.insert(Product().apply {
                 this.id = id
                 this.price = BigDecimal.fromInt(100)
@@ -92,7 +91,7 @@ class SqliteIntegrationTest {
 
     @Test
     fun testUpsertInsertOrIgnoreAndBatchOrder() {
-        db.transaction { Products.createTable() }
+        db.transaction { Products.execSql(productsDdl) }
         val id = Uuid.random()
 
         // upsert as insert (no conflict).
@@ -150,7 +149,7 @@ class SqliteIntegrationTest {
         val id = Uuid.random()
         val tricky = "O'Brien'; DROP TABLE products; --"
         db.transaction {
-            Products.createTable()
+            Products.execSql(productsDdl)
             Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = tricky; this.note = null; this.rank = null
@@ -170,7 +169,7 @@ class SqliteIntegrationTest {
         val time = kotlinx.datetime.LocalTime.parse("03:04:05")
         val dateTime = kotlinx.datetime.LocalDateTime.parse("2024-01-02T03:04:05")
         db.transaction {
-            AllTypes.createTable()
+            AllTypes.execSql(allTypesDdl)
             AllTypes.insert(AllTypesEntity().apply {
                 this.id = id
                 this.anInt = 42
@@ -211,7 +210,7 @@ class SqliteIntegrationTest {
         val ids = List(3) { Uuid.random() }
         val tag = "batch-${Uuid.random()}"
         db.transaction {
-            Products.createTable()
+            Products.execSql(productsDdl)
             Products.insertAll(ids.mapIndexed { i, id ->
                 Product().apply {
                     this.id = id; this.price = BigDecimal.fromInt(i); this.qty = i
@@ -228,7 +227,7 @@ class SqliteIntegrationTest {
     @Test
     fun testTransactionRollsBackOnException() {
         val id = Uuid.random()
-        db.transaction { Products.createTable() }
+        db.transaction { Products.execSql(productsDdl) }
         assertFailsWith<RuntimeException> {
             db.transaction {
                 Products.insert(Product().apply {
@@ -246,7 +245,7 @@ class SqliteIntegrationTest {
     fun testUniqueViolationIsTyped() {
         val id = Uuid.random()
         db.transaction {
-            Products.createTable()
+            Products.execSql(productsDdl)
             Products.insert(Product().apply {
                 this.id = id; this.price = BigDecimal.fromInt(1); this.qty = 1
                 this.displayName = "dup"; this.note = null; this.rank = null
@@ -266,7 +265,7 @@ class SqliteIntegrationTest {
     /**
      * A foreign-key violation surfaces as a typed ForeignKeyViolationException —
      * proving the `foreign_keys=ON` pragma is applied (SQLite defaults it OFF).
-     * The FK constraint is created via raw DDL since createTable() emits only PKs.
+     * The FK constraint is created via raw DDL.
      */
     @Test
     fun testForeignKeyViolationIsTyped() {
@@ -293,8 +292,8 @@ class SqliteIntegrationTest {
         val authorId = Uuid.random()
         val bookId = Uuid.random()
         db.transaction {
-            Authors.createTable()
-            Books.createTable()
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
             Authors.insert(Author().apply { id = authorId; name = "Ada" })
             Books.insert(Book().apply { id = bookId; this.authorId = authorId; title = "Notes" })
         }
@@ -402,3 +401,10 @@ object AllTypes : Table<SqCatalog, AllTypesEntity>("all_types", ::AllTypesEntity
         aLong; aFloat; aShort; aDate; aTime; aDateTime
     }
 }
+
+// ---- Raw schema DDL for tests (Korm no longer owns createTable). SQLite type affinity:
+// INTEGER / REAL / TEXT; non-native values (UUID, decimal, json, temporals) live as TEXT. ----
+internal val productsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" TEXT NOT NULL, "price" TEXT NOT NULL, "qty" INTEGER NOT NULL, "displayName" TEXT NOT NULL, "note" TEXT, "rank" INTEGER, PRIMARY KEY ("id"))"""
+internal val authorsDdl = """CREATE TABLE IF NOT EXISTS "authors" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))"""
+internal val booksDdl = """CREATE TABLE IF NOT EXISTS "books" ("id" TEXT NOT NULL, "authorId" TEXT NOT NULL, "title" TEXT NOT NULL, PRIMARY KEY ("id"))"""
+internal val allTypesDdl = """CREATE TABLE IF NOT EXISTS "all_types" ("id" TEXT NOT NULL, "anInt" INTEGER NOT NULL, "aDouble" REAL NOT NULL, "aBool" INTEGER NOT NULL, "aText" TEXT NOT NULL, "aDecimal" TEXT NOT NULL, "anInstant" TEXT NOT NULL, "aJson" TEXT NOT NULL, "aLong" INTEGER NOT NULL, "aFloat" REAL NOT NULL, "aShort" INTEGER NOT NULL, "aDate" TEXT NOT NULL, "aTime" TEXT NOT NULL, "aDateTime" TEXT NOT NULL, PRIMARY KEY ("id"))"""

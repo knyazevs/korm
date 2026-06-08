@@ -24,7 +24,7 @@ class ShardingTest {
         try {
             val accounts = ShardedAccounts(shards)
             accounts.createTables()
-            auditDb.autocommit { AuditLog.createTable() }
+            auditDb.autocommit { AuditLog.execSql(auditDdl) }
 
             (1..6).forEach { id ->
                 accounts.put(Account().apply { this.id = id; owner = "owner-$id" })

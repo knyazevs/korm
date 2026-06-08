@@ -45,7 +45,7 @@ class ShardedAccounts(private val shards: List<Database<AccountsCatalog>>) {
     private fun shardOf(id: Int) = id % shards.size
 
     // drop+create keeps the sample rerunnable (fixed ids would otherwise clash on a second run).
-    fun createTables() = shards.forEach { it.autocommit { Accounts.dropTable(); Accounts.createTable() } }
+    fun createTables() = shards.forEach { it.autocommit { Accounts.execSql("DROP TABLE IF EXISTS \"accounts\""); Accounts.execSql(accountsDdl) } }
 
     fun put(account: Account): Int {
         val shard = shardOf(account.id!!)
@@ -71,7 +71,7 @@ fun main() {
     try {
         val accounts = ShardedAccounts(shards)
         accounts.createTables()
-        auditDb.autocommit { AuditLog.createTable() }
+        auditDb.autocommit { AuditLog.execSql(auditDdl) }
 
         (1..6).forEach { id ->
             val shard = accounts.put(account(id, "owner-$id"))
@@ -95,3 +95,7 @@ fun main() {
         }
     }
 }
+
+// Schema owned by the app, not Korm.
+internal val accountsDdl = """CREATE TABLE IF NOT EXISTS "accounts" ("id" INTEGER NOT NULL, "owner" TEXT NOT NULL, PRIMARY KEY ("id"))"""
+internal val auditDdl = """CREATE TABLE IF NOT EXISTS "audit" ("id" INTEGER NOT NULL, "message" TEXT NOT NULL, PRIMARY KEY ("id"))"""

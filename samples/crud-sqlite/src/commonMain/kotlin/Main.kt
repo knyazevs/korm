@@ -39,7 +39,7 @@ fun main() {
         // Migrations are idempotent and recorded in korm_migrations — safe to run on every start.
         db.migrate(
             listOf(
-                Migration("001-create-users") { Users.createTable() },
+                Migration("001-create-users") { Users.execSql(usersDdl) },
             ),
         )
 
@@ -60,3 +60,6 @@ fun main() {
         println("remaining  = ${remaining.map { "${it.name}(${it.age})" }}")
     }
 }
+
+// Schema is owned by the app (raw SQL / migrations), not Korm.
+internal val usersDdl = """CREATE TABLE IF NOT EXISTS "users" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, "age" INTEGER NOT NULL, PRIMARY KEY ("id"))"""

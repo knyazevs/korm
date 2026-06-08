@@ -122,8 +122,8 @@ open class ComparisonBenchmark {
         // Start from a clean table (the insert benchmarks bloat it across runs) and index
         // `name` so selectWhere is an index lookup, not a size-dependent sequential scan.
         kormDb.transaction {
-            CmpTable.dropTable()
-            CmpTable.createTable()
+            CmpTable.execSql("DROP TABLE IF EXISTS \"cmp_bench\"")
+            CmpTable.execSql(cmpBenchDdl)
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
             CmpTable.insert(CmpRow().apply { id = seededKormId; name = "seed"; amount = KormBigDecimal.fromInt(1) })
         }
@@ -203,3 +203,5 @@ open class ComparisonBenchmark {
         it.createQuery("from HibBench where name = :n", HibBench::class.java).setParameter("n", "seed").list()
     }
 }
+
+private val cmpBenchDdl = """CREATE TABLE IF NOT EXISTS "cmp_bench" ("id" uuid NOT NULL, "name" text NOT NULL, "amount" numeric NOT NULL, PRIMARY KEY ("id"))"""

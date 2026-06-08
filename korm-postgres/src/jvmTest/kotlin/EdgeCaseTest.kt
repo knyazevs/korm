@@ -29,9 +29,9 @@ class EdgeCaseTest {
     fun setup() {
         assumeTrue(DockerClientFactory.instance().isDockerAvailable, "Docker is not available")
         ItDatabase.transaction {
-            EdgeTable.createTable()
-            EdgeChild.createTable()
-            Reserved.createTable()
+            EdgeTable.execSql(edgeDdl)
+            EdgeChild.execSql(edgeChildDdl)
+            Reserved.execSql(reservedDdl)
         }
     }
 
@@ -195,3 +195,8 @@ object Reserved : Table<ItCatalog, ReservedRow>("reserved_tbl", ::ReservedRow) {
 
     init { id; order }
 }
+
+// Raw schema DDL for tests (Korm no longer owns createTable). Postgres types.
+private val edgeDdl = """CREATE TABLE IF NOT EXISTS "edge" ("id" uuid NOT NULL, "n" integer, "t" text, "big" numeric, "num" integer NOT NULL, PRIMARY KEY ("id"))"""
+private val edgeChildDdl = """CREATE TABLE IF NOT EXISTS "edge_child" ("id" uuid NOT NULL, "parentId" uuid NOT NULL, "label" text NOT NULL, PRIMARY KEY ("id"))"""
+private val reservedDdl = """CREATE TABLE IF NOT EXISTS "reserved_tbl" ("id" uuid NOT NULL, "order" integer NOT NULL, PRIMARY KEY ("id"))"""

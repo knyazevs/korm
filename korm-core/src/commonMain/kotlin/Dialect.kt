@@ -17,9 +17,6 @@ interface Dialect {
 
     /** Renders an `OFFSET` clause (trailing space included), or "" when zero. */
     fun renderOffset(offset: UInt): String
-
-    /** The SQL column type for [type], e.g. "uuid", "numeric", "timestamptz". */
-    fun sqlType(type: Column.ColumnNameEnum): String
 }
 
 /**
@@ -38,21 +35,4 @@ object StandardDialect : Dialect {
 
     override fun renderOffset(offset: UInt): String =
         if (offset != 0u) "OFFSET $offset " else ""
-
-    override fun sqlType(type: Column.ColumnNameEnum): String = when (type) {
-        Column.ColumnNameEnum.UUID -> "uuid"
-        Column.ColumnNameEnum.BigDecimal -> "numeric"
-        Column.ColumnNameEnum.Double -> "double precision"
-        Column.ColumnNameEnum.Int -> "integer"
-        Column.ColumnNameEnum.Boolean -> "boolean"
-        Column.ColumnNameEnum.String -> "text"
-        Column.ColumnNameEnum.Instant -> "timestamp"
-        Column.ColumnNameEnum.Json -> "json"
-        Column.ColumnNameEnum.Long -> "bigint"
-        Column.ColumnNameEnum.Float -> "real"
-        Column.ColumnNameEnum.Short -> "smallint"
-        Column.ColumnNameEnum.LocalDate -> "date"
-        Column.ColumnNameEnum.LocalTime -> "time"
-        Column.ColumnNameEnum.LocalDateTime -> "timestamp"
-    }
 }

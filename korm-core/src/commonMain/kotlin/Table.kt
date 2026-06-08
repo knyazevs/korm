@@ -247,23 +247,6 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return sql.trimIndent() to builder.params
     }
 
-    internal fun createTableSql(dialect: Dialect, ifNotExists: Boolean): String {
-        val columns = fieldDisplayName.values.joinToString(",\n    ") { col ->
-            val nullability = if (col.nullable) "" else " NOT NULL"
-            "${dialect.quoteIdentifier(col.name)} ${dialect.sqlType(col.columnType)}$nullability"
-        }
-        val pkClause = primaryKey
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString(", ") { dialect.quoteIdentifier(it.name) }
-            ?.let { ",\n    PRIMARY KEY ($it)" }
-            .orEmpty()
-        val exists = if (ifNotExists) "IF NOT EXISTS " else ""
-        return "CREATE TABLE $exists${qualifiedTableName(dialect)} (\n    $columns$pkClause\n)"
-    }
-
-    internal fun dropTableSql(dialect: Dialect, ifExists: Boolean): String =
-        "DROP TABLE ${if (ifExists) "IF EXISTS " else ""}${qualifiedTableName(dialect)}"
-
     // ---- blocking runners (called by Scope) ----
 
     internal fun runRaw(sql: String, exec: SqlExecutor) {
