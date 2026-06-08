@@ -39,7 +39,7 @@ class BenchRow : Entity() {
 }
 
 object BenchTable : Table<BenchCatalog, BenchRow>("cmp_bench", ::BenchRow) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val amount by Column.BigDecimal()
 

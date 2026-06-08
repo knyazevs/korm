@@ -15,7 +15,7 @@ integration modules.
 object App : Catalog
 
 object Users : Table<App, User>("users", ::User) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val age by Column.Int()
 }

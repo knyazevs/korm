@@ -24,7 +24,7 @@ object TestTable : Table<TestCatalog, TestEntity>("products", ::TestEntity) {
     val price by Column.BigDecimal()
     val position by Column.Int()
     val text by Column.Text()
-    val nullableTest by Column.Text(true)
+    val nullableTest by Column.Text().nullable()
 }
 
 
@@ -44,7 +44,7 @@ class CodedEntity : Entity() {
 }
 
 object Coded : Table<TestCatalog, CodedEntity>("coded", ::CodedEntity) {
-    val code by Column.Text(primaryKey = true)
+    val code by Column.Text().primaryKey()
     val amount by Column.Int()
 }
 
@@ -54,8 +54,18 @@ class CompositeKeyEntity : Entity() {
 }
 
 object CompositeKey : Table<TestCatalog, CompositeKeyEntity>("composite", ::CompositeKeyEntity) {
-    val left by Column.UUID(primaryKey = true)
-    val right by Column.Int(primaryKey = true)
+    val left by Column.UUID().primaryKey()
+    val right by Column.Int().primaryKey()
+}
+
+class NamedEntity : Entity() {
+    var id by Named.id
+    var createdAt by Named.createdAt
+}
+
+object Named : Table<TestCatalog, NamedEntity>("named", ::NamedEntity) {
+    val id by Column.UUID().primaryKey()
+    val createdAt by Column.Instant(name = "created_at")
 }
 
 class TableTest {
@@ -85,6 +95,27 @@ class TableTest {
         // A concrete value is set.
         e.text = "hi"
         assertTrue(e.isSet(TestTable.text))
+    }
+
+    @Test
+    fun testCustomColumnNameSplitsSqlNameFromFieldKey() {
+        // The SQL identifier uses the custom name; the entity field key follows the property.
+        assertEquals("created_at", Named.createdAt.name)
+        assertEquals("createdAt", Named.createdAt.fieldKey)
+        assertTrue(Named.getFieldDisplayNames().containsKey("createdAt"))
+        assertFalse(Named.getFieldDisplayNames().containsKey("created_at"))
+
+        // INSERT renders the custom SQL name.
+        db.transaction {
+            Named.new(NamedEntity().apply {
+                id = Uuid.random()
+                createdAt = kotlinx.datetime.Clock.System.now()
+            })
+        }
+        assertTrue(
+            databaseMockObj.internalSql.contains("\"created_at\""),
+            "expected custom SQL name in: ${databaseMockObj.internalSql}",
+        )
     }
 
     @Test

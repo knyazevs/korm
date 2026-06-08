@@ -31,7 +31,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
      */
     val primaryKey: List<Column<*, *, *>>
         get() = fieldDisplayName.values.filter { it.isPrimaryKey }
-            .ifEmpty { fieldDisplayName.values.filter { it.name == "id" } }
+            .ifEmpty { fieldDisplayName.values.filter { it.fieldKey == "id" } }
     internal fun addColumn(fieldName: String, column: Column<*, *, *>) {
         logger.trace { "add column/field ${column.name}/$fieldName" }
         fieldDisplayName[fieldName] = column

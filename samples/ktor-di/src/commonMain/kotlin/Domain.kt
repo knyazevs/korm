@@ -15,7 +15,7 @@ import kotlin.uuid.Uuid
 object AppCatalog : Catalog
 
 object ProductTable : Table<AppCatalog, ProductEntity>("products", ::ProductEntity) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val price by Column.Int()
     val payload by Column.Json()
 }
@@ -29,9 +29,9 @@ class ProductEntity : Entity() {
 @Serializable
 data class ProductDTO(val id: Uuid? = null, val price: Int? = null, val payload: JsonElement? = null) {
     fun toDomain(): ProductEntity = ProductEntity().apply {
-        id = this@ProductDTO.id
-        price = this@ProductDTO.price
-        payload = this@ProductDTO.payload
+        this@ProductDTO.id?.let { id = it }
+        this@ProductDTO.price?.let { price = it }
+        this@ProductDTO.payload?.let { payload = it }
     }
 }
 

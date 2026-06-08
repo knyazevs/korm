@@ -20,12 +20,12 @@ object CacheCatalog : Catalog
 data class Product(val id: Int, val name: String)
 
 object PgProducts : Table<PgCatalog, PgProduct>("products", ::PgProduct) {
-    val id by Column.Int(primaryKey = true)
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
 }
 
 object CachedProducts : Table<CacheCatalog, CacheProduct>("products", ::CacheProduct) {
-    val id by Column.Int(primaryKey = true)
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
 }
 

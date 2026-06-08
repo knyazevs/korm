@@ -542,8 +542,8 @@ object ItProducts : Table<ItCatalog, ItProduct>("it_products", ::ItProduct) {
     val price by Column.BigDecimal()
     val qty by Column.Int()
     val displayName by Column.Text()
-    val note by Column.Text(true)
-    val rank by Column.Int(true)
+    val note by Column.Text().nullable()
+    val rank by Column.Int().nullable()
 
     init {
         id;price;qty;displayName;note;rank

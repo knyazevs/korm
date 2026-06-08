@@ -23,10 +23,10 @@ import io.github.knyazevs.korm.Table
 import kotlin.uuid.Uuid
 
 object Users : Table<App, User>("users", ::User) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val age by Column.Int()
-    val note by Column.Text(nullable = true)
+    val note by Column.Text().nullable()
 }
 
 class User : Entity() {

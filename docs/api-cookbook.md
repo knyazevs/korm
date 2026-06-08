@@ -9,10 +9,10 @@ real usage patterns appear.
 object App : Catalog
 
 object Users : Table<App, User>("users", ::User) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val email by Column.Text()
     val name by Column.Text()
-    val deletedAt by Column.Instant(nullable = true)
+    val deletedAt by Column.Instant().nullable()
 }
 
 class User : Entity() {

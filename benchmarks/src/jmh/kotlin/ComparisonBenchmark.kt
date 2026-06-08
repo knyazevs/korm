@@ -49,7 +49,7 @@ class CmpRow : Entity() {
 }
 
 object CmpTable : Table<Cmp, CmpRow>("cmp_bench", ::CmpRow) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val amount by Column.BigDecimal()
 

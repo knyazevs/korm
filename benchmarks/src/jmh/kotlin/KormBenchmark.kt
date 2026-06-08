@@ -35,7 +35,7 @@ class BenchRow : Entity() {
 }
 
 object BenchTable : Table<Bench, BenchRow>("bench", ::BenchRow) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val amount by Column.BigDecimal()
 

@@ -161,10 +161,10 @@ class EdgeRow : Entity() {
 }
 
 object EdgeTable : Table<ItCatalog, EdgeRow>("edge", ::EdgeRow) {
-    val id by Column.UUID(primaryKey = true)
-    val n by Column.Int(nullable = true)
-    val t by Column.Text(nullable = true)
-    val big by Column.BigDecimal(nullable = true)
+    val id by Column.UUID().primaryKey()
+    val n by Column.Int().nullable()
+    val t by Column.Text().nullable()
+    val big by Column.BigDecimal().nullable()
     val num by Column.Int()
 
     init { id; n; t; big; num }
@@ -177,7 +177,7 @@ class EdgeChildRow : Entity() {
 }
 
 object EdgeChild : Table<ItCatalog, EdgeChildRow>("edge_child", ::EdgeChildRow) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val parentId by Column.UUID()
     val label by Column.Text()
 
@@ -190,7 +190,7 @@ class ReservedRow : Entity() {
 }
 
 object Reserved : Table<ItCatalog, ReservedRow>("reserved_tbl", ::ReservedRow) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val order by Column.Int()
 
     init { id; order }

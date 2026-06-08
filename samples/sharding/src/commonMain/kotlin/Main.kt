@@ -20,12 +20,12 @@ object AccountsCatalog : Catalog
 object AuditCatalog : Catalog
 
 object Accounts : Table<AccountsCatalog, Account>("accounts", ::Account) {
-    val id by Column.Int(primaryKey = true)
+    val id by Column.Int().primaryKey()
     val owner by Column.Text()
 }
 
 object AuditLog : Table<AuditCatalog, AuditEntry>("audit", ::AuditEntry) {
-    val id by Column.Int(primaryKey = true)
+    val id by Column.Int().primaryKey()
     val message by Column.Text()
 }
 

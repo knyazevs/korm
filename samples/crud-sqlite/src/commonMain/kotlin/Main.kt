@@ -17,7 +17,7 @@ import io.github.knyazevs.korm.autocommit
 object Shop : Catalog
 
 object Users : Table<Shop, User>("users", ::User) {
-    val id by Column.Int(primaryKey = true)
+    val id by Column.Int().primaryKey()
     val name by Column.Text()
     val age by Column.Int()
 }

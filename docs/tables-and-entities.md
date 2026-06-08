@@ -49,10 +49,10 @@ Columns are declared with delegated properties:
 
 ```kotlin
 object Users : Table<Main, User>("users", ::User) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val age by Column.Int()
-    val note by Column.Text(nullable = true)
+    val note by Column.Text().nullable()
 }
 ```
 
@@ -78,8 +78,8 @@ Supported column types:
 Every column accepts:
 
 ```kotlin
-Column.Text(nullable = true)
-Column.UUID(primaryKey = true)
+Column.Text().nullable()
+Column.UUID().primaryKey()
 ```
 
 `findById` uses a single explicit primary key. If none is marked, it falls back to a column

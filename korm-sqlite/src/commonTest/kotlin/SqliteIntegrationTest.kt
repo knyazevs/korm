@@ -253,12 +253,12 @@ class Product : Entity() {
 }
 
 object Products : Table<SqCatalog, Product>("products", ::Product) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val price by Column.BigDecimal()
     val qty by Column.Int()
     val displayName by Column.Text()
-    val note by Column.Text(true)
-    val rank by Column.Int(true)
+    val note by Column.Text().nullable()
+    val rank by Column.Int().nullable()
 
     init { id; price; qty; displayName; note; rank }
 }
@@ -269,7 +269,7 @@ class Author : Entity() {
 }
 
 object Authors : Table<SqCatalog, Author>("authors", ::Author) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
 
     init { id; name }
@@ -282,7 +282,7 @@ class Book : Entity() {
 }
 
 object Books : Table<SqCatalog, Book>("books", ::Book) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val authorId by Column.UUID()
     val title by Column.Text()
 
@@ -307,7 +307,7 @@ class AllTypesEntity : Entity() {
 }
 
 object AllTypes : Table<SqCatalog, AllTypesEntity>("all_types", ::AllTypesEntity) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val anInt by Column.Int()
     val aDouble by Column.Double()
     val aBool by Column.Boolean()

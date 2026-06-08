@@ -135,7 +135,7 @@ class Widget : Entity() {
 }
 
 object Widgets : Table<R2Catalog, Widget>("widgets", ::Widget) {
-    val id by Column.UUID(primaryKey = true)
+    val id by Column.UUID().primaryKey()
     val name by Column.Text()
     val qty by Column.Int()
 
