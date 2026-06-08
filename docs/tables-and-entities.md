@@ -109,27 +109,29 @@ Users.update(Query(Users.id eq id), User().apply { note = null })
 This updates only `note`. The field storage remains available for advanced/custom entity
 patterns, but normal entities do not need to expose it in their constructors.
 
-## Schema Generation
+## Schema Management
+
+Korm does not own schema management. A `Table` describes how rows map to entities for
+queries, inserts and updates — not the full database schema. Create and evolve schema with
+a migration tool (Flyway, Liquibase) or raw SQL, which also gives you indexes, foreign
+keys, checks, defaults and generated columns that the mapping layer intentionally does not
+model:
 
 ```kotlin
 db.transaction {
-    Users.createTable()
-    Users.dropTable()
-}
-```
-
-`createTable()` generates:
-
-- table name with dialect-specific identifier quoting;
-- column SQL types;
-- `NOT NULL` for non-null columns;
-- primary key constraint from `primaryKey = true`.
-
-It does not generate indexes, foreign keys or custom checks yet. Use raw SQL inside a
-transaction for those:
-
-```kotlin
-db.transaction {
+    executeUpdate(
+        """
+        CREATE TABLE IF NOT EXISTS "users" (
+            "id" uuid NOT NULL,
+            "name" text NOT NULL,
+            "age" integer NOT NULL,
+            PRIMARY KEY ("id")
+        )
+        """,
+    )
     executeUpdate("""CREATE INDEX IF NOT EXISTS users_name_idx ON "users" ("name")""")
 }
 ```
+
+For repeatable, ordered setup use `Database.migrate(...)` (see
+[Transactions and migrations](transactions-and-migrations.md)).

@@ -119,9 +119,13 @@ module details.
 
 ## Minimal Workflow
 
+Korm does not own schema management — create tables with raw SQL or a migration tool.
+
 ```kotlin
 db.transaction {
-    Users.createTable()
+    executeUpdate(
+        """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "name" text NOT NULL, "age" integer NOT NULL, PRIMARY KEY ("id"))""",
+    )
     Users.insert(User().apply {
         id = Uuid.random()
         name = "Ada"

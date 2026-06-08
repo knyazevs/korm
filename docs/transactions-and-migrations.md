@@ -133,7 +133,9 @@ applied IDs in `korm_migrations` and runs only missing migrations.
 db.migrate(
     listOf(
         Migration("001-create-users") {
-            Users.createTable()
+            executeUpdate(
+                """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "name" text NOT NULL, "age" integer NOT NULL, PRIMARY KEY ("id"))""",
+            )
         },
         Migration("002-users-name-index") {
             executeUpdate("""CREATE INDEX IF NOT EXISTS users_name_idx ON "users" ("name")""")

@@ -61,16 +61,26 @@ catalog-agnostic.
 
 ## 4. Create the Table
 
+Korm maps queries and rows; it does not own schema management. Create tables with raw
+SQL (or a migration tool / `Database.migrate`):
+
 ```kotlin
 import io.github.knyazevs.korm.transaction
 
 db.transaction {
-    Users.createTable()
+    executeUpdate(
+        """
+        CREATE TABLE IF NOT EXISTS "users" (
+            "id" uuid NOT NULL,
+            "name" text NOT NULL,
+            "age" integer NOT NULL,
+            "note" text,
+            PRIMARY KEY ("id")
+        )
+        """,
+    )
 }
 ```
-
-`createTable()` emits `CREATE TABLE IF NOT EXISTS` with dialect-specific SQL types,
-`NOT NULL` and primary key constraints.
 
 ## 5. Insert and Read
 

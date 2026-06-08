@@ -25,15 +25,16 @@ class User : Entity() {
 
 ## Create Tables and Indexes
 
+Korm does not own schema; create it with raw SQL or a migration tool.
+
 ```kotlin
 db.transaction {
-    Users.createTable()
+    executeUpdate(
+        """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "email" text NOT NULL, "name" text NOT NULL, "deletedAt" timestamptz, PRIMARY KEY ("id"))""",
+    )
     executeUpdate("""CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON "users" ("email")""")
 }
 ```
-
-Korm generates basic table DDL. Use raw SQL for indexes, foreign keys and constraints until
-those concepts have first-class DSL support.
 
 ## Insert a Row
 
@@ -221,7 +222,9 @@ For Ktor, `korm-ktor` includes `KormException.httpStatusCode()`.
 db.migrate(
     listOf(
         Migration("001-create-users") {
-            Users.createTable()
+            executeUpdate(
+                """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "email" text NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))""",
+            )
         },
         Migration("002-users-email-index") {
             executeUpdate("""CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON "users" ("email")""")
@@ -239,7 +242,9 @@ application; add a new migration instead.
 val db: Database<App> = createSqliteDatabase()
 
 db.transaction {
-    Users.createTable()
+    executeUpdate(
+        """CREATE TABLE IF NOT EXISTS "users" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))""",
+    )
 }
 ```
 
