@@ -186,6 +186,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         returning: Boolean,
     ): Pair<String, Map<String, Any?>> {
         val builder = paramBuilder(dialect, typeMapper)
+        require(conflict.isNotEmpty()) { "upsert() conflict target must contain at least one column" }
         val insertFields = generatePresentFields(entity)
         require(insertFields.isNotEmpty()) { "upsert() needs at least one field set on the insert entity" }
         val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
@@ -207,6 +208,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         typeMapper: TypeMapper,
     ): Pair<String, Map<String, Any?>> {
         val builder = paramBuilder(dialect, typeMapper)
+        require(conflict.isNotEmpty()) { "insertOrIgnore() conflict target must contain at least one column" }
         val insertFields = generatePresentFields(entity)
         require(insertFields.isNotEmpty()) { "insertOrIgnore() needs at least one field set on the entity" }
         val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
@@ -218,7 +220,9 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
 
     private fun countSql(query: Query, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
         val builder = paramBuilder(dialect, typeMapper)
-        val queryStr = query.toSql(builder)
+        // Count the rows matching the predicate only: ORDER BY / LIMIT / OFFSET must not apply
+        // to an aggregate (an OFFSET would skip the single COUNT row and read as 0).
+        val queryStr = query.toCountSql(builder)
         val sql = "SELECT COUNT(*) FROM ${qualifiedTableName(dialect)} $queryStr"
         return sql.trimIndent() to builder.params
     }

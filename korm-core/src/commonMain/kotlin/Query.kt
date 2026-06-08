@@ -20,6 +20,14 @@ data class Query(
         return "$whereStr$orderByStr$limitStr$offsetStr"
     }
 
+    /**
+     * Renders only the `WHERE` clause (no `ORDER BY` / `LIMIT` / `OFFSET`). Used for
+     * aggregates like `COUNT(*)` where pagination and ordering must not apply — e.g. an
+     * `OFFSET` would skip the single aggregate row and make the count read as 0.
+     */
+    fun toCountSql(builder: ParamBuilder): String =
+        whereExpression?.let { "WHERE ${it.toSql(builder)} " } ?: ""
+
     // Debug-friendly rendering; placeholders are emitted in place of values.
     override fun toString(): String = toSql(ParamBuilder(StandardDialect, StandardTypeMapper))
 

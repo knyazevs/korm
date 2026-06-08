@@ -297,6 +297,55 @@ class TableTest {
     }
 
     @Test
+    fun testUpsertRejectsEmptyConflictTarget() {
+        // Regression (#30): an empty conflict list would render invalid SQL `ON CONFLICT ()`.
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.upsert(
+                    entity = TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    onConflict = emptyList(),
+                    update = TestEntity().apply { position = 2 },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testInsertOrIgnoreRejectsEmptyConflictTarget() {
+        assertFailsWith<IllegalArgumentException> {
+            db.transaction {
+                TestTable.insertOrIgnore(
+                    TestEntity().apply { id = Uuid.random(); price = BigDecimal.fromInt(1); position = 1; text = "a" },
+                    onConflict = emptyList(),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun testCountIgnoresOrderLimitOffset() {
+        // Regression (#29): count must ignore ORDER BY / LIMIT / OFFSET — an OFFSET would skip
+        // the single COUNT row and read as 0.
+        db.transaction {
+            TestTable.count(
+                Query(
+                    whereExpression = TestTable.position eq 1,
+                    limit = 10u,
+                    offset = 10u,
+                    orderBy = mapOf(TestTable.position to AscDescOrder.ASC),
+                )
+            )
+        }
+        val sql = remoteNewLinesAndSpaces(databaseMockObj.internalSql)
+        assertTrue(sql.contains("SELECTCOUNT(*)"), sql)
+        assertTrue(sql.contains(""""position"=:p0"""), sql)
+        assertFalse(sql.contains("ORDERBY"), sql)
+        assertFalse(sql.contains("LIMIT"), sql)
+        assertFalse(sql.contains("OFFSET"), sql)
+        assertEquals(mapOf("p0" to 1), databaseMockObj.internalParams)
+    }
+
+    @Test
     fun testInsert() {
         val uuid = Uuid.random()
         val price = BigDecimal.fromInt(100)
