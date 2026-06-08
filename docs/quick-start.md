@@ -22,16 +22,14 @@ import io.github.knyazevs.korm.Meta
 import io.github.knyazevs.korm.Table
 import kotlin.uuid.Uuid
 
-object Users : Table<App, User>(Meta("users"), ::User) {
+object Users : Table<App, User>("users", ::User) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
     val note by Column.Text(nullable = true)
 }
 
-class User(
-    override var fields: MutableMap<String, Any?> = mutableMapOf(),
-) : Entity(fields) {
+class User : Entity() {
     var id by Users.id
     var name by Users.name
     var age by Users.age

@@ -6,7 +6,7 @@ package io.github.knyazevs.korm
  * can plug in their own rendering.
  */
 interface Dialect {
-    /** Quotes a column/table/schema identifier. */
+    /** Quotes a column/table identifier. */
     fun quoteIdentifier(name: String): String
 
     /** Renders the bind placeholder for [name], optionally casting based on [value]'s type. */

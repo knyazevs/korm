@@ -208,7 +208,7 @@ class NativeTableIntegrationTest {
     }
 }
 
-class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class NativeProduct : Entity() {
     var id by NativeProducts.id
     var price by NativeProducts.price
     var qty by NativeProducts.qty
@@ -219,7 +219,7 @@ class NativeProduct(override var fields: MutableMap<String, Any?> = mutableMapOf
 
 object NativeCatalog : Catalog
 
-object NativeProducts : Table<NativeCatalog, NativeProduct>(Table.Meta("native_products"), ::NativeProduct) {
+object NativeProducts : Table<NativeCatalog, NativeProduct>("native_products", ::NativeProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()

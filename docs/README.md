@@ -8,8 +8,8 @@ is intentionally short; the deeper material lives here.
 1. [Installation](installation.md) - artifacts, BOM, native requirements and supported
    targets.
 2. [Quick start](quick-start.md) - a complete first table, connection and CRUD flow.
-3. [Tables and entities](tables-and-entities.md) - catalogs, columns, entities and schema
-   generation.
+3. [Tables and entities](tables-and-entities.md) - catalogs, table names, columns and
+   entities.
 4. [Queries](queries.md) - predicates, ordering, pagination, joins, projections and
    aggregations.
 5. [Transactions and migrations](transactions-and-migrations.md) - scopes, savepoints,

@@ -6,7 +6,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
- * A table definition: its [Meta] (name/schema) and columns, tagged with the catalog
+ * A table definition: its SQL table name and columns, tagged with the catalog
  * [G] it belongs to. A table holds no connection — operations run inside a
  * [transaction] / [autocommit] scope (or [Scope]) which supplies the pinned
  * [SqlExecutor], or inside their suspend counterparts via [SuspendScope]. The
@@ -17,7 +17,10 @@ private val logger = KotlinLogging.logger {}
  * and the suspend runner (taking [SuspendSqlExecutor]) share the same `*Sql`
  * helper and differ only in how they execute it.
  */
-abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (MutableMap<String, Any?>) -> T) {
+abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: () -> T) {
+    /** Builds an entity from a loaded field map (the database read path). */
+    internal fun hydrate(fields: MutableMap<String, Any?>): T = factory().also { it.replaceFields(fields) }
+
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
     fun getFieldDisplayNames() = fieldDisplayName
@@ -53,7 +56,7 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
             fields[fieldName] = typeMapper.fromResult(rs, index, column.columnType)
             index++
         }
-        return factory(fields)
+        return hydrate(fields)
     }
 
     private fun generateFieldToMap(dao: T): List<Pair<String, Any?>> {
@@ -75,7 +78,7 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
     private fun selectByIdSql(id: Any, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
         val pk = primaryKey.singleOrNull()
             ?: throw IllegalStateException(
-                "findById requires a single-column primary key on ${meta.tableName}; " +
+                "findById requires a single-column primary key on $tableName; " +
                     "use find(...) for composite (or missing) keys",
             )
         val builder = paramBuilder(dialect, typeMapper)
@@ -268,12 +271,4 @@ abstract class Table<G: Catalog, T: Entity>(val meta: Meta, val factory: (Mutabl
         val (sql, params) = deleteSql(query, exec.dialect, exec.typeMapper)
         exec.executeUpdate(sql = sql, namedParameters = params)
     }
-
-    /**
-     * Table identity. [schema] is optional and defaults to `null`: an unqualified table
-     * name resolves through the connection's default schema (Postgres `search_path`,
-     * SQLite `main`, ...). Set it explicitly to pin a schema (rendered as
-     * `"schema"."table"`); backends without schemas (SQLite) should leave it unset.
-     */
-    class Meta(val tableName: String, val schema: String? = null)
 }

@@ -11,14 +11,21 @@ private val logger = KotlinLogging.logger {}
 
 sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var name: String, open var nullable: kotlin.Boolean = false, val columnType: ColumnNameEnum):
     Expression, Selectable<Z> {
+    /**
+     * Key under which this column's value is stored in [Entity.fields]. It follows the Kotlin
+     * table property name and is independent of the (possibly custom) SQL column [name], so
+     * custom SQL names never leak into entity internals or absent/null tracking.
+     */
+    internal val fieldKey: String get() = name
+
     operator fun getValue(n: N, property: KProperty<*>): Z? {
         logger.trace { "Get value $name" }
-        return n.fields[name] as Z?
+        return n.fields[fieldKey] as Z?
     }
 
     operator fun setValue(n: N, property: KProperty<*>, z: Z?){
         logger.trace { "Set value $name" }
-        n.fields[name] = z
+        n.fields[fieldKey] = z
     }
 
     open fun init() {
@@ -32,7 +39,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
     // A column renders to its (quoted) identifier in SQL, never as a bind parameter.
     // Inside a join it is qualified by its table so `users.id` and `orders.id` differ.
     override fun toSql(builder: ParamBuilder): String =
-        if (builder.qualifyColumns) "${builder.dialect.quoteIdentifier(table.meta.tableName)}.${builder.dialect.quoteIdentifier(name)}"
+        if (builder.qualifyColumns) "${builder.dialect.quoteIdentifier(table.tableName)}.${builder.dialect.quoteIdentifier(name)}"
         else builder.dialect.quoteIdentifier(name)
 
     internal val tableRef: Table<*, *> get() = table

@@ -19,22 +19,22 @@ object CacheCatalog : Catalog
 /** The platform-agnostic domain object the app actually works with. */
 data class Product(val id: Int, val name: String)
 
-object PgProducts : Table<PgCatalog, PgProduct>(Meta("products"), ::PgProduct) {
+object PgProducts : Table<PgCatalog, PgProduct>("products", ::PgProduct) {
     val id by Column.Int(primaryKey = true)
     val name by Column.Text()
 }
 
-object CachedProducts : Table<CacheCatalog, CacheProduct>(Meta("products"), ::CacheProduct) {
+object CachedProducts : Table<CacheCatalog, CacheProduct>("products", ::CacheProduct) {
     val id by Column.Int(primaryKey = true)
     val name by Column.Text()
 }
 
-class PgProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class PgProduct : Entity() {
     var id by PgProducts.id
     var name by PgProducts.name
 }
 
-class CacheProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CacheProduct : Entity() {
     var id by CachedProducts.id
     var name by CachedProducts.name
 }

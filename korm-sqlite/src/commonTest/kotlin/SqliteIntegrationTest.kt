@@ -243,7 +243,7 @@ class SqliteIntegrationTest {
 
 object SqCatalog : Catalog
 
-class Product(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Product : Entity() {
     var id by Products.id
     var price by Products.price
     var qty by Products.qty
@@ -252,7 +252,7 @@ class Product(override var fields: MutableMap<String, Any?> = mutableMapOf()) : 
     var rank by Products.rank
 }
 
-object Products : Table<SqCatalog, Product>(Table.Meta("products"), ::Product) {
+object Products : Table<SqCatalog, Product>("products", ::Product) {
     val id by Column.UUID(primaryKey = true)
     val price by Column.BigDecimal()
     val qty by Column.Int()
@@ -263,25 +263,25 @@ object Products : Table<SqCatalog, Product>(Table.Meta("products"), ::Product) {
     init { id; price; qty; displayName; note; rank }
 }
 
-class Author(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Author : Entity() {
     var id by Authors.id
     var name by Authors.name
 }
 
-object Authors : Table<SqCatalog, Author>(Table.Meta("authors"), ::Author) {
+object Authors : Table<SqCatalog, Author>("authors", ::Author) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
 
     init { id; name }
 }
 
-class Book(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Book : Entity() {
     var id by Books.id
     var authorId by Books.authorId
     var title by Books.title
 }
 
-object Books : Table<SqCatalog, Book>(Table.Meta("books"), ::Book) {
+object Books : Table<SqCatalog, Book>("books", ::Book) {
     val id by Column.UUID(primaryKey = true)
     val authorId by Column.UUID()
     val title by Column.Text()
@@ -289,7 +289,7 @@ object Books : Table<SqCatalog, Book>(Table.Meta("books"), ::Book) {
     init { id; authorId; title }
 }
 
-class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class AllTypesEntity : Entity() {
     var id by AllTypes.id
     var anInt by AllTypes.anInt
     var aDouble by AllTypes.aDouble
@@ -306,7 +306,7 @@ class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapO
     var aDateTime by AllTypes.aDateTime
 }
 
-object AllTypes : Table<SqCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
+object AllTypes : Table<SqCatalog, AllTypesEntity>("all_types", ::AllTypesEntity) {
     val id by Column.UUID(primaryKey = true)
     val anInt by Column.Int()
     val aDouble by Column.Double()

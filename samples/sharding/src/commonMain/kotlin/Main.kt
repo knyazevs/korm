@@ -19,22 +19,22 @@ import kotlinx.io.files.SystemTemporaryDirectory
 object AccountsCatalog : Catalog
 object AuditCatalog : Catalog
 
-object Accounts : Table<AccountsCatalog, Account>(Meta("accounts"), ::Account) {
+object Accounts : Table<AccountsCatalog, Account>("accounts", ::Account) {
     val id by Column.Int(primaryKey = true)
     val owner by Column.Text()
 }
 
-object AuditLog : Table<AuditCatalog, AuditEntry>(Meta("audit"), ::AuditEntry) {
+object AuditLog : Table<AuditCatalog, AuditEntry>("audit", ::AuditEntry) {
     val id by Column.Int(primaryKey = true)
     val message by Column.Text()
 }
 
-class Account(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Account : Entity() {
     var id by Accounts.id
     var owner by Accounts.owner
 }
 
-class AuditEntry(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class AuditEntry : Entity() {
     var id by AuditLog.id
     var message by AuditLog.message
 }

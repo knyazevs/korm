@@ -14,13 +14,13 @@ integration modules.
 ```kotlin
 object App : Catalog
 
-object Users : Table<App, User>(Meta("users"), ::User) {
+object Users : Table<App, User>("users", ::User) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
 }
 
-class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class User : Entity() {
     var id by Users.id
     var name by Users.name
     var age by Users.age

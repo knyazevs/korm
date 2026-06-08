@@ -36,7 +36,7 @@ execution.
 
 ```kotlin
 object Main : Catalog
-object Users : Table<Main, User>(Meta("users"), ::User)
+object Users : Table<Main, User>("users", ::User)
 
 val db: Database<Main> = createDatabase(/* ... */)
 ```
@@ -50,7 +50,7 @@ This is what lets the compiler reject a `Table<Cache, *>` inside a `Database<Mai
 
 `Table<G, T>` owns:
 
-- `Meta`, the table name and optional schema;
+- the SQL table name;
 - registered columns;
 - pure SQL builders for select/insert/update/delete;
 - thin blocking and suspend runners.

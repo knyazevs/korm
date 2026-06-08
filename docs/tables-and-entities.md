@@ -35,24 +35,20 @@ fun shardFor(tenantId: String): Database<Main> = if (tenantId.hashCode() % 2 == 
 ## Table Metadata
 
 ```kotlin
-object Users : Table<Main, User>(Meta("users"), ::User)
+object Users : Table<Main, User>("users", ::User)
 ```
 
-`Meta("users")` uses an unqualified table name. If you need a schema, pass it in metadata:
-
-```kotlin
-object Users : Table<Main, User>(Meta(tableName = "users", schema = "public"), ::User)
-```
-
-Unqualified names resolve through the backend's default schema/search path. This keeps the
-same table definitions portable between PostgreSQL and SQLite.
+The first argument is the SQL table name. Korm renders it through the backend dialect's
+identifier quoting. Schema-qualified table names are intentionally not part of the table
+metadata API; use the database connection's default schema/search path or raw SQL migrations
+for schema setup.
 
 ## Columns
 
 Columns are declared with delegated properties:
 
 ```kotlin
-object Users : Table<Main, User>(Meta("users"), ::User) {
+object Users : Table<Main, User>("users", ::User) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
@@ -92,9 +88,7 @@ named `id`. For composite primary keys, use `find(Query(...))` instead of `findB
 ## Entities
 
 ```kotlin
-class User(
-    override var fields: MutableMap<String, Any?> = mutableMapOf(),
-) : Entity(fields) {
+class User : Entity() {
     var id by Users.id
     var name by Users.name
     var age by Users.age
@@ -102,8 +96,8 @@ class User(
 }
 ```
 
-Entities are intentionally small. They wrap a mutable field map and expose typed property
-delegates. This gives Korm two useful update semantics:
+Entities are intentionally small. They inherit Korm's internal field storage and expose
+typed property delegates. This gives Korm two useful update semantics:
 
 - A property never assigned on the entity is omitted from `UPDATE`.
 - A property assigned to `null` is included and written as SQL `NULL`.
@@ -112,7 +106,8 @@ delegates. This gives Korm two useful update semantics:
 Users.update(Query(Users.id eq id), User().apply { note = null })
 ```
 
-This updates only `note`.
+This updates only `note`. The field storage remains available for advanced/custom entity
+patterns, but normal entities do not need to expose it in their constructors.
 
 ## Schema Generation
 

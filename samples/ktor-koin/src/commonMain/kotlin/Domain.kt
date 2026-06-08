@@ -13,13 +13,13 @@ import kotlin.uuid.Uuid
 
 object AppCatalog : Catalog
 
-object ProductTable : Table<AppCatalog, ProductEntity>(Meta("products"), ::ProductEntity) {
+object ProductTable : Table<AppCatalog, ProductEntity>("products", ::ProductEntity) {
     val id by Column.UUID(primaryKey = true)
     val price by Column.Int()
     val payload by Column.Json()
 }
 
-class ProductEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class ProductEntity : Entity() {
     var id by ProductTable.id
     var price by ProductTable.price
     var payload by ProductTable.payload

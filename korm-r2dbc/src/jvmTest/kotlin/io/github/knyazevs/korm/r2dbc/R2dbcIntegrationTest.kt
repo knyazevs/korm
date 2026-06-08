@@ -128,13 +128,13 @@ class R2dbcIntegrationTest {
 
 object R2Catalog : Catalog
 
-class Widget(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Widget : Entity() {
     var id by Widgets.id
     var name by Widgets.name
     var qty by Widgets.qty
 }
 
-object Widgets : Table<R2Catalog, Widget>(Table.Meta("widgets"), ::Widget) {
+object Widgets : Table<R2Catalog, Widget>("widgets", ::Widget) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val qty by Column.Int()

@@ -32,13 +32,13 @@ private fun benchDriver(poolSize: Int): Database<BenchCatalog> = createDatabase(
 
 object BenchCatalog : Catalog
 
-class BenchRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class BenchRow : Entity() {
     var id by BenchTable.id
     var name by BenchTable.name
     var amount by BenchTable.amount
 }
 
-object BenchTable : Table<BenchCatalog, BenchRow>(Table.Meta("cmp_bench"), ::BenchRow) {
+object BenchTable : Table<BenchCatalog, BenchRow>("cmp_bench", ::BenchRow) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val amount by Column.BigDecimal()

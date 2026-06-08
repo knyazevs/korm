@@ -461,25 +461,25 @@ class TableIntegrationTest {
         assumeTrue(DockerClientFactory.instance().isDockerAvailable, "Docker is not available")
 }
 
-class Author(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Author : Entity() {
     var id by Authors.id
     var name by Authors.name
 }
 
-object Authors : Table<ItCatalog, Author>(Table.Meta("authors"), ::Author) {
+object Authors : Table<ItCatalog, Author>("authors", ::Author) {
     val id by Column.UUID()
     val name by Column.Text()
 
     init { id; name }
 }
 
-class Book(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class Book : Entity() {
     var id by Books.id
     var authorId by Books.authorId
     var title by Books.title
 }
 
-object Books : Table<ItCatalog, Book>(Table.Meta("books"), ::Book) {
+object Books : Table<ItCatalog, Book>("books", ::Book) {
     val id by Column.UUID()
     val authorId by Column.UUID()
     val title by Column.Text()
@@ -487,7 +487,7 @@ object Books : Table<ItCatalog, Book>(Table.Meta("books"), ::Book) {
     init { id; authorId; title }
 }
 
-class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class ItProduct : Entity() {
     var id by ItProducts.id
     var price by ItProducts.price
     var qty by ItProducts.qty
@@ -498,7 +498,7 @@ class ItProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) 
 
 object ItCatalog : Catalog
 
-class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class AllTypesEntity : Entity() {
     var id by AllTypes.id
     var anInt by AllTypes.anInt
     var aDouble by AllTypes.aDouble
@@ -515,7 +515,7 @@ class AllTypesEntity(override var fields: MutableMap<String, Any?> = mutableMapO
     var aDateTime by AllTypes.aDateTime
 }
 
-object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::AllTypesEntity) {
+object AllTypes : Table<ItCatalog, AllTypesEntity>("all_types", ::AllTypesEntity) {
     val id by Column.UUID()
     val anInt by Column.Int()
     val aDouble by Column.Double()
@@ -537,7 +537,7 @@ object AllTypes : Table<ItCatalog, AllTypesEntity>(Table.Meta("all_types"), ::Al
     }
 }
 
-object ItProducts : Table<ItCatalog, ItProduct>(Table.Meta("it_products"), ::ItProduct) {
+object ItProducts : Table<ItCatalog, ItProduct>("it_products", ::ItProduct) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val qty by Column.Int()

@@ -29,7 +29,7 @@ Column registration is automatic through Kotlin delegated-property `provideDeleg
 Canonical table definitions do not need a manual registration block:
 
 ```kotlin
-object Users : Table<App, User>(Meta("users"), ::User) {
+object Users : Table<App, User>("users", ::User) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
@@ -53,28 +53,28 @@ Acceptance criteria:
 
 ### Entity Construction
 
-Current entities expose `fields`:
+Entities no longer need to expose `fields` in the common case:
 
 ```kotlin
-class User(
-    override var fields: MutableMap<String, Any?> = mutableMapOf(),
-) : Entity(fields)
+class User : Entity() {
+    var id by Users.id
+    var name by Users.name
+}
 ```
 
-This is flexible but low-level. New users may not understand why their domain object owns a
-map.
+Korm still uses an internal field map to preserve partial-update semantics, but normal
+entities can hide that detail by extending `Entity()`.
 
-Possible directions:
+Remaining questions:
 
-- keep the map-based entity but improve docs and generated examples;
-- provide a base constructor helper;
-- provide optional factory helpers for common cases;
-- consider a later codegen/plugin story only if manual entities remain too noisy.
+- whether `fields` should remain public/open or become a narrower protected/internal API;
+- how to document custom entity constructors;
+- whether data-class-like entities are worth a later codegen/KSP story.
 
 Acceptance criteria:
 
-- first example should explain `fields` in one sentence;
-- docs should distinguish "new empty entity for writes" from "mapped entity from reads";
+- first examples should use `class User : Entity()`;
+- docs should explain that Korm stores assigned fields internally;
 - update semantics should be tested and documented with absent vs explicit null.
 
 ### Query Constructor Shape

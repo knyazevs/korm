@@ -28,13 +28,13 @@ import kotlin.uuid.Uuid
 
 object Bench : Catalog
 
-class BenchRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class BenchRow : Entity() {
     var id by BenchTable.id
     var name by BenchTable.name
     var amount by BenchTable.amount
 }
 
-object BenchTable : Table<Bench, BenchRow>(Table.Meta("bench"), ::BenchRow) {
+object BenchTable : Table<Bench, BenchRow>("bench", ::BenchRow) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val amount by Column.BigDecimal()

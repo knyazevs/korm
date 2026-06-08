@@ -9,7 +9,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class TestEntity : Entity() {
     var id by TestTable.id
     var price by TestTable.price
     var position by TestTable.position
@@ -19,7 +19,7 @@ class TestEntity(override var fields: MutableMap<String, Any?> = mutableMapOf())
 
 object TestCatalog : Catalog
 
-object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity) {
+object TestTable : Table<TestCatalog, TestEntity>("products", ::TestEntity) {
     val id by Column.UUID()
     val price by Column.BigDecimal()
     val position by Column.Int()
@@ -28,32 +28,32 @@ object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity
 }
 
 
-class TestOrderEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class TestOrderEntity : Entity() {
     var orderId by TestOrders.orderId
     var productId by TestOrders.productId
 }
 
-object TestOrders : Table<TestCatalog, TestOrderEntity>(Meta("orders"), ::TestOrderEntity) {
+object TestOrders : Table<TestCatalog, TestOrderEntity>("orders", ::TestOrderEntity) {
     val orderId by Column.UUID()
     val productId by Column.UUID()
 }
 
-class CodedEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CodedEntity : Entity() {
     var code by Coded.code
     var amount by Coded.amount
 }
 
-object Coded : Table<TestCatalog, CodedEntity>(Meta("coded"), ::CodedEntity) {
+object Coded : Table<TestCatalog, CodedEntity>("coded", ::CodedEntity) {
     val code by Column.Text(primaryKey = true)
     val amount by Column.Int()
 }
 
-class CompositeKeyEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CompositeKeyEntity : Entity() {
     var left by CompositeKey.left
     var right by CompositeKey.right
 }
 
-object CompositeKey : Table<TestCatalog, CompositeKeyEntity>(Meta("composite"), ::CompositeKeyEntity) {
+object CompositeKey : Table<TestCatalog, CompositeKeyEntity>("composite", ::CompositeKeyEntity) {
     val left by Column.UUID(primaryKey = true)
     val right by Column.Int(primaryKey = true)
 }
@@ -68,6 +68,23 @@ class TableTest {
         )
         assertEquals(TestTable.id, TestTable.getFieldDisplayNames()["id"])
         assertEquals(listOf(TestTable.id), TestTable.primaryKey)
+    }
+
+    @Test
+    fun testIsSetAndUnset() {
+        val e = TestEntity()
+        // Never assigned → absent.
+        assertFalse(e.isSet(TestTable.nullableTest))
+        // Explicit null counts as set.
+        e.nullableTest = null
+        assertTrue(e.isSet(TestTable.nullableTest))
+        assertEquals(null, e.nullableTest)
+        // unset() returns it to absent.
+        e.unset(TestTable.nullableTest)
+        assertFalse(e.isSet(TestTable.nullableTest))
+        // A concrete value is set.
+        e.text = "hi"
+        assertTrue(e.isSet(TestTable.text))
     }
 
     @Test

@@ -152,7 +152,7 @@ class EdgeCaseTest {
     }
 }
 
-class EdgeRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class EdgeRow : Entity() {
     var id by EdgeTable.id
     var n by EdgeTable.n
     var t by EdgeTable.t
@@ -160,7 +160,7 @@ class EdgeRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : 
     var num by EdgeTable.num
 }
 
-object EdgeTable : Table<ItCatalog, EdgeRow>(Table.Meta("edge"), ::EdgeRow) {
+object EdgeTable : Table<ItCatalog, EdgeRow>("edge", ::EdgeRow) {
     val id by Column.UUID(primaryKey = true)
     val n by Column.Int(nullable = true)
     val t by Column.Text(nullable = true)
@@ -170,13 +170,13 @@ object EdgeTable : Table<ItCatalog, EdgeRow>(Table.Meta("edge"), ::EdgeRow) {
     init { id; n; t; big; num }
 }
 
-class EdgeChildRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class EdgeChildRow : Entity() {
     var id by EdgeChild.id
     var parentId by EdgeChild.parentId
     var label by EdgeChild.label
 }
 
-object EdgeChild : Table<ItCatalog, EdgeChildRow>(Table.Meta("edge_child"), ::EdgeChildRow) {
+object EdgeChild : Table<ItCatalog, EdgeChildRow>("edge_child", ::EdgeChildRow) {
     val id by Column.UUID(primaryKey = true)
     val parentId by Column.UUID()
     val label by Column.Text()
@@ -184,12 +184,12 @@ object EdgeChild : Table<ItCatalog, EdgeChildRow>(Table.Meta("edge_child"), ::Ed
     init { id; parentId; label }
 }
 
-class ReservedRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class ReservedRow : Entity() {
     var id by Reserved.id
     var order by Reserved.order
 }
 
-object Reserved : Table<ItCatalog, ReservedRow>(Table.Meta("reserved_tbl"), ::ReservedRow) {
+object Reserved : Table<ItCatalog, ReservedRow>("reserved_tbl", ::ReservedRow) {
     val id by Column.UUID(primaryKey = true)
     val order by Column.Int()
 

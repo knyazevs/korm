@@ -42,13 +42,13 @@ import kotlin.uuid.Uuid as KormUuid
 // --- korm mapping ---
 object Cmp : Catalog
 
-class CmpRow(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
+class CmpRow : Entity() {
     var id by CmpTable.id
     var name by CmpTable.name
     var amount by CmpTable.amount
 }
 
-object CmpTable : Table<Cmp, CmpRow>(Table.Meta("cmp_bench"), ::CmpRow) {
+object CmpTable : Table<Cmp, CmpRow>("cmp_bench", ::CmpRow) {
     val id by Column.UUID(primaryKey = true)
     val name by Column.Text()
     val amount by Column.BigDecimal()

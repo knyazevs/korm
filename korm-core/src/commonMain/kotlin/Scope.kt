@@ -67,8 +67,8 @@ class Scope<G : Catalog> internal constructor(private val exec: SqlExecutor) {
         val bCols = right.getFieldDisplayNames()
         val rows = runSelect(exec, asJoin(), (aCols.values + bCols.values).toList())
         return rows.map { row ->
-            left.factory(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
-                right.factory(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
+            left.hydrate(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
+                right.hydrate(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
         }
     }
 
