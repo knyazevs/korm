@@ -15,34 +15,38 @@ val one: User? = db.autocommit {
 }
 
 val adults: List<User> = db.autocommit {
-    Users.find(Query(Users.age gtEq 18))
+    Users.find {
+        where { Users.age gtEq 18 }
+    }
 }
 ```
 
 ## Predicates
 
 ```kotlin
-Users.find(Query(Users.id eq id))
-Users.find(Query(Users.age gt 18))
-Users.find(Query(Users.age lessEq 65))
-Users.find(Query(Users.name like "A%"))
-Users.find(Query(Users.id inList listOf(id1, id2)))
-Users.find(Query(Users.note.isNull()))
-Users.find(Query(Users.note.isNotNull()))
+Users.find { where { Users.id eq id } }
+Users.find { where { Users.age gt 18 } }
+Users.find { where { Users.age lessEq 65 } }
+Users.find { where { Users.name like "A%" } }
+Users.find { where { Users.id inList listOf(id1, id2) } }
+Users.find { where { Users.note eq null } }
+Users.find { where { Users.note neq null } }
 ```
 
 Predicates can be combined:
 
 ```kotlin
-Users.find(Query(
-    (Users.age gtEq 18) and (Users.name like "A%")
-))
+Users.find {
+    where { (Users.age gtEq 18) and (Users.name like "A%") }
+}
 
-Users.find(Query(
-    (Users.name eq "Ada") or (Users.name eq "Grace")
-))
+Users.find {
+    where { (Users.name eq "Ada") or (Users.name eq "Grace") }
+}
 
-Users.find(Query(not(Users.note.isNull())))
+Users.find {
+    where { not(Users.note eq null) }
+}
 ```
 
 An empty `inList` renders to `FALSE`, so it matches no rows instead of generating invalid
@@ -51,14 +55,12 @@ SQL.
 ## Ordering, Limit and Offset
 
 ```kotlin
-Users.find(
-    Query(
-        whereExpression = Users.age gtEq 18,
-        orderBy = mapOf(Users.age to AscDescOrder.DESC),
-        limit = 50u,
-        offset = 100u,
-    )
-)
+Users.find {
+    where { Users.age gtEq 18 }
+    orderBy DESC Users.age
+    limit = 50
+    offset = 100
+}
 ```
 
 ## Insert, Returning and Count
@@ -79,7 +81,9 @@ val total: Long = db.autocommit {
 }
 
 val adults: Long = db.autocommit {
-    Users.count(Query(Users.age gtEq 18))
+    Users.count {
+        where { Users.age gtEq 18 }
+    }
 }
 ```
 
@@ -189,7 +193,9 @@ with untrusted input.
 Prefer:
 
 ```kotlin
-Users.find(Query(Users.name eq input))
+Users.find {
+    where { Users.name eq input }
+}
 ```
 
 Use raw SQL only when the SQL text is fully controlled by your application:

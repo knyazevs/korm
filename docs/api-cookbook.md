@@ -73,10 +73,9 @@ val saved: List<User> = db.transaction {
 
 ```kotlin
 db.transaction {
-    Users.update(
-        Query(Users.id eq id),
-        User().apply { name = "Ada Lovelace" },
-    )
+    Users.update(User().apply { name = "Ada Lovelace" }) {
+        where { Users.id eq id }
+    }
 }
 ```
 
@@ -86,10 +85,9 @@ Only assigned fields are written.
 
 ```kotlin
 db.transaction {
-    Users.update(
-        Query(Users.id eq id),
-        User().apply { deletedAt = null },
-    )
+    Users.update(User().apply { deletedAt = null }) {
+        where { Users.id eq id }
+    }
 }
 ```
 
@@ -100,14 +98,12 @@ values as SQL `NULL`.
 
 ```kotlin
 val page = db.autocommit {
-    Users.find(
-        Query(
-            whereExpression = Users.deletedAt.isNull(),
-            orderBy = mapOf(Users.email to AscDescOrder.ASC),
-            limit = 50u,
-            offset = 100u,
-        )
-    )
+    Users.find {
+        where { Users.deletedAt eq null }
+        orderBy ASC Users.email
+        limit = 50
+        offset = 100
+    }
 }
 ```
 
@@ -115,13 +111,12 @@ Offset pagination is simple and portable. For high-volume feeds, prefer keyset p
 
 ```kotlin
 val page = db.autocommit {
-    Users.find(
-        Query(
-            whereExpression = (Users.email gt lastSeenEmail) and Users.deletedAt.isNull(),
-            orderBy = mapOf(Users.email to AscDescOrder.ASC),
-            limit = 50u,
-        )
-    )
+    Users.find {
+        where { Users.email gt lastSeenEmail }
+        where { Users.deletedAt eq null }
+        orderBy ASC Users.email
+        limit = 50
+    }
 }
 ```
 
@@ -133,7 +128,9 @@ val total = db.autocommit {
 }
 
 val active = db.autocommit {
-    Users.count(Query(Users.deletedAt.isNull()))
+    Users.count {
+        where { Users.deletedAt eq null }
+    }
 }
 ```
 
@@ -196,7 +193,9 @@ This helper joins the caller's transaction. It does not open a second connection
 ```kotlin
 suspend fun listUsers(db: SuspendDatabase<App>): List<User> =
     db.suspendAutocommit {
-        Users.find(Query(Users.deletedAt.isNull()))
+        Users.find {
+            where { Users.deletedAt eq null }
+        }
     }
 ```
 

@@ -55,7 +55,8 @@ This is what lets the compiler reject a `Table<Cache, *>` inside a `Database<Mai
 - pure SQL builders for select/insert/update/delete;
 - thin blocking and suspend runners.
 
-`Entity` owns a mutable field map. Column property delegates read and write that map.
+`Entity` owns internal row state. Column property delegates read and write that state; the
+backing storage is not public API.
 
 This design keeps entity construction cheap and makes partial updates explicit:
 
@@ -70,8 +71,7 @@ Core SQL generation is split from execution.
 
 - identifier quoting;
 - bind placeholder rendering;
-- limit/offset rendering;
-- SQL type names for `CREATE TABLE`.
+- limit/offset rendering.
 
 `ParamBuilder` collects bind parameters while expressions render themselves. A predicate
 like `Users.age gtEq 18` renders a column identifier on the left and a generated bind
@@ -111,7 +111,9 @@ User-facing table operations are available inside scopes:
 ```kotlin
 db.transaction {
     Users.insert(user)
-    Users.find(Query(Users.age gtEq 18))
+    Users.find {
+        where { Users.age gtEq 18 }
+    }
 }
 ```
 
@@ -145,7 +147,7 @@ row[total]
 ## Migrations
 
 Migrations live in core because they operate on scopes and raw execution. Backends only need
-to provide normal SQL execution and dialect-specific table creation.
+to provide normal SQL execution.
 
 Each migration:
 

@@ -17,7 +17,7 @@ is intentionally short; the deeper material lives here.
 6. [Backends](backends.md) - PostgreSQL, SQLite, r2dbc and platform support.
 7. [Ktor integration](ktor.md) - DI-agnostic, Ktor DI and Koin helpers.
 8. [API cookbook](api-cookbook.md) - copy-pasteable recipes for common tasks.
-9. [API ergonomics review](api-ergonomics.md) - sharp edges and pre-1.0 API decisions.
+9. [API ergonomics](api-ergonomics.md) - current canonical API style and escape hatches.
 10. [Observability](observability.md) - target logging, metrics and failure visibility.
 11. [Production guide](production-guide.md) - conservative guidance for real services.
 12. [Compatibility policy](compatibility.md) - supported versions, targets and API policy.
@@ -50,7 +50,7 @@ CI and what is planned separately.
 ## Maintenance Notes
 
 - Add user-facing examples to [API cookbook](api-cookbook.md).
-- Track public API sharp edges in [API ergonomics review](api-ergonomics.md).
+- Keep canonical API style in [API ergonomics](api-ergonomics.md).
 - Keep production-facing guidance in [Production guide](production-guide.md) and
   [Observability](observability.md).
 - Update [Compatibility policy](compatibility.md) when versions or targets change.

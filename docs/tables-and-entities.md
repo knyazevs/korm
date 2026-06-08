@@ -4,7 +4,7 @@ Korm models database shape with three pieces:
 
 - `Catalog` marks a logical database.
 - `Table<G, T>` describes a table belonging to catalog `G`.
-- `Entity` stores row fields and exposes typed delegated properties.
+- `Entity` exposes typed delegated properties backed by Korm's internal row state.
 
 ## Catalogs
 
@@ -83,7 +83,8 @@ Column.UUID().primaryKey()
 ```
 
 `findById` uses a single explicit primary key. If none is marked, it falls back to a column
-named `id`. For composite primary keys, use `find(Query(...))` instead of `findById`.
+named `id`. For composite primary keys, use `find { ... }` or `find(Query(...))` instead
+of `findById`.
 
 ## Entities
 
@@ -103,11 +104,13 @@ typed property delegates. This gives Korm two useful update semantics:
 - A property assigned to `null` is included and written as SQL `NULL`.
 
 ```kotlin
-Users.update(Query(Users.id eq id), User().apply { note = null })
+Users.update(User().apply { note = null }) {
+    where { Users.id eq id }
+}
 ```
 
-This updates only `note`. The field storage remains available for advanced/custom entity
-patterns, but normal entities do not need to expose it in their constructors.
+This updates only `note`. Korm tracks assigned fields internally; entities should not expose
+or mutate that storage directly.
 
 ## Schema Management
 

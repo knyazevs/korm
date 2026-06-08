@@ -5,7 +5,7 @@ A standalone console app — **no server, no external database**. It does migrat
 on Kotlin/Native.
 
 Shows: `createSqliteDatabase()`, `Database.migrate(...)`, `transaction { }` / `autocommit { }`,
-`new` / `findById` / `find(Query(...))` / `update` / `deleteWhere`.
+`insert` / `findById` / `find { ... }` / `update` / `deleteWhere`.
 
 ## Run
 

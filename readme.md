@@ -34,7 +34,11 @@ val db: Database<App> = createDatabase(
 )
 
 val adults = db.autocommit {
-    Users.find(Query(Users.age gtEq 18, limit = 50u))
+    Users.find {
+        where { Users.age gtEq 18 }
+        orderBy DESC Users.age
+        limit = 50
+    }
 }
 ```
 
@@ -97,7 +101,7 @@ module details.
 - [Backends and platform support](docs/backends.md)
 - [Ktor integration](docs/ktor.md)
 - [API cookbook](docs/api-cookbook.md)
-- [API ergonomics review](docs/api-ergonomics.md)
+- [API ergonomics](docs/api-ergonomics.md)
 - [Observability](docs/observability.md)
 - [Production guide](docs/production-guide.md)
 - [Compatibility policy](docs/compatibility.md)
@@ -134,7 +138,10 @@ db.transaction {
 }
 
 val ada = db.autocommit {
-    Users.find(Query((Users.name like "A%") and (Users.age gtEq 18)))
+    Users.find {
+        where { Users.name like "A%" }
+        where { Users.age gtEq 18 }
+    }
 }
 ```
 

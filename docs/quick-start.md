@@ -18,7 +18,6 @@ object App : Catalog
 ```kotlin
 import io.github.knyazevs.korm.Column
 import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Meta
 import io.github.knyazevs.korm.Table
 import kotlin.uuid.Uuid
 
@@ -87,7 +86,6 @@ db.transaction {
 ```kotlin
 import io.github.knyazevs.korm.autocommit
 import io.github.knyazevs.korm.gtEq
-import io.github.knyazevs.korm.Query
 import kotlin.uuid.Uuid
 
 val user = User().apply {
@@ -106,7 +104,11 @@ val ada: User? = db.autocommit {
 }
 
 val adults: List<User> = db.autocommit {
-    Users.find(Query(whereExpression = Users.age gtEq 18, limit = 50u))
+    Users.find {
+        where { Users.age gtEq 18 }
+        orderBy DESC Users.age
+        limit = 50
+    }
 }
 ```
 
@@ -119,17 +121,18 @@ pins one connection without an explicit transaction, which is useful for simple 
 import io.github.knyazevs.korm.eq
 
 db.transaction {
-    Users.update(
-        Query(Users.id eq user.id),
-        User().apply { age = 37 },
-    )
+    Users.update(User().apply { age = 37 }) {
+        where { Users.id eq user.id }
+    }
 
-    Users.deleteWhere(Query(Users.name eq "Ada"))
+    Users.deleteWhere {
+        where { Users.name eq "Ada" }
+    }
 }
 ```
 
-`update` only writes fields present in the entity's `fields` map. That means an untouched
-property is omitted, while a property explicitly set to `null` is written as SQL `NULL`.
+`update` only writes properties assigned on the patch entity. An untouched property is
+omitted, while a property explicitly set to `null` is written as SQL `NULL`.
 
 ## SQLite Variant
 

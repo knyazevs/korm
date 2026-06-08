@@ -1,173 +1,149 @@
-# API Ergonomics Review
+# API Ergonomics
 
-This page tracks the API work needed before Korm can be recommended confidently to teams
-that did not build it. It is not only about nicer names; it is about avoiding surprising
-runtime behavior and making compiler errors useful.
+This page captures the current public API direction. It is not a historical TODO list; the
+examples here should match the codebase.
 
-## Goals
+## Tables and Entities
 
-- Keep common use cases short and readable.
-- Make dangerous operations visually obvious.
-- Preserve catalog safety and typed predicates.
-- Avoid APIs that look stable while their behavior is still underdefined.
-- Make examples compile with minimal imports and setup.
-
-## Current Strong Points
-
-- Catalog tags prevent using tables with the wrong database handle.
-- Predicates are typed and parameterized by default.
-- Blocking and suspend scopes have the same table DSL.
-- Partial update semantics are useful: absent fields are omitted, assigned `null` writes
-  SQL `NULL`.
-- Backend factories are small and easy to discover.
-
-## Sharp Edges
-
-### Column Registration
-
-Column registration is automatic through Kotlin delegated-property `provideDelegate`.
-Canonical table definitions do not need a manual registration block:
+Declare table columns with delegated properties. Columns register automatically.
 
 ```kotlin
 object Users : Table<App, User>("users", ::User) {
     val id by Column.UUID().primaryKey()
+    val email by Column.Text()
     val name by Column.Text()
-    val age by Column.Int()
+    val deletedAt by Column.Instant(name = "deleted_at").nullable()
 }
-```
 
-The old `init { id; name; age }` style remains source-compatible because reading the
-property now returns the already registered column.
-
-Remaining questions:
-
-- whether to keep documenting the old style anywhere;
-- whether to detect duplicate/manual registrations defensively;
-- whether custom column names should be restored through `@ColumnName` or another API.
-
-Acceptance criteria:
-
-- forgetting registration should be impossible;
-- docs should show one recommended style only;
-- tests should cover automatic registration and declaration order.
-
-### Entity Construction
-
-Entities no longer need to expose `fields` in the common case:
-
-```kotlin
 class User : Entity() {
     var id by Users.id
+    var email by Users.email
     var name by Users.name
+    var deletedAt by Users.deletedAt
 }
 ```
 
-Korm still uses an internal field map to preserve partial-update semantics, but normal
-entities can hide that detail by extending `Entity()`.
+Rules:
 
-Remaining questions:
+- `Column.Text()` is non-null by default.
+- `.nullable()` changes the Kotlin property type to nullable.
+- `.primaryKey()` marks a non-null primary-key column.
+- SQL names use `name = "deleted_at"`.
+- Entity state is internal. Use assigned properties, `isSet(column)` and `unset(column)`
+  instead of raw maps.
 
-- whether `fields` should remain public/open or become a narrower protected/internal API;
-- how to document custom entity constructors;
-- whether data-class-like entities are worth a later codegen/KSP story.
+## Reads
 
-Acceptance criteria:
-
-- first examples should use `class User : Entity()`;
-- docs should explain that Korm stores assigned fields internally;
-- update semantics should be tested and documented with absent vs explicit null.
-
-### Query Constructor Shape
-
-This is compact but not always self-explanatory:
+Use block queries for everyday reads:
 
 ```kotlin
-Query(Users.age gtEq 18, limit = 50u)
+Users.find {
+    where { Users.deletedAt eq null }
+    orderBy ASC Users.email
+    limit = 50
+    offset = 100
+}
 ```
 
-The first positional argument is `whereExpression`. Examples should prefer named arguments
-when clarity matters:
+`Query(...)` remains available for reusable/prebuilt query values and raw-expression escape
+hatches.
+
+## Mutations
+
+Use SQL-explicit operation names:
 
 ```kotlin
-Query(whereExpression = Users.age gtEq 18, limit = 50u)
+Users.insert(user)
+Users.insertAll(users)
 ```
 
-Possible directions:
-
-- add `where(...)` helpers or a small query builder;
-- keep `Query` as data class but make docs use named arguments;
-- add examples for empty query, ordering and pagination.
-
-Acceptance criteria:
-
-- no ambiguous positional `Query(...)` usage in top-level docs;
-- compiler errors around `UInt` limit/offset are not confusing in examples.
-
-### Raw SQL
-
-Raw SQL is necessary for indexes, constraints and backend-specific features. It is also the
-easiest way to bypass parameterization.
-
-Current raw surfaces:
-
-- `Scope.execute(sql, params)`;
-- `Scope.executeUpdate(sql, params)`;
-- `RawExpression`.
-
-Possible directions:
-
-- document `RawExpression` as unsafe unless input is fully controlled;
-- prefer raw statement execution with parameter maps over raw expressions;
-- consider naming that makes unsafe expression embedding explicit.
-
-Acceptance criteria:
-
-- cookbook examples never concatenate user input;
-- raw SQL docs always show parameter maps for values;
-- unsafe raw expression use is documented as an escape hatch.
-
-### Blocking vs Suspend Naming
-
-Blocking:
+Partial update uses a patch entity:
 
 ```kotlin
-db.transaction { }
-db.autocommit { }
+Users.update(User().apply { name = "Ada Lovelace" }) {
+    where { Users.id eq id }
+}
 ```
 
-Suspend:
+Delete uses the same block condition style:
 
 ```kotlin
-db.suspendTransaction { }
-db.suspendAutocommit { }
+Users.deleteWhere {
+    where { Users.deletedAt neq null }
+}
 ```
 
-This is explicit, but Ktor helpers use `call.transaction(...)` even though they are suspend.
-That is acceptable if docs consistently explain that Ktor helpers delegate to
-`SuspendDatabase`.
+An empty query means no `WHERE`, consistently across reads and mutations:
 
-Acceptance criteria:
+```kotlin
+Users.find { }
+Users.update(patch) { }
+Users.deleteWhere { }
+```
 
-- each integration doc states whether the helper is blocking or suspend;
-- r2dbc docs never imply a blocking `Database` exists;
-- examples in route handlers use `SuspendDatabase`.
+## Insert Semantics
 
-## Review Checklist for Public API Changes
+Assigned properties are written. Unassigned properties are omitted.
 
-Before changing a public API, answer:
+```kotlin
+val user = User().apply {
+    email = "ada@example.com"
+    name = "Ada"
+    // deletedAt absent: omitted from INSERT
+}
+```
 
-- Does the API preserve catalog safety?
-- Does it work on JVM and Native?
-- Does it have a suspend story?
-- Can it be documented in one example?
-- What happens on null values?
-- Does it leak backend-specific behavior into common code?
-- Is there a migration path from the old API?
-- Is the error message useful when the user does the obvious wrong thing?
+Explicit `null` is different from absent:
 
-## Pre-1.0 Action Items
+```kotlin
+user.deletedAt = null // present; written as SQL NULL
+user.unset(Users.deletedAt) // absent; omitted again
+```
 
-- Review top-level docs for positional `Query(...)` usage.
-- Add a dedicated raw SQL guide with safe and unsafe examples.
-- Add more tests for automatic column registration across backend modules.
-- Add "API stability candidates" section to the roadmap once decisions are made.
+This lets database defaults and generated columns work without Korm modeling schema
+defaults.
+
+## Upsert
+
+Use column-based conflict targets for PostgreSQL and SQLite portability:
+
+```kotlin
+Users.upsert(
+    entity = insert,
+    onConflict = Users.email,
+    update = patch,
+    returning = true,
+)
+```
+
+Composite conflict targets use a list:
+
+```kotlin
+Users.upsert(
+    entity = insert,
+    onConflict = listOf(Users.tenantId, Users.externalId),
+    update = patch,
+)
+```
+
+Use `insertOrIgnore` for `DO NOTHING`:
+
+```kotlin
+val inserted: Long = Users.insertOrIgnore(
+    entity = insert,
+    onConflict = Users.email,
+)
+```
+
+## Raw SQL
+
+Raw SQL is the escape hatch for schema, backend-specific features and complex conflict
+targets. Prefer parameter maps for values:
+
+```kotlin
+executeUpdate(
+    """CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON "users" ("email")""",
+)
+```
+
+Use `RawExpression` only for controlled SQL fragments, never for concatenated user input.
