@@ -22,15 +22,11 @@ data class Product(val id: Int, val name: String)
 object PgProducts : Table<PgCatalog, PgProduct>(Meta("products"), ::PgProduct) {
     val id by Column.Int(primaryKey = true)
     val name by Column.Text()
-
-    init { id; name }
 }
 
 object CachedProducts : Table<CacheCatalog, CacheProduct>(Meta("products"), ::CacheProduct) {
     val id by Column.Int(primaryKey = true)
     val name by Column.Text()
-
-    init { id; name }
 }
 
 class PgProduct(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {

@@ -20,8 +20,6 @@ object Users : Table<Shop, User>(Meta("users"), ::User) {
     val id by Column.Int(primaryKey = true)
     val name by Column.Text()
     val age by Column.Int()
-
-    init { id; name; age }
 }
 
 class User(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {

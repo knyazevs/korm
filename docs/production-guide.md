@@ -1,0 +1,168 @@
+# Production Guide
+
+This guide describes what a team should think through before using Korm in a real service.
+It is intentionally conservative because Korm is still pre-1.0.
+
+## Production Readiness Position
+
+Korm is suitable today for:
+
+- prototypes;
+- internal tools;
+- experiments;
+- benchmarks;
+- services where the team can tolerate API changes and help debug backend issues.
+
+Korm should not yet be the only persistence layer for a critical system unless the team is
+ready to own the risk and test its exact backend/platform combination.
+
+## Application Checklist
+
+Before deploying:
+
+- pin exact Korm versions;
+- choose one backend path deliberately: JDBC, libpq, SQLite or r2dbc;
+- run integration tests against the same database version used in production;
+- run migration tests on a copy of realistic schema/data;
+- define connection pool size and timeouts;
+- define transaction boundaries in code;
+- add error mapping at service boundaries;
+- add query timing and pool metrics through application wrappers or backend tools;
+- document how to roll back a failed release.
+
+## Connection Pools
+
+### PostgreSQL JVM
+
+JVM PostgreSQL uses HikariCP through `korm-jdbc`.
+
+Production considerations:
+
+- set pool size based on database capacity, not application thread count;
+- configure connection timeout and max lifetime through backend support when exposed;
+- monitor active, idle and pending connections through HikariCP;
+- avoid creating one pool per request or per route.
+
+### PostgreSQL Native
+
+Native PostgreSQL uses libpq with Korm's pool implementation.
+
+Production considerations:
+
+- test pool exhaustion and database restart behavior;
+- verify libpq version in deployment images;
+- keep Native target and host requirements documented.
+
+### SQLite
+
+SQLite allows one writer. Korm defaults `poolSize` to 1 for SQLite.
+
+Production considerations:
+
+- use WAL for file-backed databases;
+- keep writes short;
+- expect write contention if many request handlers write concurrently;
+- use SQLite for local storage, caches, edge services or small apps, not high-write
+  multi-node workloads.
+
+## Transactions
+
+Keep transaction blocks small:
+
+```kotlin
+db.transaction {
+    Users.new(user)
+    Profiles.new(profile)
+}
+```
+
+Avoid:
+
+- network calls inside a transaction;
+- long CPU work inside a transaction;
+- opening independent nested database transactions by accident;
+- swallowing rollback-causing exceptions without understanding the state.
+
+Reusable helpers should extend `Scope<G>` or `SuspendScope<G>`.
+
+## Migrations
+
+Korm migrations are idempotent by ID. Production still needs process discipline.
+
+Recommendations:
+
+- never edit an already-applied migration in a released app;
+- add a new migration for every schema change;
+- test migrations from the previous production version to the new version;
+- use idempotent DDL where practical;
+- review backend DDL transaction behavior;
+- decide whether startup migrations are acceptable for your deployment model.
+
+Open production hardening item:
+
+- add a migration lock strategy for multi-instance startup, such as PostgreSQL advisory
+  locks or a backend-neutral locking table.
+
+## Error Handling
+
+At application boundaries, catch Korm exceptions and map them to domain errors:
+
+```kotlin
+try {
+    db.transaction {
+        Users.new(user)
+    }
+} catch (e: UniqueViolationException) {
+    throw DuplicateUserEmail()
+}
+```
+
+For Ktor, `KormException.httpStatusCode()` gives a baseline HTTP mapping. Most production
+services should still translate database errors into application-specific response bodies.
+
+## Observability
+
+Until Korm ships a public observer/metrics API:
+
+- wrap repository/service calls with timers;
+- configure HikariCP metrics directly on JVM JDBC deployments;
+- use database logs and slow query tooling;
+- do not log parameter values in production;
+- include SQLSTATE/error codes in internal error logs where safe.
+
+See [Observability](observability.md).
+
+## Testing Strategy
+
+Recommended test layers:
+
+- unit tests for SQL rendering and small repository helpers;
+- integration tests against the real backend;
+- migration tests from old schema to new schema;
+- transaction rollback tests;
+- concurrency tests for hot paths;
+- failure tests for duplicate keys, foreign keys, not-null and connection loss.
+
+SQLite in-memory tests are useful, but they do not replace PostgreSQL tests for PostgreSQL
+applications.
+
+## Release Discipline
+
+For applications using Korm pre-1.0:
+
+- read the Korm changelog before upgrades;
+- upgrade in small steps;
+- run migrations in staging;
+- run focused integration tests for every backend you use;
+- avoid unreviewed dependency bumps in persistence code.
+
+## When Korm Becomes Recommendable
+
+For broad production recommendation, Korm should have:
+
+- documented API stability policy;
+- compatibility matrix by version;
+- stronger integration/concurrency test matrix;
+- production-grade observability story;
+- migration locking guidance;
+- more backend-specific troubleshooting docs.

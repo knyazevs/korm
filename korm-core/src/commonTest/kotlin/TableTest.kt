@@ -25,10 +25,6 @@ object TestTable : Table<TestCatalog, TestEntity>(Meta("products"), ::TestEntity
     val position by Column.Int()
     val text by Column.Text()
     val nullableTest by Column.Text(true)
-
-    init {
-        id;price;position;text;nullableTest
-    }
 }
 
 
@@ -40,8 +36,6 @@ class TestOrderEntity(override var fields: MutableMap<String, Any?> = mutableMap
 object TestOrders : Table<TestCatalog, TestOrderEntity>(Meta("orders"), ::TestOrderEntity) {
     val orderId by Column.UUID()
     val productId by Column.UUID()
-
-    init { orderId; productId }
 }
 
 class CodedEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
@@ -52,8 +46,6 @@ class CodedEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()
 object Coded : Table<TestCatalog, CodedEntity>(Meta("coded"), ::CodedEntity) {
     val code by Column.Text(primaryKey = true)
     val amount by Column.Int()
-
-    init { code; amount }
 }
 
 class CompositeKeyEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {
@@ -64,11 +56,19 @@ class CompositeKeyEntity(override var fields: MutableMap<String, Any?> = mutable
 object CompositeKey : Table<TestCatalog, CompositeKeyEntity>(Meta("composite"), ::CompositeKeyEntity) {
     val left by Column.UUID(primaryKey = true)
     val right by Column.Int(primaryKey = true)
-
-    init { left; right }
 }
 
 class TableTest {
+
+    @Test
+    fun testColumnsRegisterWhenDeclared() {
+        assertEquals(
+            listOf("id", "price", "position", "text", "nullableTest"),
+            TestTable.getFieldDisplayNames().keys.toList(),
+        )
+        assertEquals(TestTable.id, TestTable.getFieldDisplayNames()["id"])
+        assertEquals(listOf(TestTable.id), TestTable.primaryKey)
+    }
 
     @Test
     fun testInsert() {

@@ -22,15 +22,11 @@ object AuditCatalog : Catalog
 object Accounts : Table<AccountsCatalog, Account>(Meta("accounts"), ::Account) {
     val id by Column.Int(primaryKey = true)
     val owner by Column.Text()
-
-    init { id; owner }
 }
 
 object AuditLog : Table<AuditCatalog, AuditEntry>(Meta("audit"), ::AuditEntry) {
     val id by Column.Int(primaryKey = true)
     val message by Column.Text()
-
-    init { id; message }
 }
 
 class Account(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {

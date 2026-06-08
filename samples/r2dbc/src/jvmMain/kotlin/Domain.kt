@@ -18,8 +18,6 @@ object ProductTable : Table<AppCatalog, ProductEntity>(Meta("products"), ::Produ
     val id by Column.UUID(primaryKey = true)
     val price by Column.Int()
     val payload by Column.Json()
-
-    init { id; price; payload }
 }
 
 class ProductEntity(override var fields: MutableMap<String, Any?> = mutableMapOf()) : Entity(fields) {

@@ -3,6 +3,7 @@ package io.github.knyazevs.korm
 import io.github.knyazevs.korm.resultset.ResultSet
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.JsonElement
+import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
 private val logger = KotlinLogging.logger {}
@@ -77,6 +78,9 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
     }
 
     private companion object {
+        fun <T: Table<*, N>, N: Entity, C: Column<*, T, N>> delegate(column: C): ReadOnlyProperty<T, C> =
+            ReadOnlyProperty { _, _ -> column }
+
         fun <T: Table<*, N>, N: Entity> double(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): DoubleType<T, N>  = Column.DoubleType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
         fun <T: Table<*, N>, N: Entity> bigDecimal(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): BigDecimalType<T, N> = Column.BigDecimalType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
         fun <T: Table<*, N>, N: Entity> uuid(table: T, name: String, nullable: kotlin.Boolean, primaryKey: kotlin.Boolean): UUIDType<T, N> = Column.UUIDType(table, name, nullable).also { it.isPrimaryKey = primaryKey; it.init() }
@@ -100,54 +104,96 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(private val table: T, open var
     }
 
     class Double(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, DoubleType<T, N>> =
+            delegate(Column.double(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): DoubleType<T, N> = Column.double(table, getColumnName(property), nullable, primaryKey)
     }
 
     class BigDecimal(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false)  {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, BigDecimalType<T, N>> =
+            delegate(Column.bigDecimal(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): BigDecimalType<T, N> {
             return Column.bigDecimal(table, getColumnName(property), nullable, primaryKey)
         }
     }
 
     class UUID(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false)  {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, UUIDType<T, N>> =
+            delegate(Column.uuid(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>): UUIDType<T, N> {
             return Column.uuid(table, getColumnName(property), nullable, primaryKey)
         }
     }
 
     class Int(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, IntType<T, N>> =
+            delegate(Column.int(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.int(table, getColumnName(property), nullable, primaryKey)
     }
 
     class Boolean(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, BooleanType<T, N>> =
+            delegate(Column.boolean(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.boolean(table, getColumnName(property), nullable, primaryKey)
     }
     class Text(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, TextType<T, N>> =
+            delegate(Column.text(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.text(table, getColumnName(property), nullable, primaryKey)
     }
     class Instant(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, InstantType<T, N>> =
+            delegate(Column.instant(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.instant(table, getColumnName(property), nullable, primaryKey)
     }
 
     class Json(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, JsonType<T, N>> =
+            delegate(Column.json(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.json(table, getColumnName(property), nullable, primaryKey)
     }
     class Long(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, LongType<T, N>> =
+            delegate(Column.long(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.long(table, getColumnName(property), nullable, primaryKey)
     }
     class Float(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, FloatType<T, N>> =
+            delegate(Column.float(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.float(table, getColumnName(property), nullable, primaryKey)
     }
     class Short(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, ShortType<T, N>> =
+            delegate(Column.short(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.short(table, getColumnName(property), nullable, primaryKey)
     }
     class LocalDate(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, LocalDateType<T, N>> =
+            delegate(Column.localDate(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localDate(table, getColumnName(property), nullable, primaryKey)
     }
     class LocalTime(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, LocalTimeType<T, N>> =
+            delegate(Column.localTime(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localTime(table, getColumnName(property), nullable, primaryKey)
     }
     class LocalDateTime(val nullable: kotlin.Boolean = false, val primaryKey: kotlin.Boolean = false) {
+        operator fun <T : Table<*, N>, N : Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, LocalDateTimeType<T, N>> =
+            delegate(Column.localDateTime(table, getColumnName(property), nullable, primaryKey))
+
         operator fun <T : Table<*, N>, N : Entity> getValue(table: T, property: KProperty<*>) = Column.localDateTime(table, getColumnName(property), nullable, primaryKey)
     }
 }
