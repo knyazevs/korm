@@ -235,6 +235,24 @@ db.migrate(
 Migration IDs are permanent. Do not edit an already-applied migration in a released
 application; add a new migration instead.
 
+## Configure a Database with a Builder
+
+`createSqliteDatabase { }` / `createDatabase { }` take an optional configuration block. `config { }`
+sets `KormConfig`; `beforeStart { }` runs once before the database is returned — the place to run
+migrations (Korm's `migrate`, or Flyway/Liquibase). The receiver is the database, so a migration
+list resolves its own catalog:
+
+```kotlin
+val db: Database<App> = createSqliteDatabase("app.db") {
+    config { batchInsertMode = BatchInsertMode.UnionNulls }
+    beforeStart { migrate(appMigrations) }
+}
+```
+
+Migrations are not a built-in concern of the builder — `beforeStart` is a generic startup hook, so
+you can run any tool there (e.g. `Flyway.configure().dataSource(url, user, pw).load().migrate()`).
+Seed data belongs in a migration, not in `beforeStart`.
+
 ## Use SQLite in Tests
 
 ```kotlin

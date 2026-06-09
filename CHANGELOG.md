@@ -18,6 +18,11 @@ All notable changes to korm are documented here. The format is based on
 - **`invalidates` argument** on the raw `Scope.execute` / `executeUpdate` (and suspend
   counterparts): declare the tables a raw statement writes so observers are notified — the
   analog of Room's `@RawQuery(observedEntities = …)`.
+- **`createX { }` configuration builders.** `createSqliteDatabase("app.db") { config { … };
+  beforeStart { … } }` and the same for `createDatabase(...)` (PostgreSQL). `config { }` is a
+  mutable view of `KormConfig`; `beforeStart { }` runs once before the database is returned —
+  the place to run migrations (your own package, or Flyway/Liquibase), which the builder does
+  not own. The existing `config: KormConfig` factory overloads are unchanged.
 - **Open column-type system.** Column types are now an extensible `ColumnType<T>` interface
   instead of a fixed list. New built-ins `Column.enum<E>()` (enum by name) and
   `Column.json<T>()` (`@Serializable` value as JSON), a `ColumnType<S>.convert(to, from)`
