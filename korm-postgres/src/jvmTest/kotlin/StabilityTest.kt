@@ -1,3 +1,4 @@
+import io.github.kormium.autocommit
 import io.github.kormium.database.createDatabase
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -26,7 +27,7 @@ class StabilityTest {
             val threads = (1..16).map {
                 Thread {
                     try {
-                        repeat(2_000) { check(driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1) }
+                        repeat(2_000) { check(driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single() == 1) }
                     } catch (t: Throwable) {
                         errors += t
                     }
@@ -43,7 +44,7 @@ class StabilityTest {
     fun noConnectionLeakUnderManyOps() {
         assumeDocker()
         ItDatabase.newDriver(poolSize = 2).use { driver ->
-            repeat(2_000) { check(driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1) }
+            repeat(2_000) { check(driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single() == 1) }
         }
     }
 
@@ -64,12 +65,12 @@ class StabilityTest {
                 password = container.password,
                 poolSize = 4,
             ).use { driver ->
-                check(driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1)
+                check(driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single() == 1)
                 container.dockerClient.restartContainerCmd(container.containerId).exec()
                 val deadline = System.currentTimeMillis() + 60_000
                 var recovered = false
                 while (System.currentTimeMillis() < deadline && !recovered) {
-                    recovered = runCatching { driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single() == 1 }
+                    recovered = runCatching { driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single() == 1 }
                         .getOrDefault(false)
                     if (!recovered) Thread.sleep(500)
                 }

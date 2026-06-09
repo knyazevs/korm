@@ -16,6 +16,7 @@ Shipped today:
 - typed table/entity DSL;
 - typed predicates, joins and aggregations;
 - transactions, savepoints, suspend scopes and migrations;
+- reactive `Flow` queries (`korm-observe`) over a `WriteListener` commit hook;
 - Ktor integration for explicit database passing, Ktor DI and Koin;
 - Maven Central publishing with a BOM.
 

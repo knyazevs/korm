@@ -6,6 +6,7 @@ import io.github.kormium.PostgresDialect
 import io.github.kormium.StandardTypeMapper
 import io.github.kormium.SuspendSqlExecutor
 import io.github.kormium.TypeMapper
+import io.github.kormium.WriteListeners
 import io.github.kormium.database.SuspendDatabase
 import io.r2dbc.pool.ConnectionPool
 import io.r2dbc.pool.ConnectionPoolConfiguration
@@ -31,6 +32,9 @@ class R2dbcDatabase internal constructor(
     private val typeMapper: TypeMapper,
     override val config: KormConfig = KormConfig(),
 ) : SuspendDatabase<Nothing> {
+
+    // Supports change observation (korm-observe): writes through this database notify here.
+    override val writeListeners: WriteListeners = WriteListeners()
 
     override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R {
         val connection = pool.create().awaitSingle()

@@ -68,6 +68,7 @@ val publishableModules = setOf(
     "korm-jdbc",
     "korm-sqlite",
     "korm-r2dbc",
+    "korm-observe",
     "korm-ktor",
     "korm-ktor-di",
     "korm-ktor-koin",

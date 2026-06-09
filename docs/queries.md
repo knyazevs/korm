@@ -204,3 +204,9 @@ Use raw SQL only when the SQL text is fully controlled by your application:
 ```kotlin
 Users.find(Query(RawExpression("""lower("name") = 'ada'""")))
 ```
+
+## Observing Changes
+
+To re-run a query automatically whenever its data changes, use `korm-observe`:
+`Users.observe(db) { where { Users.age gtEq 18 } }` returns a `Flow<List<User>>` that
+re-emits after every committed write to the table. See [Observing changes](observe.md).

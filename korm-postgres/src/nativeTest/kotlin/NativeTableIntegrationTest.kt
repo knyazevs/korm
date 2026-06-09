@@ -90,10 +90,10 @@ class NativeTableIntegrationTest {
         }
         nativeDriver(poolSize = 1).use { driver ->
             assertFailsWith<Exception> {
-                driver.execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) }
+                driver.autocommit { execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) } }
             }
             // Same single connection must still be usable after the error above.
-            assertEquals(1, driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single())
+            assertEquals(1, driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single())
         }
     }
 
@@ -107,7 +107,7 @@ class NativeTableIntegrationTest {
         val driver = nativeDriver(poolSize = 1)
         driver.close()
         assertFailsWith<Exception> {
-            driver.execute("SELECT 1") { rs -> rs.getInt(0) }
+            driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }
         }
     }
 
@@ -175,7 +175,7 @@ class NativeTableIntegrationTest {
             val futures = workers.map { worker ->
                 worker.execute(TransferMode.SAFE, { driver }) { db ->
                     var ok = 0
-                    repeat(2_000) { if (db.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single() == 1) ok++ }
+                    repeat(2_000) { if (db.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 } }.single() == 1) ok++ }
                     ok
                 }
             }
@@ -197,7 +197,7 @@ class NativeTableIntegrationTest {
             val futures = workers.map { worker ->
                 worker.execute(TransferMode.SAFE, { driver }) { db ->
                     var sum = 0
-                    repeat(50) { sum += db.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single() }
+                    repeat(50) { sum += db.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 } }.single() }
                     sum
                 }
             }
@@ -242,40 +242,24 @@ object NativeDatabase : Database<NativeCatalog> {
     )
 
     init {
-        driver.executeUpdate(
-            """
-            CREATE TABLE IF NOT EXISTS public.native_products (
-                id uuid PRIMARY KEY,
-                price numeric NOT NULL,
-                qty int NOT NULL,
-                "displayName" text NOT NULL,
-                note text,
-                rank int
+        driver.autocommit {
+            executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS public.native_products (
+                    id uuid PRIMARY KEY,
+                    price numeric NOT NULL,
+                    qty int NOT NULL,
+                    "displayName" text NOT NULL,
+                    note text,
+                    rank int
+                )
+                """.trimIndent()
             )
-            """.trimIndent()
-        )
+        }
     }
-
-    override val dialect get() = driver.dialect
-    override val typeMapper get() = driver.typeMapper
 
     override fun <R> usePinned(transactional: Boolean, block: (io.github.kormium.SqlExecutor) -> R): R =
         driver.usePinned(transactional, block)
 
     override fun close() = driver.close()
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        driver.execute(sql, namedParameters, handler)
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        driver.execute(sql, paramSource, handler)
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        driver.execute(sql, namedParameters)
-
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        driver.execute(sql, paramSource)
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-        driver.executeUpdate(sql, namedParameters)
 }

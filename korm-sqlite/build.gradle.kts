@@ -122,6 +122,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
+                implementation(project(":korm-observe"))
                 implementation("com.ionspin.kotlin:bignum:0.3.10")
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")

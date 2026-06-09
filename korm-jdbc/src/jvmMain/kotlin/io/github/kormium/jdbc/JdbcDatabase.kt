@@ -10,6 +10,7 @@ import io.github.kormium.SqlExecutor
 import io.github.kormium.SqlParameterSource
 import io.github.kormium.SuspendSqlExecutor
 import io.github.kormium.TypeMapper
+import io.github.kormium.WriteListeners
 import io.github.kormium.database.Database
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.resultset.ResultSet
@@ -48,13 +49,16 @@ open class JdbcDatabase(
     username: String? = null,
     password: String? = null,
     poolSize: Int,
-    override val dialect: Dialect,
-    override val typeMapper: TypeMapper,
+    private val dialect: Dialect,
+    private val typeMapper: TypeMapper,
     private val wrap: ResultSetWrapper,
     private val translate: SqlExceptionTranslator = StandardSqlExceptionTranslator,
     connectionInitSql: String? = null,
     override val config: KormConfig = KormConfig(),
 ) : Database<Nothing>, SuspendDatabase<Nothing> {
+
+    // Supports change observation (korm-observe): writes through this database notify here.
+    override val writeListeners: WriteListeners = WriteListeners()
 
     private val ds: HikariDataSource = HikariDataSource(HikariConfig().apply {
         this.jdbcUrl = jdbcUrl
@@ -72,25 +76,6 @@ open class JdbcDatabase(
     }
 
     override fun close() = ds.close()
-
-    // Each pool checkout gets a transient executor bound to that connection; all the
-    // statement logic lives in JdbcExecutor so the pooled and pinned paths share it.
-    private fun executor(conn: Connection) = JdbcExecutor(conn, dialect, typeMapper, wrap, translate)
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        ds.connection.use { executor(it).execute(sql, namedParameters, handler) }
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        ds.connection.use { executor(it).execute(sql, paramSource, handler) }
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        ds.connection.use { executor(it).execute(sql, namedParameters) }
-
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        ds.connection.use { executor(it).execute(sql, paramSource) }
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-        ds.connection.use { executor(it).executeUpdate(sql, namedParameters) }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
         pool.runPinned(transactional, block)
