@@ -275,3 +275,41 @@ routing {
 ```
 
 Use `SuspendDatabase` in server routes so the route body can suspend naturally.
+
+## A Repository
+
+Korm does not ship a `Repository` type — like Exposed, you call table operations inside
+`suspendTransaction { }` / `suspendAutocommit { }`. When you want a Room-style home for a table's
+queries, this small base is the recommended pattern; copy it and adapt it (it is yours to change):
+
+```kotlin
+abstract class Repository<G : Catalog, T : Entity>(
+    protected val db: SuspendDatabase<G>,
+    protected val table: Table<G, T>,
+) {
+    suspend fun findById(id: Any) = db.suspendAutocommit { table.findById(id) }
+    suspend fun all() = db.suspendAutocommit { table.all() }
+    suspend fun insert(entity: T) = db.suspendTransaction { table.insert(entity) }
+    fun observeAll(): Flow<List<T>> = table.observe(db)                 // needs korm-observe
+    protected suspend fun <R> read(block: suspend SuspendScope<G>.() -> R) = db.suspendAutocommit(block)
+    protected suspend fun <R> write(block: suspend SuspendScope<G>.() -> R) = db.suspendTransaction(block)
+}
+
+class UserRepository(db: SuspendDatabase<App>) : Repository<App, User>(db, Users) {
+    suspend fun adults() = read { Users.find { where { Users.age gtEq 18 } } }
+    fun observeAdults() = Users.observe(db) { where { Users.age gtEq 18 } }
+}
+```
+
+Each method is its own transaction. To make several repository operations atomic, wrap their
+table operations in one outer `suspendTransaction { }` (the Unit of Work lives in your service):
+
+```kotlin
+db.suspendTransaction {
+    Users.insert(user)
+    Orders.insert(order)
+}
+```
+
+For unit-testing services without a database, depend on a domain interface and implement it via
+this base, then pass a fake in tests. See the runnable [repository sample](../samples/repository).

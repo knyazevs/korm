@@ -65,6 +65,7 @@ jobs:
         run: >-
           ./gradlew
           :samples:crud-sqlite:jvmTest :samples:crud-sqlite:nativeTest
+          :samples:repository:jvmTest :samples:repository:nativeTest
           :samples:sharding:jvmTest :samples:sharding:nativeTest
           --console=plain
 

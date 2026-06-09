@@ -9,6 +9,7 @@ Each subdirectory is a focused, runnable sample. Run gradle commands from the re
 | [r2dbc](r2dbc) | Postgres (async) | yes (compose) | Same Ktor CRUD on the non-blocking r2dbc driver (JVM only) |
 | [sqlite-cache](sqlite-cache) | Postgres + SQLite | yes (compose) | SQLite as a read-through cache in front of Postgres |
 | [crud-sqlite](crud-sqlite) | SQLite | no | Standalone CRUD + migrations (JVM + native) |
+| [repository](repository) | SQLite | no | A copyable Repository pattern: CRUD, custom queries, observe, cross-repo transactions |
 | [sharding](sharding) | SQLite | no | Multiple catalogs (compile-time safety) + sharding |
 
 The Postgres samples ship a `docker-compose.yml` matching their connection settings:
