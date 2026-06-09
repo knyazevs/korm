@@ -194,7 +194,7 @@ class SqliteIntegrationTest {
         assertEquals(2.5, row.aDouble)
         assertEquals(true, row.aBool)
         assertEquals("txt", row.aText)
-        assertEquals(0, BigDecimal.fromInt(123).compareTo(row.aDecimal!!))
+        assertEquals(0, BigDecimal.fromInt(123).compareTo(row.aDecimal))
         assertEquals(instant, row.anInstant)
         assertEquals(json, row.aJson)
         assertEquals(9_000_000_000L, row.aLong)
