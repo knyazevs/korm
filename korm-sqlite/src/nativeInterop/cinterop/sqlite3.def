@@ -6,5 +6,4 @@ package = csqlite
 linkerOpts.osx = -lsqlite3
 linkerOpts.ios = -lsqlite3
 linkerOpts.linux = -lsqlite3
-compilerOpts.linux = -I/usr/include
 linkerOpts.mingw = -lsqlite3
