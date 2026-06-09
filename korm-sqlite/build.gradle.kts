@@ -26,22 +26,84 @@ kotlin {
         minSdk = 24
     }
 
+    // SQLite is built from the vendored amalgamation (sqlite3.c) and embedded as a static
+    // library, rather than linked from the system. The system libsqlite3 on a modern Linux
+    // distro targets a newer glibc than Kotlin/Native's bundled glibc-2.19 sysroot, so the
+    // linker rejects it (undefined GLIBC_2.3x symbol versions) — see sqlite3.def. Compiling
+    // the amalgamation with the K/N toolchain keeps it ABI-compatible and self-contained.
+    val cinteropDir = project.file("src/nativeInterop/cinterop")
+    val sqliteAmalgamation = cinteropDir.resolve("sqlite3.c")
+    // run_konan resolves the host-appropriate clang/llvm-ar and the per-target sysroot, so
+    // we don't hand-maintain cross-compilation flags. Locate the toolchain matching the KGP
+    // version lazily (it may still be downloading at configuration time).
+    val konanDataDir = System.getenv("KONAN_DATA_DIR")?.let(::File)
+        ?: File(System.getProperty("user.home"), ".konan")
+    val konanVersion = "2.4.0"
+    fun runKonan(): String =
+        (konanDataDir.listFiles { f ->
+            f.isDirectory && f.name.startsWith("kotlin-native-prebuilt-") && f.name.endsWith(konanVersion)
+        } ?: emptyArray<File>())
+            .firstOrNull()?.resolve("bin/run_konan")?.absolutePath
+            ?: error("Kotlin/Native $konanVersion toolchain not found under $konanDataDir")
+    val sqliteDefines = listOf(
+        "-O2",
+        "-DSQLITE_THREADSAFE=1",
+        "-DSQLITE_ENABLE_FTS5=1",
+        "-DSQLITE_ENABLE_RTREE=1",
+        "-DSQLITE_ENABLE_DBSTAT_VTAB=1",
+        "-DSQLITE_ENABLE_COLUMN_METADATA=1",
+    )
+
     // Register the same-named "sqlite3" cinterop on every native target so it commonizes
-    // into the shared nativeMain source set. iOS links the libsqlite3 shipped in the SDK.
+    // into the shared nativeMain source set.
     listOf(
         linuxX64(), macosX64(), macosArm64(),
         iosX64(), iosArm64(), iosSimulatorArm64(),
     ).forEach { target ->
-        target.compilations.getByName("main").cinterops {
-            register("sqlite3") {
-                defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
-                packageName("csqlite")
-                // Use the vendored sqlite3.h so the cinterop generates identically across
-                // targets (incl. cross-compiling linuxX64 from a macOS host, where there is
-                // no system sqlite3.h). Linking still uses the platform's libsqlite3.
-                compilerOpts("-I${project.file("src/nativeInterop/cinterop")}")
+        val konanName = target.konanTarget.name // e.g. linux_x64, macos_arm64, ios_arm64
+        val capName = target.targetName.replaceFirstChar { it.uppercase() }
+        val outDir = layout.buildDirectory.dir("sqlite3/$konanName")
+        val objFile = outDir.map { it.file("sqlite3.o") }
+        val staticLib = outDir.map { it.file("libsqlite3.a") }
+
+        val compileSqlite = tasks.register<Exec>("compileSqlite3$capName") {
+            description = "Compiles the vendored SQLite amalgamation for $konanName"
+            inputs.file(sqliteAmalgamation)
+            inputs.property("defines", sqliteDefines)
+            outputs.file(objFile)
+            doFirst {
+                objFile.get().asFile.parentFile.mkdirs()
+                commandLine(
+                    listOf(runKonan(), "clang", "clang", konanName, "-c")
+                        + sqliteDefines
+                        + listOf(sqliteAmalgamation.absolutePath, "-o", objFile.get().asFile.absolutePath),
+                )
             }
         }
+        val archiveSqlite = tasks.register<Exec>("archiveSqlite3$capName") {
+            description = "Archives the SQLite object into a static library for $konanName"
+            dependsOn(compileSqlite)
+            inputs.file(objFile)
+            outputs.file(staticLib)
+            doFirst {
+                commandLine(
+                    runKonan(), "llvm", "llvm-ar", "rcs",
+                    staticLib.get().asFile.absolutePath, objFile.get().asFile.absolutePath,
+                )
+            }
+        }
+
+        target.compilations.getByName("main").cinterops {
+            register("sqlite3") {
+                defFile(cinteropDir.resolve("sqlite3.def"))
+                packageName("csqlite")
+                // -I finds the vendored sqlite3.h; the static lib (built above) supplies the
+                // implementation and is embedded into the cinterop klib.
+                compilerOpts("-I$cinteropDir")
+                extraOpts("-staticLibrary", "libsqlite3.a", "-libraryPath", outDir.get().asFile.absolutePath)
+            }
+        }
+        tasks.named("cinteropSqlite3$capName").configure { dependsOn(archiveSqlite) }
     }
     // mingwX64() // deferred — see the publishing plan
 

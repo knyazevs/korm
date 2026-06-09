@@ -1,0 +1,44 @@
+name: Publish
+
+# Manual-only release. Publishing to Maven Central is irreversible, so it never fires
+# automatically (no tag/push trigger) — a maintainer dispatches it explicitly, choosing
+# the ref (a release tag like v0.2.0, or main) to build and publish from.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to publish from (release tag, e.g. v0.2.0, or a branch)."
+        required: true
+        default: main
+
+# Publish all artifacts (JVM + linuxX64/macosX64/macosArm64 + the BOM) to Maven Central
+# Portal from a single macOS host, so the deployment is one complete, atomic bundle.
+# macOS K/N can cross-compile the Linux klibs; brew libpq supplies the headers the libpq
+# cinterop needs for every target (sqlite3.h is vendored in the repo).
+jobs:
+  publish:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install libpq (for the Kotlin/Native libpq cinterop)
+        run: brew install libpq
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Publish to Maven Central Portal
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: ./gradlew publishToMavenCentral --no-configuration-cache --console=plain
