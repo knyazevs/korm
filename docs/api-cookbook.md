@@ -217,30 +217,32 @@ For Ktor, `korm-ktor` includes `KormException.httpStatusCode()`.
 
 ## Run Migrations on Startup
 
+Migrations live in the `korm-migrate` module (`implementation("io.github.kormium:korm-migrate")`).
+A migration is raw SQL; one string is split into statements on top-level `;`.
+
 ```kotlin
+import io.github.kormium.migrate.Migration
+import io.github.kormium.migrate.migrate
+
 db.migrate(
     listOf(
-        Migration("001-create-users") {
-            executeUpdate(
-                """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "email" text NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))""",
-            )
-        },
-        Migration("002-users-email-index") {
-            executeUpdate("""CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON "users" ("email")""")
-        },
-    )
+        Migration("001-create-users", """
+            CREATE TABLE "users" ("id" uuid PRIMARY KEY, "email" text NOT NULL, "name" text NOT NULL);
+            CREATE UNIQUE INDEX users_email_idx ON "users" ("email");
+        """),
+    ),
 )
 ```
 
-Migration IDs are permanent. Do not edit an already-applied migration in a released
-application; add a new migration instead.
+Migration IDs are permanent, and the SQL is checksummed once applied — editing an already-applied
+migration fails fast with `MigrationChecksumException`. Add a new migration instead.
 
 ## Configure a Database with a Builder
 
 `createSqliteDatabase { }` / `createDatabase { }` take an optional configuration block. `config { }`
 sets `KormConfig`; `beforeStart { }` runs once before the database is returned — the place to run
-migrations (Korm's `migrate`, or Flyway/Liquibase). The receiver is the database, so a migration
-list resolves its own catalog:
+migrations (the `korm-migrate` module, or Flyway/Liquibase). The receiver is the database, so a
+migration list resolves its own catalog:
 
 ```kotlin
 val db: Database<App> = createSqliteDatabase("app.db") {

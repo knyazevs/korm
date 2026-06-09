@@ -83,6 +83,7 @@ dependencies {
     // implementation("io.github.kormium:korm-r2dbc")    // async PostgreSQL, JVM only
 
     // implementation("io.github.kormium:korm-observe")  // reactive Flow queries
+    // implementation("io.github.kormium:korm-migrate")  // SQL migration runner
 
     // optional Ktor integration
     // implementation("io.github.kormium:korm-ktor")

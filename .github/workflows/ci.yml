@@ -40,7 +40,7 @@ jobs:
       # JVM unit tests. korm-sqlite runs against an in-memory database (no Docker); it covers
       # both the blocking and the suspend (offload) paths.
       - name: JVM tests
-        run: ./gradlew :korm-core:jvmTest :korm-sqlite:jvmTest --console=plain
+        run: ./gradlew :korm-core:jvmTest :korm-sqlite:jvmTest :korm-migrate:jvmTest --console=plain
 
       # Native (libpq) tests against the Postgres service above. The host native test task
       # on a Linux runner is linuxX64Test (the modules now declare real native targets).
@@ -52,7 +52,7 @@ jobs:
           KORM_DB_NAME: postgres
           KORM_DB_USER: postgres
           KORM_DB_PASSWORD: password
-        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test :korm-sqlite:linuxX64Test --console=plain
+        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test :korm-sqlite:linuxX64Test :korm-migrate:linuxX64Test --console=plain
 
       # The ktor integration libraries are libraries (no native exe link), so assemble
       # builds their JVM + native artifacts to verify they compile on every target.

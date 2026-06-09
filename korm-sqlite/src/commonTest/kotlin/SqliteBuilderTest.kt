@@ -1,10 +1,8 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import io.github.kormium.BatchInsertMode
-import io.github.kormium.Migration
 import io.github.kormium.autocommit
 import io.github.kormium.createSqliteDatabase
 import io.github.kormium.database.Database
-import io.github.kormium.migrate
 import io.github.kormium.transaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,11 +14,9 @@ class SqliteBuilderTest {
 
     @Test
     fun builderAppliesConfigAndRunsBeforeStart() {
-        val migrations = listOf(Migration<SqCatalog>("builder-001") { Products.execSql(productsDdl) })
-
         val db: Database<SqCatalog> = createSqliteDatabase {
             config { batchInsertMode = BatchInsertMode.UnionNulls }
-            beforeStart { migrate(migrations) }   // receiver is the db; catalog comes from the list
+            beforeStart { autocommit { executeUpdate(productsDdl) } }   // create the schema before the db is returned
         }
 
         db.use {

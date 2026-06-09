@@ -4,6 +4,38 @@ All notable changes to korm are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Migrations moved out of `korm-core` into a new `korm-migrate` module** (breaking). Core does
+  not own schema, so the migration runner is now opt-in. `io.github.kormium.Migration` / `migrate`
+  become `io.github.kormium.migrate.{Migration, migrate}`; add the `korm-migrate` dependency and
+  update imports. They still run the same way via `beforeStart { migrate(appMigrations) }`.
+
+### Added
+- **`korm-migrate`** module: an ordered, idempotent **raw-SQL** migration runner.
+  - `Migration(id, sql)` takes raw SQL split into statements on top-level `;` (quoted
+    strings/identifiers, `--` / `/* */` comments and Postgres `$tag$…$tag$` bodies respected), or
+    `Migration(id, statements)` for explicit statements.
+  - **Checksum validation**: editing an already-applied migration fails fast with
+    `MigrationChecksumException`.
+  - **Concurrency-safe**: the whole batch runs in one transaction; on PostgreSQL it first takes a
+    transaction-scoped advisory lock so concurrently-starting instances block and don't
+    double-apply (all-or-nothing — a failed batch records nothing). SQLite has no advisory lock, so
+    concurrent cross-process migration is not fully serialized, but the journal primary key plus the
+    all-or-nothing rule out double-application (prefer migrating SQLite from one process).
+  - The `korm_migrations` journal now also records the SQL `checksum`, an `applied_at` timestamp
+    and the apply-order index.
+- **`Dialect.advisoryLockSql(key)`** (defaults to `null`): a backend exposes advisory-lock SQL for
+  the migration runner; `PostgresDialect` returns `pg_advisory_xact_lock`.
+
+### Migration notes
+- The previous `up: Scope.() -> Unit` lambda form is removed — migrations are raw SQL now. Move
+  any seed/data logic that used Korm operations into application startup or an explicit-statement
+  migration.
+- The `korm_migrations` journal gained columns; since 0.x is unpublished, drop any throwaway dev
+  journal so it is recreated with the new schema.
+
 ## [0.3.0] — Reactive queries
 
 ### Added

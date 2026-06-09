@@ -19,8 +19,8 @@ class KormConfigBuilder internal constructor(private val base: KormConfig) {
 /**
  * Receiver of the `createX { }` builder block. Configures the database and registers a
  * [beforeStart] hook that runs once, after the connection pool is up but before the database
- * is returned — the place to run migrations (your own package, or Flyway/Liquibase). Migrations
- * are intentionally NOT a built-in concern of this builder.
+ * is returned — the place to run migrations (the `korm-migrate` module, or Flyway/Liquibase).
+ * Migrations are intentionally NOT a built-in concern of this builder.
  */
 class KormBuilder {
     private var config: KormConfig = KormConfig()
@@ -32,11 +32,11 @@ class KormBuilder {
     }
 
     /**
-     * Runs [block] once at startup, before the database is returned. Use it to run migrations:
-     * the receiver is the database, so a migration list resolves its own catalog, e.g.
-     * `beforeStart { migrate(appMigrations) }`. For Flyway/Liquibase, configure them here with
-     * your connection settings (they manage their own JDBC connection). Seed data belongs in a
-     * migration, not here.
+     * Runs [block] once at startup, before the database is returned. Use it to run migrations
+     * (the `korm-migrate` module): the receiver is the database, so a migration list resolves its
+     * own catalog, e.g. `beforeStart { migrate(appMigrations) }`. For Flyway/Liquibase, configure
+     * them here with your connection settings (they manage their own JDBC connection). Seed data
+     * belongs in a migration, not here.
      */
     fun beforeStart(block: Database<Nothing>.() -> Unit) {
         beforeStart = block

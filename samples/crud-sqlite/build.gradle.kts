@@ -46,6 +46,7 @@ kotlin {
                 // SQLite needs no external server, so this whole sample is self-contained
                 // and runs on both JVM and native off the same commonMain code.
                 implementation(project(":korm-sqlite"))
+                implementation(project(":korm-migrate"))
             }
         }
         val commonTest by getting {

@@ -64,6 +64,7 @@ kotlin {
         val jvmTest by getting {
             dependencies {
                 // End-to-end tests of the JVM driver against a real Postgres in Docker.
+                implementation(project(":korm-migrate"))
                 implementation("org.testcontainers:postgresql:1.20.4")
                 implementation("org.postgresql:postgresql:42.7.4")
                 // For the all-column-types round-trip test (Instant / Json columns).

@@ -126,26 +126,62 @@ applications, a normal connection pool plus virtual-thread offload is simpler an
 
 ## Migrations
 
-Korm migrations are ordered and idempotent. Each migration has a stable `id`; Korm records
-applied IDs in `korm_migrations` and runs only missing migrations.
+Migrations live in the separate **`korm-migrate`** module (Korm core does not own schema). Add
+the dependency and import from `io.github.kormium.migrate`:
 
 ```kotlin
+// build.gradle.kts
+implementation("io.github.kormium:korm-migrate")
+```
+
+A migration is **raw SQL** with a stable `id` and is bound to a catalog. Korm does not generate
+DDL, so the SQL is intentionally backend-specific — write it for the database you target. A
+single SQL string is split into statements on top-level `;` (quoted strings/identifiers,
+`--` / `/* */` comments and Postgres `$tag$…$tag$` bodies are respected):
+
+```kotlin
+import io.github.kormium.migrate.Migration
+import io.github.kormium.migrate.migrate
+
 db.migrate(
     listOf(
-        Migration("001-create-users") {
-            executeUpdate(
-                """CREATE TABLE IF NOT EXISTS "users" ("id" uuid NOT NULL, "name" text NOT NULL, "age" integer NOT NULL, PRIMARY KEY ("id"))""",
-            )
-        },
-        Migration("002-users-name-index") {
-            executeUpdate("""CREATE INDEX IF NOT EXISTS users_name_idx ON "users" ("name")""")
-        },
-    )
+        Migration("001-create-users", """
+            CREATE TABLE "users" ("id" uuid PRIMARY KEY, "name" text NOT NULL, "age" integer NOT NULL);
+            CREATE INDEX users_name_idx ON "users" ("name");
+        """),
+    ),
 )
 ```
 
-Each migration runs in its own transaction. It is safe to call `migrate(...)` during
-application startup.
+For SQL the splitter can't handle (e.g. a Postgres function body containing `;`), pass the
+statements explicitly: `Migration("002-fn", listOf(stmtA, stmtB))`.
+
+What the runner guarantees:
+
+- **Ordered & idempotent.** Applied ids are recorded in `korm_migrations` (with the SQL
+  checksum, an `applied_at` timestamp and the apply order); only missing migrations run, so
+  calling `migrate(...)` on every startup is safe.
+- **Checksum validation.** If an already-applied migration's SQL is later edited, `migrate`
+  fails fast with `MigrationChecksumException`. Migrations are immutable once applied — add a
+  new one instead.
+- **Concurrency-safe.** The whole run executes in one transaction; on PostgreSQL it takes a
+  transaction-scoped advisory lock first, so several instances starting at once block and don't
+  apply the same migration twice. SQLite has no advisory lock, so concurrent cross-process
+  migration is not fully serialized — it stays safe (the journal primary key plus the
+  all-or-nothing transaction rule out double-application; at worst one instance rolls back and
+  no-ops on restart), but prefer migrating SQLite from a single process.
+- **All-or-nothing.** Because the batch is one transaction, a failure rolls the whole batch back
+  and records nothing. (A statement that cannot run inside a transaction — e.g.
+  `CREATE INDEX CONCURRENTLY` — therefore cannot be part of a batch.)
+
+The idiomatic place to run migrations is the `createX { }` builder's `beforeStart { }` hook,
+which runs once after the pool is up and before the database is returned:
+
+```kotlin
+val db: Database<App> = createDatabase(host = "…", database = "…", user = "…", password = "…") {
+    beforeStart { migrate(appMigrations) }
+}
+```
 
 ## Error Handling
 

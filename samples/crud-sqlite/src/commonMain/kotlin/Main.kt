@@ -3,14 +3,14 @@ package io.github.kormium.samples.crudsqlite
 import io.github.kormium.Catalog
 import io.github.kormium.Column
 import io.github.kormium.Entity
-import io.github.kormium.Migration
+import io.github.kormium.migrate.Migration
 import io.github.kormium.Query
 import io.github.kormium.Table
 import io.github.kormium.createSqliteDatabase
 import io.github.kormium.database.Database
 import io.github.kormium.eq
 import io.github.kormium.gt
-import io.github.kormium.migrate
+import io.github.kormium.migrate.migrate
 import io.github.kormium.transaction
 import io.github.kormium.autocommit
 
@@ -39,7 +39,7 @@ fun main() {
         // Migrations are idempotent and recorded in korm_migrations — safe to run on every start.
         db.migrate(
             listOf(
-                Migration("001-create-users") { Users.execSql(usersDdl) },
+                Migration("001-create-users", usersDdl),
             ),
         )
 
