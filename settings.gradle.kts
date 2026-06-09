@@ -19,6 +19,7 @@ include(
     "samples:ktor-di",
     "samples:ktor-koin",
     "samples:crud-sqlite",
+    "samples:repository",
     "samples:sharding",
     "samples:sqlite-cache",
     "samples:r2dbc",
