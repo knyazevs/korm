@@ -15,4 +15,7 @@ object PostgresDialect : Dialect by StandardDialect {
         is JsonElement -> ":$name::jsonb"
         else -> StandardDialect.renderBind(name, value)
     }
+
+    /** Transaction-scoped advisory lock; auto-released at COMMIT/ROLLBACK. */
+    override fun advisoryLockSql(key: Long): String = "SELECT pg_advisory_xact_lock($key)"
 }

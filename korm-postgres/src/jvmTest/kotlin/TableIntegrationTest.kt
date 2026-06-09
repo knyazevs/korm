@@ -9,11 +9,11 @@ import io.github.kormium.autocommit
 import io.github.kormium.Table
 import io.github.kormium.database.Database
 import io.github.kormium.database.createDatabase
-import io.github.kormium.Migration
+import io.github.kormium.migrate.Migration
 import io.github.kormium.count
 import io.github.kormium.eq
 import io.github.kormium.innerJoin
-import io.github.kormium.migrate
+import io.github.kormium.migrate.migrate
 import io.github.kormium.query
 import io.github.kormium.resultset.ResultSet
 import io.github.kormium.transaction
@@ -288,22 +288,26 @@ class TableIntegrationTest {
     @Test
     fun testMigrationsRunOnceAndAreIdempotent() {
         assumeDockerAvailable()
-        val applied = mutableListOf<String>()
         val suffix = Uuid.random().toString().replace("-", "")
         val table = "mig_probe_$suffix"
         val migrations = listOf(
-            Migration<ItCatalog>("001-$suffix") {
-                executeUpdate("CREATE TABLE public.$table (id int)")
-                applied += "001"
-            },
-            Migration<ItCatalog>("002-$suffix") {
-                executeUpdate("DROP TABLE public.$table")
-                applied += "002"
-            },
+            Migration<ItCatalog>("001-$suffix", "CREATE TABLE public.$table (id int)"),
+            Migration<ItCatalog>("002-$suffix", "INSERT INTO public.$table (id) VALUES (1)"),
         )
         ItDatabase.migrate(migrations)
         ItDatabase.migrate(migrations) // already applied → no-op
-        assertEquals(listOf("001", "002"), applied)
+
+        // The row inserted by 002 exists exactly once, proving each migration ran a single time.
+        val rows = ItDatabase.autocommit { execute("SELECT id FROM public.$table") { it.getInt(0) } }
+        assertEquals(listOf(1), rows)
+
+        ItDatabase.autocommit { executeUpdate("DROP TABLE public.$table") }
+        ItDatabase.autocommit {
+            executeUpdate(
+                "DELETE FROM korm_migrations WHERE id IN (:a, :b)",
+                mapOf("a" to "001-$suffix", "b" to "002-$suffix"),
+            )
+        }
     }
 
     /** Every supported column type round-trips through a generated table. */

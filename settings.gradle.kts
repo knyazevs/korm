@@ -13,6 +13,7 @@ plugins {
 rootProject.name = "korm"
 include("korm-core", "korm-postgres", "korm-jdbc", "korm-sqlite", "korm-r2dbc", "benchmarks")
 include("korm-observe")
+include("korm-migrate")
 include("korm-ktor", "korm-ktor-di", "korm-ktor-koin")
 include("korm-bom")
 include(

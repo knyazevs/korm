@@ -167,5 +167,5 @@ db.transaction {
 }
 ```
 
-For repeatable, ordered setup use `Database.migrate(...)` (see
+For repeatable, ordered setup use `Database.migrate(...)` from the `korm-migrate` module (see
 [Transactions and migrations](transactions-and-migrations.md)).

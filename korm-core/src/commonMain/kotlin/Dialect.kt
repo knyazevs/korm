@@ -17,6 +17,14 @@ interface Dialect {
 
     /** Renders an `OFFSET` clause (trailing space included), or "" when zero. */
     fun renderOffset(offset: UInt): String
+
+    /**
+     * SQL that acquires a transaction-scoped advisory lock keyed by [key], or `null` when the
+     * backend has no such mechanism. Used by `korm-migrate` to serialize a migration run across
+     * concurrently-starting application instances; the lock is released automatically when the
+     * surrounding transaction commits. The default is `null` (no lock).
+     */
+    fun advisoryLockSql(key: Long): String? = null
 }
 
 /**

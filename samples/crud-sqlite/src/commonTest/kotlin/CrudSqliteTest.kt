@@ -1,13 +1,13 @@
 package io.github.kormium.samples.crudsqlite
 
-import io.github.kormium.Migration
+import io.github.kormium.migrate.Migration
 import io.github.kormium.Query
 import io.github.kormium.autocommit
 import io.github.kormium.createSqliteDatabase
 import io.github.kormium.database.Database
 import io.github.kormium.eq
 import io.github.kormium.gt
-import io.github.kormium.migrate
+import io.github.kormium.migrate.migrate
 import io.github.kormium.transaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,7 +23,7 @@ class CrudSqliteTest {
     fun migrateThenCrud() {
         val db: Database<Shop> = createSqliteDatabase()
         db.use {
-            db.migrate(listOf(Migration("001-create-users") { Users.execSql(usersDdl) }))
+            db.migrate(listOf(Migration("001-create-users", usersDdl)))
 
             db.transaction {
                 Users.insertAll(listOf(user(1, "Alice", 30), user(2, "Bob", 25), user(3, "Carol", 41)))

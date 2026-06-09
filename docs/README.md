@@ -33,11 +33,12 @@ Korm is split into small artifacts:
 | Module | Purpose |
 | --- | --- |
 | `korm-bom` | Bill of Materials for version alignment |
-| `korm-core` | Backend-agnostic DSL, scopes, transactions and migrations |
+| `korm-core` | Backend-agnostic DSL, scopes and transactions |
 | `korm-postgres` | PostgreSQL dialect and drivers: JDBC/HikariCP on JVM, libpq on Native |
 | `korm-sqlite` | SQLite dialect and drivers: sqlite-jdbc, sqlite3 and AndroidX SQLite |
 | `korm-r2dbc` | True async PostgreSQL on JVM, suspend API only |
 | `korm-observe` | Reactive `Flow` queries that re-emit when watched tables change |
+| `korm-migrate` | Ordered, idempotent raw-SQL migration runner with a recorded journal |
 | `korm-jdbc` | Internal/shared JVM JDBC plumbing used by JVM drivers |
 | `korm-ktor` | Ktor helpers without a DI dependency |
 | `korm-ktor-di` | Ktor built-in DI integration |

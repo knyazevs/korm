@@ -11,6 +11,7 @@ dependencies {
             "korm-postgres",
             "korm-jdbc",
             "korm-sqlite",
+            "korm-migrate",
             "korm-ktor",
             "korm-ktor-di",
             "korm-ktor-koin",
