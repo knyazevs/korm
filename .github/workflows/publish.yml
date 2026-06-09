@@ -18,6 +18,8 @@ on:
 jobs:
   publish:
     runs-on: macos-latest
+    permissions:
+      contents: write # create/update the GitHub Release for the published tag
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,3 +44,35 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
         run: ./gradlew publishToMavenCentral --no-configuration-cache --console=plain
+
+      # When publishing from a version tag (vX.Y.Z), publish a matching GitHub Release whose
+      # notes are the changelog section for that version. Idempotent: updates the release if it
+      # already exists. Skipped when dispatched from a branch (e.g. main).
+      - name: Create GitHub Release from CHANGELOG
+        if: startsWith(inputs.ref, 'v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref }}
+        run: |
+          version="${REF#v}"
+          # Pull the lines between this version's heading and the next "## [" heading.
+          notes=$(awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { f=1; next }
+            /^## \[/ && f { exit }
+            f { print }
+          ' CHANGELOG.md)
+          # Title: turn "## [0.2.0] — API redesign" into "v0.2.0 — API redesign".
+          title=$(grep -m1 "^## \[$version\]" CHANGELOG.md | sed -E "s/^## \[$version\]/v$version/")
+          [ -n "$title" ] || title="$REF"
+          if [ -z "$notes" ]; then
+            echo "No CHANGELOG section for $version — using auto-generated notes."
+            notes_args=(--generate-notes)
+          else
+            printf '%s\n' "$notes" > /tmp/release-notes.md
+            notes_args=(--notes-file /tmp/release-notes.md)
+          fi
+          if gh release view "$REF" >/dev/null 2>&1; then
+            gh release edit "$REF" --title "$title" "${notes_args[@]}"
+          else
+            gh release create "$REF" --title "$title" --verify-tag "${notes_args[@]}"
+          fi
