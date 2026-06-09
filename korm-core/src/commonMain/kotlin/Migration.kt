@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.database.Database
+import io.github.kormium.database.Database
 
 /**
  * A named, ordered schema change. [id] must be unique and stable (it is the key recorded

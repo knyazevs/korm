@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import java.sql.ResultSetMetaData

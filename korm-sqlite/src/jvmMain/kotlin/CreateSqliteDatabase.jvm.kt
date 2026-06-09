@@ -1,7 +1,7 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.jdbc.JdbcDatabase
-import io.github.knyazevs.korm.jdbc.SqlExceptionTranslator
+import io.github.kormium.jdbc.JdbcDatabase
+import io.github.kormium.jdbc.SqlExceptionTranslator
 import java.sql.SQLException
 
 // sqlite-jdbc exposes the SQLite (extended) result code via SQLException.getErrorCode().

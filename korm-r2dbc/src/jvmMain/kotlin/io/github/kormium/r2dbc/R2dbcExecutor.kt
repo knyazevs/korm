@@ -1,11 +1,11 @@
-package io.github.knyazevs.korm.r2dbc
+package io.github.kormium.r2dbc
 
-import io.github.knyazevs.korm.Dialect
-import io.github.knyazevs.korm.SqlParameterSource
-import io.github.knyazevs.korm.SuspendSqlExecutor
-import io.github.knyazevs.korm.TypeMapper
-import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.sqlException
+import io.github.kormium.Dialect
+import io.github.kormium.SqlParameterSource
+import io.github.kormium.SuspendSqlExecutor
+import io.github.kormium.TypeMapper
+import io.github.kormium.resultset.ResultSet
+import io.github.kormium.sqlException
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.R2dbcException
 import io.r2dbc.spi.Statement

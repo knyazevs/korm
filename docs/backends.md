@@ -8,7 +8,7 @@ that executes parameterized SQL.
 Artifact:
 
 ```kotlin
-implementation("io.github.knyazevs.korm:korm-postgres")
+implementation("io.github.kormium:korm-postgres")
 ```
 
 Factory:
@@ -37,7 +37,7 @@ Native builds need `libpq` headers/libraries on the build machine. See
 Artifact:
 
 ```kotlin
-implementation("io.github.knyazevs.korm:korm-sqlite")
+implementation("io.github.kormium:korm-sqlite")
 ```
 
 Factory:
@@ -65,7 +65,7 @@ SQLite notes:
 Artifact:
 
 ```kotlin
-implementation("io.github.knyazevs.korm:korm-r2dbc")
+implementation("io.github.kormium:korm-r2dbc")
 ```
 
 Factory:

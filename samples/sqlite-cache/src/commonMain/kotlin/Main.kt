@@ -1,14 +1,14 @@
-package io.github.knyazevs.korm.samples.sqlitecache
+package io.github.kormium.samples.sqlitecache
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Table
+import io.github.kormium.autocommit
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
+import io.github.kormium.transaction
 
 // Two catalogs: the same "products" shape lives in Postgres (source of truth) and in a
 // local SQLite cache. Each catalog has its own table + entity, tagged so they can't be mixed.

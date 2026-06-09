@@ -1,15 +1,15 @@
 @file:OptIn(ExperimentalUuidApi::class)
 
-package io.github.knyazevs.korm.samples.ktordi
+package io.github.kormium.samples.ktordi
 
-import io.github.knyazevs.korm.KormException
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.ktor.di.autocommit
-import io.github.knyazevs.korm.ktor.di.transaction
-import io.github.knyazevs.korm.ktor.httpStatusCode
+import io.github.kormium.KormException
+import io.github.kormium.Query
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.database.createDatabase
+import io.github.kormium.eq
+import io.github.kormium.ktor.di.autocommit
+import io.github.kormium.ktor.di.transaction
+import io.github.kormium.ktor.httpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install

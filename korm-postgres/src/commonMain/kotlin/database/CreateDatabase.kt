@@ -1,7 +1,7 @@
-package io.github.knyazevs.korm.database
+package io.github.kormium.database
 
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.PostgresDriver
+import io.github.kormium.KormConfig
+import io.github.kormium.PostgresDriver
 
 expect fun createDatabase(
     host: String,

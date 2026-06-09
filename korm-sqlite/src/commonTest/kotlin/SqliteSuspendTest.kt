@@ -1,8 +1,8 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.suspendAutocommit
-import io.github.knyazevs.korm.suspendTransaction
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.suspendAutocommit
+import io.github.kormium.suspendTransaction
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals

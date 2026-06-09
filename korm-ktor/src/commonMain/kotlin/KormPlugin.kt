@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm.ktor
+package io.github.kormium.ktor
 
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.createApplicationPlugin

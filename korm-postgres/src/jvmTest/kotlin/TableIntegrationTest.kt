@@ -1,22 +1,22 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.SqlParameterSource
-import io.github.knyazevs.korm.UniqueViolationException
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.Migration
-import io.github.knyazevs.korm.count
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.innerJoin
-import io.github.knyazevs.korm.migrate
-import io.github.knyazevs.korm.query
-import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Query
+import io.github.kormium.SqlParameterSource
+import io.github.kormium.UniqueViolationException
+import io.github.kormium.autocommit
+import io.github.kormium.Table
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
+import io.github.kormium.Migration
+import io.github.kormium.count
+import io.github.kormium.eq
+import io.github.kormium.innerJoin
+import io.github.kormium.migrate
+import io.github.kormium.query
+import io.github.kormium.resultset.ResultSet
+import io.github.kormium.transaction
 import kotlin.uuid.Uuid
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
@@ -30,7 +30,7 @@ import kotlin.test.assertNull
  * End-to-end tests for the JVM driver against a real Postgres (Testcontainers).
  * Unlike the [TableTest] unit tests (which assert generated SQL against a mock),
  * these exercise the whole stack — named-parameter translation in
- * [io.github.knyazevs.korm.NamedParamStatement], real type binding and
+ * [io.github.kormium.NamedParamStatement], real type binding and
  * [Table.mapToDao] reading rows back.
  *
  * Includes a camelCase column ("displayName") on purpose: it exercises the
@@ -199,7 +199,7 @@ class TableIntegrationTest {
     }
 
     /**
-     * A failing [io.github.knyazevs.korm.Scope.savepoint] rolls back only its own work
+     * A failing [io.github.kormium.Scope.savepoint] rolls back only its own work
      * (ROLLBACK TO SAVEPOINT); the enclosing transaction keeps the rest and commits.
      */
     @Test
@@ -593,7 +593,7 @@ object ItDatabase : Database<ItCatalog> {
     override val dialect get() = driver.dialect
     override val typeMapper get() = driver.typeMapper
 
-    override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
+    override fun <R> usePinned(transactional: Boolean, block: (io.github.kormium.SqlExecutor) -> R): R =
         driver.usePinned(transactional, block)
 
     override fun close() = driver.close()

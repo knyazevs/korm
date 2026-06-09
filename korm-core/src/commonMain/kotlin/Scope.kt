@@ -1,7 +1,7 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.database.Database
+import io.github.kormium.resultset.ResultSet
 
 /**
  * The receiver inside a [transaction] / [autocommit] block. It pins one connection

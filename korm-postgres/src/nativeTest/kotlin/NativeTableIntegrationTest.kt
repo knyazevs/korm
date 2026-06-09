@@ -1,17 +1,17 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.SqlParameterSource
-import io.github.knyazevs.korm.UniqueViolationException
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Query
+import io.github.kormium.SqlParameterSource
+import io.github.kormium.UniqueViolationException
+import io.github.kormium.autocommit
+import io.github.kormium.Table
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
+import io.github.kormium.eq
+import io.github.kormium.resultset.ResultSet
+import io.github.kormium.transaction
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlin.native.concurrent.TransferMode
@@ -259,7 +259,7 @@ object NativeDatabase : Database<NativeCatalog> {
     override val dialect get() = driver.dialect
     override val typeMapper get() = driver.typeMapper
 
-    override fun <R> usePinned(transactional: Boolean, block: (io.github.knyazevs.korm.SqlExecutor) -> R): R =
+    override fun <R> usePinned(transactional: Boolean, block: (io.github.kormium.SqlExecutor) -> R): R =
         driver.usePinned(transactional, block)
 
     override fun close() = driver.close()

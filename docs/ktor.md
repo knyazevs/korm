@@ -5,9 +5,9 @@ resolved.
 
 ```kotlin
 dependencies {
-    implementation("io.github.knyazevs.korm:korm-ktor")
-    implementation("io.github.knyazevs.korm:korm-ktor-di")
-    implementation("io.github.knyazevs.korm:korm-ktor-koin")
+    implementation("io.github.kormium:korm-ktor")
+    implementation("io.github.kormium:korm-ktor-di")
+    implementation("io.github.kormium:korm-ktor-koin")
 }
 ```
 

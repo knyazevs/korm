@@ -1,7 +1,7 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.resultset.ResultSet
 
 /**
  * The suspend counterpart of [Scope], the receiver inside a [suspendTransaction] /

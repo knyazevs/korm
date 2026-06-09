@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 
 /**
  * The suspend mirror of [SqlExecutor]: runs SQL against one connection inside a
- * [io.github.knyazevs.korm.database.SuspendDatabase.useConnection] block. The
+ * [io.github.kormium.database.SuspendDatabase.useConnection] block. The
  * [dialect] and [typeMapper] are the same seams used to render statements and
  * convert values.
  *

@@ -21,7 +21,7 @@ kotlin {
     // compiles to JVM bytecode), so it gets its own driver in androidMain on top of
     // androidx.sqlite's bundled SQLite. iOS reuses the cinterop driver below.
     android {
-        namespace = "io.github.knyazevs.korm.sqlite"
+        namespace = "io.github.kormium.sqlite"
         compileSdk = 36
         minSdk = 24
     }

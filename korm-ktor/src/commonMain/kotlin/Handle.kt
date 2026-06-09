@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm.ktor
+package io.github.kormium.ktor
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.SuspendScope
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.suspendAutocommit
-import io.github.knyazevs.korm.suspendTransaction
+import io.github.kormium.Catalog
+import io.github.kormium.SuspendScope
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.suspendAutocommit
+import io.github.kormium.suspendTransaction
 import kotlin.jvm.JvmInline
 
 /**
@@ -17,10 +17,10 @@ import kotlin.jvm.JvmInline
 @JvmInline
 value class KormHandle<G : Catalog>(val database: SuspendDatabase<G>)
 
-/** Runs [block] in a transaction on the wrapped database; see [io.github.knyazevs.korm.suspendTransaction]. */
+/** Runs [block] in a transaction on the wrapped database; see [io.github.kormium.suspendTransaction]. */
 suspend fun <G : Catalog, R> KormHandle<G>.transaction(block: suspend SuspendScope<G>.() -> R): R =
     database.suspendTransaction(block)
 
-/** Runs [block] in autocommit on the wrapped database; see [io.github.knyazevs.korm.suspendAutocommit]. */
+/** Runs [block] in autocommit on the wrapped database; see [io.github.kormium.suspendAutocommit]. */
 suspend fun <G : Catalog, R> KormHandle<G>.autocommit(block: suspend SuspendScope<G>.() -> R): R =
     database.suspendAutocommit(block)

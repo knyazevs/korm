@@ -60,7 +60,7 @@ bump the minor version.)
 
 ## [0.1.0] — first public release
 
-First release published to Maven Central (group `io.github.knyazevs.korm`), with artifacts
+First release published to Maven Central (group `io.github.kormium`), with artifacts
 for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
 
 ### Added
@@ -87,5 +87,5 @@ for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
 - Publishing moved from the retired OSSRH endpoint to the **Maven Central Portal**, driven
   by the `com.vanniktech.maven.publish` plugin.
 
-[0.2.0]: https://github.com/knyazevs/korm/releases/tag/v0.2.0
-[0.1.0]: https://github.com/knyazevs/korm/releases/tag/v0.1.0
+[0.2.0]: https://github.com/kormium/kormium/releases/tag/v0.2.0
+[0.1.0]: https://github.com/kormium/kormium/releases/tag/v0.1.0

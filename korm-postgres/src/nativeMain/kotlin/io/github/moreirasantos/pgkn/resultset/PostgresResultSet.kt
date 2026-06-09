@@ -8,7 +8,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlinx.datetime.*
 import libpq.*
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.resultset.PostgresResultSetKt")
 

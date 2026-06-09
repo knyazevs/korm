@@ -1,16 +1,16 @@
-package io.github.knyazevs.korm.database
+package io.github.kormium.database
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.SqlExecutor
+import io.github.kormium.Catalog
+import io.github.kormium.KormConfig
+import io.github.kormium.SqlExecutor
 
 /**
  * A database handle, tagged with the [Catalog] [G] it connects to. The tag is
  * phantom (it appears in no member), so a backend driver implements
  * `Database<Nothing>` and — by covariance — fits any `Database<G>`; a caller pins
- * the tag by assigning it to a `Database<MyCatalog>`. A [io.github.knyazevs.korm.Table]
+ * the tag by assigning it to a `Database<MyCatalog>`. A [io.github.kormium.Table]
  * tagged with the same catalog can then be used against it via
- * [io.github.knyazevs.korm.transaction] / [io.github.knyazevs.korm.autocommit].
+ * [io.github.kormium.transaction] / [io.github.kormium.autocommit].
  */
 interface Database<out G : Catalog> : SqlExecutor, AutoCloseable {
     /** Per-database configuration; defaults to [KormConfig] defaults unless a backend overrides it. */

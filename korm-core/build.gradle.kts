@@ -24,7 +24,7 @@ kotlin {
     // Compose Multiplatform targets. The Android target is configured via the AGP KMP
     // library plugin's androidLibrary DSL (AGP 9 dropped com.android.library + androidTarget()).
     android {
-        namespace = "io.github.knyazevs.korm"
+        namespace = "io.github.kormium"
         compileSdk = 36
         minSdk = 24
     }

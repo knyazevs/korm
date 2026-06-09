@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm.r2dbc
+package io.github.kormium.r2dbc
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 import io.r2dbc.postgresql.codec.Json
 import io.r2dbc.spi.Row
 import io.r2dbc.spi.RowMetadata

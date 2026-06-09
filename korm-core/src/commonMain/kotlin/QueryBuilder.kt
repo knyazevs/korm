@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * Builder behind the block form of reads and mutations:

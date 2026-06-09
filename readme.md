@@ -1,7 +1,7 @@
 # Korm
 
-[![CI](https://github.com/knyazevs/korm/actions/workflows/ci.yml/badge.svg)](https://github.com/knyazevs/korm/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.knyazevs.korm/korm-core.svg)](https://central.sonatype.com/search?q=g%3Aio.github.knyazevs.korm)
+[![CI](https://github.com/kormium/kormium/actions/workflows/ci.yml/badge.svg)](https://github.com/kormium/kormium/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.kormium/korm-core.svg)](https://central.sonatype.com/search?q=g%3Aio.github.kormium)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Type-safe ORM and SQL DSL for Kotlin Multiplatform.
@@ -70,20 +70,20 @@ Requires **JDK 21+** for JVM builds. The JVM suspend offload path uses virtual t
 
 ## Install
 
-Korm is published to Maven Central under `io.github.knyazevs.korm`.
+Korm is published to Maven Central under `io.github.kormium`.
 
 ```kotlin
 dependencies {
-    implementation(platform("io.github.knyazevs.korm:korm-bom:<version>"))
+    implementation(platform("io.github.kormium:korm-bom:<version>"))
 
-    implementation("io.github.knyazevs.korm:korm-postgres") // PostgreSQL, JVM + Native
-    // implementation("io.github.knyazevs.korm:korm-sqlite")   // SQLite, JVM + Native + Android
-    // implementation("io.github.knyazevs.korm:korm-r2dbc")    // async PostgreSQL, JVM only
+    implementation("io.github.kormium:korm-postgres") // PostgreSQL, JVM + Native
+    // implementation("io.github.kormium:korm-sqlite")   // SQLite, JVM + Native + Android
+    // implementation("io.github.kormium:korm-r2dbc")    // async PostgreSQL, JVM only
 
     // optional Ktor integration
-    // implementation("io.github.knyazevs.korm:korm-ktor")
-    // implementation("io.github.knyazevs.korm:korm-ktor-di")
-    // implementation("io.github.knyazevs.korm:korm-ktor-koin")
+    // implementation("io.github.kormium:korm-ktor")
+    // implementation("io.github.kormium:korm-ktor-di")
+    // implementation("io.github.kormium:korm-ktor-koin")
 }
 ```
 

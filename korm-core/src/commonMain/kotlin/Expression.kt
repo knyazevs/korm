@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * Collects bind values while an [Expression] or [Query] is rendered to SQL.

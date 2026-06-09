@@ -8,7 +8,7 @@ A `Catalog` is a type tag for one logical database. It has no runtime data; it e
 compiler can reject using tables with the wrong database handle.
 
 ```kotlin
-import io.github.knyazevs.korm.Catalog
+import io.github.kormium.Catalog
 
 object App : Catalog
 ```
@@ -16,9 +16,9 @@ object App : Catalog
 ## 2. Define a Table and Entity
 
 ```kotlin
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Table
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Table
 import kotlin.uuid.Uuid
 
 object Users : Table<App, User>("users", ::User) {
@@ -42,8 +42,8 @@ select columns in declaration order and map rows back into entity fields.
 ## 3. Connect
 
 ```kotlin
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
 
 val db: Database<App> = createDatabase(
     host = "localhost",
@@ -64,7 +64,7 @@ Korm maps queries and rows; it does not own schema management. Create tables wit
 SQL (or a migration tool / `Database.migrate`):
 
 ```kotlin
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.transaction
 
 db.transaction {
     executeUpdate(
@@ -84,8 +84,8 @@ db.transaction {
 ## 5. Insert and Read
 
 ```kotlin
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.gtEq
+import io.github.kormium.autocommit
+import io.github.kormium.gtEq
 import kotlin.uuid.Uuid
 
 val user = User().apply {
@@ -118,7 +118,7 @@ pins one connection without an explicit transaction, which is useful for simple 
 ## 6. Update and Delete
 
 ```kotlin
-import io.github.knyazevs.korm.eq
+import io.github.kormium.eq
 
 db.transaction {
     Users.update(User().apply { age = 37 }) {
@@ -139,8 +139,8 @@ omitted, while a property explicitly set to `null` is written as SQL `NULL`.
 The table and query code stays the same. Swap only the factory:
 
 ```kotlin
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
 
 val db: Database<App> = createSqliteDatabase()      // in-memory
 val fileDb: Database<App> = createSqliteDatabase("app.db")

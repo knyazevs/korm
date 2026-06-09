@@ -1,12 +1,12 @@
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.SqlExecutor
-import io.github.knyazevs.korm.SqlParameterSource
-import io.github.knyazevs.korm.StandardDialect
-import io.github.knyazevs.korm.StandardTypeMapper
-import io.github.knyazevs.korm.SuspendSqlExecutor
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.KormConfig
+import io.github.kormium.SqlExecutor
+import io.github.kormium.SqlParameterSource
+import io.github.kormium.StandardDialect
+import io.github.kormium.StandardTypeMapper
+import io.github.kormium.SuspendSqlExecutor
+import io.github.kormium.database.Database
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.resultset.ResultSet
 
 class DatabaseMock: Database<Nothing>, SuspendDatabase<Nothing> {
 

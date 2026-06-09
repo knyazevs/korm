@@ -1,11 +1,11 @@
 @file:OptIn(ExperimentalUuidApi::class)
 
-package io.github.knyazevs.korm.samples.r2dbc
+package io.github.kormium.samples.r2dbc
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Table
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Table
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlin.uuid.ExperimentalUuidApi

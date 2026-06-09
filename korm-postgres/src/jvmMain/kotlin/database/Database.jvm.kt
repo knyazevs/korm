@@ -1,11 +1,11 @@
-package io.github.knyazevs.korm.database
+package io.github.kormium.database
 
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.PgResultSetWrapper
-import io.github.knyazevs.korm.PostgresDialect
-import io.github.knyazevs.korm.PostgresDriver
-import io.github.knyazevs.korm.StandardTypeMapper
-import io.github.knyazevs.korm.jdbc.JdbcDatabase
+import io.github.kormium.KormConfig
+import io.github.kormium.PgResultSetWrapper
+import io.github.kormium.PostgresDialect
+import io.github.kormium.PostgresDriver
+import io.github.kormium.StandardTypeMapper
+import io.github.kormium.jdbc.JdbcDatabase
 
 /**
  * A Postgres [PostgresDriver] backed by the shared [JdbcDatabase] (HikariCP pool).

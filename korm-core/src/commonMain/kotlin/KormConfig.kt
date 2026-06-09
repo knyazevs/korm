@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * How [insertAll] handles a batch whose entities do not all have the same set of assigned

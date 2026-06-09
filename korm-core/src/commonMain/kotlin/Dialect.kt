@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * Backend-specific SQL rendering. The agnostic core builds statements through a

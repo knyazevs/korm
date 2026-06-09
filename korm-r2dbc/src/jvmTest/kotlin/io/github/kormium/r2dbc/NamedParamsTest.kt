@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm.r2dbc
+package io.github.kormium.r2dbc
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,9 +1,9 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
-import io.github.knyazevs.korm.sql.getBigDecimal
-import io.github.knyazevs.korm.sql.getJson
-import io.github.knyazevs.korm.sql.getUUID
+import io.github.kormium.resultset.ResultSet
+import io.github.kormium.sql.getBigDecimal
+import io.github.kormium.sql.getJson
+import io.github.kormium.sql.getUUID
 
 /** Backend-specific conversion of column values to/from the driver's wire form. */
 interface TypeMapper {

@@ -1,8 +1,8 @@
-package io.github.knyazevs.korm.samples.r2dbc
+package io.github.kormium.samples.r2dbc
 
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.r2dbc.createR2dbcDatabase
-import io.github.knyazevs.korm.suspendAutocommit
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.r2dbc.createR2dbcDatabase
+import io.github.kormium.suspendAutocommit
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody

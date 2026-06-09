@@ -70,10 +70,10 @@ Blocking backends also expose `SuspendDatabase<G>`. The DSL is the same, but the
 suspend:
 
 ```kotlin
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.suspendAutocommit
-import io.github.knyazevs.korm.suspendTransaction
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.database.createDatabase
+import io.github.kormium.suspendAutocommit
+import io.github.kormium.suspendTransaction
 
 val db: SuspendDatabase<App> = createDatabase(
     host = "localhost",
@@ -106,8 +106,8 @@ This keeps coroutine workers free, but the underlying driver is still blocking.
 because r2dbc is non-blocking.
 
 ```kotlin
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.r2dbc.createR2dbcDatabase
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.r2dbc.createR2dbcDatabase
 
 val db: SuspendDatabase<App> = createR2dbcDatabase(
     host = "localhost",

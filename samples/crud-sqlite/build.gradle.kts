@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 
-group = "io.github.knyazevs.korm.samples.crudsqlite"
+group = "io.github.kormium.samples.crudsqlite"
 version = "1.0"
 
 kotlin {
@@ -24,7 +24,7 @@ kotlin {
         nativeTarget.apply {
             binaries {
                 executable {
-                    entryPoint = "io.github.knyazevs.korm.samples.crudsqlite.main"
+                    entryPoint = "io.github.kormium.samples.crudsqlite.main"
                 }
             }
         }
@@ -34,7 +34,7 @@ kotlin {
     jvm {
         binaries {
             executable {
-                mainClass.set("io.github.knyazevs.korm.samples.crudsqlite.MainKt")
+                mainClass.set("io.github.kormium.samples.crudsqlite.MainKt")
             }
         }
         testRuns["test"].executionTask.configure { useJUnitPlatform() }

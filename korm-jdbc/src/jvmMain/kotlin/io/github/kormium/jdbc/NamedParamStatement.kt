@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm.jdbc
+package io.github.kormium.jdbc
 
-import io.github.knyazevs.korm.SqlParameterSource
+import io.github.kormium.SqlParameterSource
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
