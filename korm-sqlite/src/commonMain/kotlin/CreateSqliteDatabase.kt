@@ -19,3 +19,13 @@ expect fun createSqliteDatabase(
     poolSize: Int = 1,
     config: KormConfig = KormConfig(),
 ): SqliteDriver
+
+/**
+ * Opens a SQLite database with a configuration block: `createSqliteDatabase("app.db") {`
+ * `config { … }; beforeStart { migrate(appMigrations) } }`. See [KormBuilder].
+ */
+fun createSqliteDatabase(
+    path: String = ":memory:",
+    poolSize: Int = 1,
+    block: KormBuilder.() -> Unit,
+): SqliteDriver = KormBuilder().apply(block).finish { createSqliteDatabase(path, poolSize, it) }
