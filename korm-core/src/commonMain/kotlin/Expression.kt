@@ -85,37 +85,37 @@ abstract class ComparisonOp(
 class EqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "=")
 
 infix fun <T : Expression, T2 : Expression> T.eq(other: T2): Expression = EqOp(this, other)
-infix fun <Z> Column<Z, *, *>.eq(value: Z): Expression = EqOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.eq(value: Z): Expression = EqOp(this, Value(bindParam(value)))
 
 /** Checks that the operands are not equal. */
 class NeqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<>")
 
 infix fun <T : Expression, T2 : Expression> T.neq(other: T2): Expression = NeqOp(this, other)
-infix fun <Z> Column<Z, *, *>.neq(value: Z): Expression = NeqOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.neq(value: Z): Expression = NeqOp(this, Value(bindParam(value)))
 
 /** Checks that the left operand is less than the right. */
 class LessOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<")
 
 infix fun <T : Expression, T2 : Expression> T.less(other: T2): Expression = LessOp(this, other)
-infix fun <Z> Column<Z, *, *>.less(value: Z): Expression = LessOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.less(value: Z): Expression = LessOp(this, Value(bindParam(value)))
 
 /** Checks that the left operand is less than or equal to the right. */
 class LessEqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "<=")
 
 infix fun <T : Expression, T2 : Expression> T.lessEq(other: T2): Expression = LessEqOp(this, other)
-infix fun <Z> Column<Z, *, *>.lessEq(value: Z): Expression = LessEqOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.lessEq(value: Z): Expression = LessEqOp(this, Value(bindParam(value)))
 
 /** Checks that the left operand is greater than the right. */
 class GreaterOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, ">")
 
 infix fun <T : Expression, T2 : Expression> T.gt(other: T2): Expression = GreaterOp(this, other)
-infix fun <Z> Column<Z, *, *>.gt(value: Z): Expression = GreaterOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.gt(value: Z): Expression = GreaterOp(this, Value(bindParam(value)))
 
 /** Checks that the left operand is greater than or equal to the right. */
 class GreaterEqOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, ">=")
 
 infix fun <T : Expression, T2 : Expression> T.gtEq(other: T2): Expression = GreaterEqOp(this, other)
-infix fun <Z> Column<Z, *, *>.gtEq(value: Z): Expression = GreaterEqOp(this, Value(value))
+infix fun <Z> Column<Z, *, *>.gtEq(value: Z): Expression = GreaterEqOp(this, Value(bindParam(value)))
 
 /** `column IN (v1, v2, ...)`. An empty list renders to `FALSE` (matches nothing). */
 class InListOp(private val column: Expression, private val values: List<*>) : Expression {
@@ -124,7 +124,7 @@ class InListOp(private val column: Expression, private val values: List<*>) : Ex
         else "${column.toSql(builder)} IN (${values.joinToString(", ") { builder.bind(it) }})"
 }
 
-infix fun <Z> Column<Z, *, *>.inList(values: List<Z>): Expression = InListOp(this, values)
+infix fun <Z> Column<Z, *, *>.inList(values: List<Z>): Expression = InListOp(this, values.map { bindParam(it) })
 
 /** `column LIKE pattern` (text columns only). */
 class LikeOp(expr1: Expression, expr2: Expression) : ComparisonOp(expr1, expr2, "LIKE")

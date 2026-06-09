@@ -14,6 +14,7 @@ Shipped today:
 - SQLite on JVM, Kotlin/Native and Android;
 - JVM-only async PostgreSQL through r2dbc;
 - typed table/entity DSL;
+- an open `ColumnType` system (built-ins + `enum`/`json` + custom converters);
 - typed predicates, joins and aggregations;
 - transactions, savepoints, suspend scopes and migrations;
 - reactive `Flow` queries (`korm-observe`) over a `WriteListener` commit hook;

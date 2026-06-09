@@ -18,8 +18,19 @@ All notable changes to korm are documented here. The format is based on
 - **`invalidates` argument** on the raw `Scope.execute` / `executeUpdate` (and suspend
   counterparts): declare the tables a raw statement writes so observers are notified — the
   analog of Room's `@RawQuery(observedEntities = …)`.
+- **Open column-type system.** Column types are now an extensible `ColumnType<T>` interface
+  instead of a fixed list. New built-ins `Column.enum<E>()` (enum by name) and
+  `Column.json<T>()` (`@Serializable` value as JSON), a `ColumnType<S>.convert(to, from)`
+  helper for custom types over an existing one (replacing Room's `@TypeConverter`), and
+  `Column.of(type)` to declare a column of any `ColumnType`. The 14 built-in types are
+  unchanged in behaviour. Conversion applies on insert, update and in predicates.
 
 ### Changed
+- **Breaking (internal extension point): the column-type representation changed.**
+  `Column.ColumnNameEnum` is removed and `TypeMapper.fromResult(...)` is gone (reading is now
+  `ColumnType.read`); `Column.columnType` is a `ColumnType<Z>`. Ordinary table/query/insert
+  code is unaffected and behaves identically — only custom `TypeMapper`s or code referencing
+  `ColumnNameEnum` need migration (nothing in Korm itself did).
 - **Breaking: `Database` no longer extends `SqlExecutor`.** The pooled, scope-less
   `db.execute(...)` / `db.executeUpdate(...)` is removed — run one-off statements through a
   scope instead: `db.autocommit { execute(...) }`. This makes every write transactional and
