@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /** Base type for all korm errors. */
 open class KormException(message: String, cause: Throwable? = null) : Exception(message, cause)

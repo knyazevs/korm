@@ -1,8 +1,8 @@
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlin.uuid.Uuid
-import io.github.knyazevs.korm.*
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.SuspendDatabase
+import io.github.kormium.*
+import io.github.kormium.database.Database
+import io.github.kormium.database.SuspendDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

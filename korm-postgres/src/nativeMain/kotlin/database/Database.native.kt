@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm.database
+package io.github.kormium.database
 
-import io.github.knyazevs.korm.KormConfig
+import io.github.kormium.KormConfig
 
 actual fun createDatabase(
     host: String,

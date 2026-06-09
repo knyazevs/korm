@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * Opens a SQLite database and returns a [SqliteDriver].

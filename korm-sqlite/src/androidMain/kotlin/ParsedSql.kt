@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 import java.util.concurrent.ConcurrentHashMap
 

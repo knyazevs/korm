@@ -1,11 +1,11 @@
-package io.github.knyazevs.korm.ktor
+package io.github.kormium.ktor
 
-import io.github.knyazevs.korm.CheckViolationException
-import io.github.knyazevs.korm.ForeignKeyViolationException
-import io.github.knyazevs.korm.KormException
-import io.github.knyazevs.korm.NotNullViolationException
-import io.github.knyazevs.korm.QueryException
-import io.github.knyazevs.korm.UniqueViolationException
+import io.github.kormium.CheckViolationException
+import io.github.kormium.ForeignKeyViolationException
+import io.github.kormium.KormException
+import io.github.kormium.NotNullViolationException
+import io.github.kormium.QueryException
+import io.github.kormium.UniqueViolationException
 import io.ktor.http.HttpStatusCode
 
 /**

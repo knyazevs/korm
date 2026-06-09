@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm.sql
+package io.github.kormium.sql
 
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlin.uuid.Uuid
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 
 fun ResultSet.getUUID(columnIndex: Int): Uuid? {
     return getString(columnIndex)?.let { Uuid.parse(it) }

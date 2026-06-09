@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm.ktor
+package io.github.kormium.ktor
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.SuspendScope
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.suspendAutocommit
-import io.github.knyazevs.korm.suspendTransaction
+import io.github.kormium.Catalog
+import io.github.kormium.SuspendScope
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.suspendAutocommit
+import io.github.kormium.suspendTransaction
 import io.ktor.server.application.ApplicationCall
 
 /**

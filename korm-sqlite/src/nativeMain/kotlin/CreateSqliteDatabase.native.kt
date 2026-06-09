@@ -1,9 +1,9 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 import cnames.structs.sqlite3
 import cnames.structs.sqlite3_stmt
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.resultset.ResultSet
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CFunction
 import kotlinx.cinterop.COpaquePointer

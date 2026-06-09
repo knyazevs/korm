@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 
-group = "io.github.knyazevs.korm.samples.sharding"
+group = "io.github.kormium.samples.sharding"
 version = "1.0"
 
 kotlin {
@@ -24,7 +24,7 @@ kotlin {
         nativeTarget.apply {
             binaries {
                 executable {
-                    entryPoint = "io.github.knyazevs.korm.samples.sharding.main"
+                    entryPoint = "io.github.kormium.samples.sharding.main"
                 }
             }
         }
@@ -34,7 +34,7 @@ kotlin {
     jvm {
         binaries {
             executable {
-                mainClass.set("io.github.knyazevs.korm.samples.sharding.MainKt")
+                mainClass.set("io.github.kormium.samples.sharding.MainKt")
             }
         }
         testRuns["test"].executionTask.configure { useJUnitPlatform() }

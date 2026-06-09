@@ -5,7 +5,7 @@ plugins {
     kotlin("plugin.serialization") version "2.4.0"
 }
 
-group = "io.github.knyazevs.korm.samples.ktorkoin"
+group = "io.github.kormium.samples.ktorkoin"
 version = "1.0"
 
 repositories {
@@ -30,7 +30,7 @@ kotlin {
         nativeTarget.apply {
             binaries {
                 executable {
-                    entryPoint = "io.github.knyazevs.korm.samples.ktorkoin.main"
+                    entryPoint = "io.github.kormium.samples.ktorkoin.main"
                 }
             }
         }
@@ -40,7 +40,7 @@ kotlin {
     jvm {
         binaries {
             executable {
-                mainClass.set("io.github.knyazevs.korm.samples.ktorkoin.MainKt")
+                mainClass.set("io.github.kormium.samples.ktorkoin.MainKt")
             }
         }
         testRuns["test"].executionTask.configure { useJUnitPlatform() }

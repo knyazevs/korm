@@ -1,16 +1,16 @@
 package korm.bench
 
 import com.ionspin.kotlin.bignum.decimal.BigDecimal
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Query
+import io.github.kormium.Table
+import io.github.kormium.autocommit
+import io.github.kormium.eq
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
+import io.github.kormium.transaction
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork

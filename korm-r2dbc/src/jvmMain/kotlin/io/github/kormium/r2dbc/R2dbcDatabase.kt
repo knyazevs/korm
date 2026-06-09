@@ -1,12 +1,12 @@
-package io.github.knyazevs.korm.r2dbc
+package io.github.kormium.r2dbc
 
-import io.github.knyazevs.korm.Dialect
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.PostgresDialect
-import io.github.knyazevs.korm.StandardTypeMapper
-import io.github.knyazevs.korm.SuspendSqlExecutor
-import io.github.knyazevs.korm.TypeMapper
-import io.github.knyazevs.korm.database.SuspendDatabase
+import io.github.kormium.Dialect
+import io.github.kormium.KormConfig
+import io.github.kormium.PostgresDialect
+import io.github.kormium.StandardTypeMapper
+import io.github.kormium.SuspendSqlExecutor
+import io.github.kormium.TypeMapper
+import io.github.kormium.database.SuspendDatabase
 import io.r2dbc.pool.ConnectionPool
 import io.r2dbc.pool.ConnectionPoolConfiguration
 import io.r2dbc.postgresql.PostgresqlConnectionConfiguration
@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 /**
  * A truly async (non-blocking) Postgres [SuspendDatabase], backed by r2dbc-postgresql
  * over a reactive [ConnectionPool]. It implements ONLY the suspend hierarchy — there is
- * no blocking [io.github.knyazevs.korm.database.Database] here — which is exactly why
+ * no blocking [io.github.kormium.database.Database] here — which is exactly why
  * SuspendDatabase is a sibling of Database, not a subtype.
  *
  * The phantom catalog tag is [Nothing], so by covariance it fits any

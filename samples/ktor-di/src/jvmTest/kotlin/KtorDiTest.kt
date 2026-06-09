@@ -1,8 +1,8 @@
-package io.github.knyazevs.korm.samples.ktordi
+package io.github.kormium.samples.ktordi
 
-import io.github.knyazevs.korm.database.SuspendDatabase
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.suspendAutocommit
+import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.database.createDatabase
+import io.github.kormium.suspendAutocommit
 import kotlinx.coroutines.runBlocking
 import io.ktor.client.request.get
 import io.ktor.client.request.put

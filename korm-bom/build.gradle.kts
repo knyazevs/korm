@@ -3,7 +3,7 @@ plugins {
 }
 
 // Bill of Materials: pins the versions of every published korm artifact so consumers can
-// depend on `platform("io.github.knyazevs.korm:korm-bom:<v>")` and omit versions elsewhere.
+// depend on `platform("io.github.kormium:korm-bom:<v>")` and omit versions elsewhere.
 dependencies {
     constraints {
         listOf(

@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers

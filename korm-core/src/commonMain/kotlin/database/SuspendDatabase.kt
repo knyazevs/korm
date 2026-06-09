@@ -1,8 +1,8 @@
-package io.github.knyazevs.korm.database
+package io.github.kormium.database
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.KormConfig
-import io.github.knyazevs.korm.SuspendSqlExecutor
+import io.github.kormium.Catalog
+import io.github.kormium.KormConfig
+import io.github.kormium.SuspendSqlExecutor
 
 /**
  * The suspend counterpart of [Database], tagged with the [Catalog] [G] it connects to.

@@ -1,14 +1,14 @@
-package io.github.knyazevs.korm.samples.crudsqlite
+package io.github.kormium.samples.crudsqlite
 
-import io.github.knyazevs.korm.Migration
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.gt
-import io.github.knyazevs.korm.migrate
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Migration
+import io.github.kormium.Query
+import io.github.kormium.autocommit
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.eq
+import io.github.kormium.gt
+import io.github.kormium.migrate
+import io.github.kormium.transaction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

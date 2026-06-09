@@ -1,4 +1,4 @@
-import io.github.knyazevs.korm.database.createDatabase
+import io.github.kormium.database.createDatabase
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import org.testcontainers.DockerClientFactory

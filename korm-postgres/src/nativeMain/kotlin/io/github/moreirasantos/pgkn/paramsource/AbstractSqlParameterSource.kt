@@ -5,7 +5,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
-import io.github.knyazevs.korm.SqlParameterSource
+import io.github.kormium.SqlParameterSource
 import kotlin.reflect.KClass
 
 

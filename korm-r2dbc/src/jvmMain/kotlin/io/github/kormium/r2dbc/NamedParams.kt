@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm.r2dbc
+package io.github.kormium.r2dbc
 
 /** A SQL string with its `:name` placeholders rewritten to Postgres `$N`, plus the names in order. */
 internal class ParsedSql(val sql: String, val names: List<String>)

@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 // SQLite extended result codes for the constraint violations korm distinguishes.
 // https://www.sqlite.org/rescode.html

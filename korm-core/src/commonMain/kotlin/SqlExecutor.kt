@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 
 /**
  * Runs SQL against one connection, carrying the [dialect] and [typeMapper] used to
- * render statements and convert values. A [io.github.knyazevs.korm.database.Database]
+ * render statements and convert values. A [io.github.kormium.database.Database]
  * is an [SqlExecutor] backed by a pool; inside a transaction / autocommit scope the
  * executor is pinned to a single connection.
  */

@@ -1,19 +1,19 @@
 # Installation
 
-Korm is published to Maven Central under the group `io.github.knyazevs.korm`.
+Korm is published to Maven Central under the group `io.github.kormium`.
 
 The recommended Gradle setup is to import `korm-bom` once and then declare artifacts
 without versions:
 
 ```kotlin
 dependencies {
-    implementation(platform("io.github.knyazevs.korm:korm-bom:<version>"))
+    implementation(platform("io.github.kormium:korm-bom:<version>"))
 
-    implementation("io.github.knyazevs.korm:korm-postgres")
+    implementation("io.github.kormium:korm-postgres")
     // or:
-    implementation("io.github.knyazevs.korm:korm-sqlite")
+    implementation("io.github.kormium:korm-sqlite")
     // or, JVM-only true async PostgreSQL:
-    implementation("io.github.knyazevs.korm:korm-r2dbc")
+    implementation("io.github.kormium:korm-r2dbc")
 }
 ```
 
@@ -21,8 +21,8 @@ Without the BOM, put the same version on every artifact:
 
 ```kotlin
 dependencies {
-    implementation("io.github.knyazevs.korm:korm-postgres:<version>")
-    implementation("io.github.knyazevs.korm:korm-ktor:<version>")
+    implementation("io.github.kormium:korm-postgres:<version>")
+    implementation("io.github.kormium:korm-ktor:<version>")
 }
 ```
 

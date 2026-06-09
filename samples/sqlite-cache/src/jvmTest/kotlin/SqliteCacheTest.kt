@@ -1,10 +1,10 @@
-package io.github.knyazevs.korm.samples.sqlitecache
+package io.github.kormium.samples.sqlitecache
 
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.createDatabase
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.autocommit
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.database.createDatabase
+import io.github.kormium.transaction
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.Test

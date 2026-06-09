@@ -88,7 +88,7 @@ subprojects {
             name.set("korm")
             description.set("Korm — a simple Kotlin Multiplatform ORM (Postgres + SQLite, JVM + Native).")
             inceptionYear.set("2024")
-            url.set("https://github.com/knyazevs/korm")
+            url.set("https://github.com/kormium/kormium")
             licenses {
                 license {
                     name.set("MIT")
@@ -105,9 +105,9 @@ subprojects {
                 }
             }
             scm {
-                url.set("https://github.com/knyazevs/korm")
-                connection.set("scm:git:https://github.com/knyazevs/korm.git")
-                developerConnection.set("scm:git:ssh://git@github.com/knyazevs/korm.git")
+                url.set("https://github.com/kormium/kormium")
+                connection.set("scm:git:https://github.com/kormium/kormium.git")
+                developerConnection.set("scm:git:ssh://git@github.com/kormium/kormium.git")
             }
         }
     }

@@ -24,7 +24,7 @@ kotlin {
 
     // Compose Multiplatform targets (AGP KMP library plugin's androidLibrary DSL).
     android {
-        namespace = "io.github.knyazevs.korm.ktor.di"
+        namespace = "io.github.kormium.ktor.di"
         compileSdk = 36
         minSdk = 24
     }

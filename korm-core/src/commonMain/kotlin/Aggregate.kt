@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 import kotlin.jvm.JvmName
 
 // Aggregates are Selectable (appear in SELECT and are read from a ResultRow) and, since

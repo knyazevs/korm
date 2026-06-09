@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization") version "2.4.0"
 }
 
-group = "io.github.knyazevs.korm.samples.r2dbc"
+group = "io.github.kormium.samples.r2dbc"
 version = "1.0"
 
 repositories {
@@ -21,7 +21,7 @@ kotlin {
     jvm {
         binaries {
             executable {
-                mainClass.set("io.github.knyazevs.korm.samples.r2dbc.MainKt")
+                mainClass.set("io.github.kormium.samples.r2dbc.MainKt")
             }
         }
         testRuns["test"].executionTask.configure { useJUnitPlatform() }

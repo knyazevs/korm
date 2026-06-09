@@ -1,13 +1,13 @@
-package io.github.knyazevs.korm.samples.sharding
+package io.github.kormium.samples.sharding
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.autocommit
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.transaction
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Table
+import io.github.kormium.autocommit
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.transaction
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory

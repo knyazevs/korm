@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm.samples.r2dbc
+package io.github.kormium.samples.r2dbc
 
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty

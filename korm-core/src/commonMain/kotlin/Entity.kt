@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * Base class for row entities. User entities extend it with a no-arg constructor and

@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm.samples.ktordi
+package io.github.kormium.samples.ktordi
 
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer

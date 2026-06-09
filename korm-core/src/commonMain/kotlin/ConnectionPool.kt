@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -20,7 +20,7 @@ interface PinnedConnection {
 
 /**
  * The pooling seam shared by a backend's blocking [Database] and suspend
- * [io.github.knyazevs.korm.database.SuspendDatabase]: ONE pool serves both paths
+ * [io.github.kormium.database.SuspendDatabase]: ONE pool serves both paths
  * (decision: no second suspend-only pool). A backend implements [acquire]; if its
  * pool can hand out a connection without blocking (e.g. a Channel-based native pool),
  * it overrides [acquireSuspending] for that free path — otherwise the default just
@@ -60,7 +60,7 @@ fun <R> ConnectionPool.runPinned(transactional: Boolean, block: (SqlExecutor) ->
  * [ioDispatcher]; BEGIN/COMMIT/ROLLBACK and release are offloaded too. Operations run
  * sequentially, so the connection is never used concurrently. Cleanup runs under
  * [NonCancellable] so a cancelled block still rolls back and releases. Backs
- * [io.github.knyazevs.korm.database.SuspendDatabase.useConnection] for blocking drivers;
+ * [io.github.kormium.database.SuspendDatabase.useConnection] for blocking drivers;
  * a truly async backend (r2dbc) implements useConnection itself instead.
  */
 suspend fun <R> ConnectionPool.runConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R {

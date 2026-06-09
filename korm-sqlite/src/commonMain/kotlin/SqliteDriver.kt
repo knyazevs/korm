@@ -1,7 +1,7 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.database.SuspendDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.database.SuspendDatabase
 
 /**
  * A SQLite-backed [Database] (and [SuspendDatabase]). This is the type returned by

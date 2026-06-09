@@ -1,4 +1,4 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
 /**
  * SQLite dialect: standard SQL rendering (double-quoted identifiers, `:name`

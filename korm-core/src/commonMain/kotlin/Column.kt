@@ -1,6 +1,6 @@
-package io.github.knyazevs.korm
+package io.github.kormium
 
-import io.github.knyazevs.korm.resultset.ResultSet
+import io.github.kormium.resultset.ResultSet
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.JsonElement
 import kotlin.properties.ReadOnlyProperty

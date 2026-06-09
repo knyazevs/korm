@@ -1,18 +1,18 @@
-package io.github.knyazevs.korm.samples.crudsqlite
+package io.github.kormium.samples.crudsqlite
 
-import io.github.knyazevs.korm.Catalog
-import io.github.knyazevs.korm.Column
-import io.github.knyazevs.korm.Entity
-import io.github.knyazevs.korm.Migration
-import io.github.knyazevs.korm.Query
-import io.github.knyazevs.korm.Table
-import io.github.knyazevs.korm.createSqliteDatabase
-import io.github.knyazevs.korm.database.Database
-import io.github.knyazevs.korm.eq
-import io.github.knyazevs.korm.gt
-import io.github.knyazevs.korm.migrate
-import io.github.knyazevs.korm.transaction
-import io.github.knyazevs.korm.autocommit
+import io.github.kormium.Catalog
+import io.github.kormium.Column
+import io.github.kormium.Entity
+import io.github.kormium.Migration
+import io.github.kormium.Query
+import io.github.kormium.Table
+import io.github.kormium.createSqliteDatabase
+import io.github.kormium.database.Database
+import io.github.kormium.eq
+import io.github.kormium.gt
+import io.github.kormium.migrate
+import io.github.kormium.transaction
+import io.github.kormium.autocommit
 
 object Shop : Catalog
 
