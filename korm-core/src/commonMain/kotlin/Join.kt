@@ -11,6 +11,14 @@ import io.github.kormium.resultset.ResultSet
 interface Selectable<Z> : Expression {
     /** Reads this field's value from the result row at [index]. */
     fun read(rs: ResultSet, index: Int, typeMapper: TypeMapper): Z?
+
+    /**
+     * A stable, structural key identifying this field in a [ResultRow] — independent of the
+     * instance and the dialect. Two fields that select the same thing share a key, so a row can
+     * be read with a freshly built field (`row[Orders.total.sum()]`) without hoisting it into a
+     * `val`. Columns key by `table.name`; aggregates by their function over their target's key.
+     */
+    fun resultKey(): Any
 }
 
 internal enum class JoinType(val sql: String) { INNER("INNER JOIN"), LEFT("LEFT JOIN") }
@@ -125,13 +133,20 @@ class ResultRow internal constructor(private val values: Map<Any, Any?>) {
         @Suppress("UNCHECKED_CAST")
         return values[fieldKey(field)] as Z?
     }
+
+    /**
+     * Reconstructs [table]'s entity from this row. Works for any number of joined tables, so a
+     * three-or-more-table join reads as whole entities: `select()` (all columns), then
+     * `map { Triple(it.entity(A), it.entity(B), it.entity(C)) }`. Columns not present in the row
+     * read back as null.
+     */
+    fun <T : Entity> entity(table: Table<*, T>): T =
+        table.hydrate(table.getFieldDisplayNames().mapValues { (_, c) -> getOrNull(c) }.toMutableMap())
 }
 
-// Identifies a selected field. A Column's property delegate yields a fresh instance on each
-// access, so instance identity can't be used — key columns by table+name instead; aggregates
-// (held by the caller in a val) are keyed by instance.
-internal fun fieldKey(field: Selectable<*>): Any =
-    if (field is Column<*, *, *>) "${field.tableRef.tableName}.${field.name}" else field
+// Identifies a selected field by its structural key, so a row reads back regardless of which
+// instance is used (a Column's delegate and an aggregate factory both yield fresh instances).
+internal fun fieldKey(field: Selectable<*>): Any = field.resultKey()
 
 // Qualifies a table reference.
 internal fun Table<*, *>.qualifiedName(dialect: Dialect): String {

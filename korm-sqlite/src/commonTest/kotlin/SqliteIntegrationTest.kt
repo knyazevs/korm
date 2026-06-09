@@ -340,6 +340,40 @@ class SqliteIntegrationTest {
 
         db.transaction { Books.deleteWhere(Query(Books.id eq bookId)); Authors.deleteWhere(Query(Authors.id eq authorId)) }
     }
+
+    /**
+     * `ResultRow.entity(table)` rebuilds whole entities from a join row (the path 3+-table joins
+     * use), and an aggregate reads back with a freshly built instance — no `val` hoisting needed.
+     */
+    @Test
+    fun testEntityHydrationAndFreshAggregateKey() {
+        val authorId = Uuid.random()
+        db.transaction {
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
+            Authors.insert(Author().apply { id = authorId; name = "Grace" })
+            Books.insert(Book().apply { id = Uuid.random(); this.authorId = authorId; title = "A" })
+            Books.insert(Book().apply { id = Uuid.random(); this.authorId = authorId; title = "B" })
+        }
+
+        val (author, book) = db.autocommit {
+            (Authors innerJoin Books on (Authors.id eq Books.authorId))
+                .where(Books.title eq "A")
+                .select()
+                .map { it.entity(Authors) to it.entity(Books) }
+        }.single()
+        assertEquals(authorId, author.id)
+        assertEquals("Grace", author.name)
+        assertEquals("A", book.title)
+
+        // Selected with one count(), read with a different count() instance — structural key matches.
+        val n = db.autocommit {
+            Books.query().groupBy(Books.authorId).select(Books.authorId, count())
+        }.single()[count()]
+        assertEquals(2L, n)
+
+        db.transaction { Books.deleteWhere(Query(Books.authorId eq authorId)); Authors.deleteWhere(Query(Authors.id eq authorId)) }
+    }
 }
 
 object SqCatalog : Catalog
