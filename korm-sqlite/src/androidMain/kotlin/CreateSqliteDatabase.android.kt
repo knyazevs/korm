@@ -38,8 +38,9 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int, overr
         }
     }
 
-    override val dialect: Dialect = SqliteDialect
-    override val typeMapper: TypeMapper = StandardTypeMapper
+    private val dialect: Dialect = SqliteDialect
+    private val typeMapper: TypeMapper = StandardTypeMapper
+    override val writeListeners: WriteListeners = WriteListeners()
 
     private val isMemory = path == ":memory:"
     private val driver = BundledSQLiteDriver()
@@ -55,34 +56,6 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int, overr
     }
 
     private val closeLock = Mutex()
-
-    private inline fun <T> withConnection(block: (SQLiteConnection) -> T): T {
-        val connection = pool.tryReceive().getOrNull() ?: try {
-            runBlocking { pool.receive() }
-        } catch (_: ClosedReceiveChannelException) {
-            throw QueryException("SQLite connection pool is closed")
-        }
-        try {
-            return block(connection)
-        } finally {
-            pool.trySend(connection)
-        }
-    }
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        withConnection { conn -> query(conn, sql, mapBinder(namedParameters)).handleResults(handler) }
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        withConnection { conn -> query(conn, sql, sourceBinder(paramSource)).handleResults(handler) }
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
-
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        withConnection { conn -> updateOrCount(conn, sql, sourceBinder(paramSource)) }
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-        withConnection { conn -> updateOrCount(conn, sql, mapBinder(namedParameters)) }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow; acquireSuspending overrides the default to take the Channel's

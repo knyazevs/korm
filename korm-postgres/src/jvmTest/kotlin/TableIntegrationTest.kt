@@ -139,9 +139,9 @@ class TableIntegrationTest {
         assumeDockerAvailable()
         ItDatabase.newDriver(poolSize = 1).use { driver ->
             assertFailsWith<Exception> {
-                driver.execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) }
+                driver.autocommit { execute("SELECT * FROM table_that_does_not_exist") { rs -> rs.getInt(0) } }
             }
-            assertEquals(1, driver.execute("SELECT 1") { rs -> rs.getInt(0) }.single())
+            assertEquals(1, driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }.single())
         }
     }
 
@@ -152,7 +152,7 @@ class TableIntegrationTest {
         val driver = ItDatabase.newDriver(poolSize = 1)
         driver.close()
         assertFailsWith<Exception> {
-            driver.execute("SELECT 1") { rs -> rs.getInt(0) }
+            driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) } }
         }
     }
 
@@ -171,7 +171,11 @@ class TableIntegrationTest {
             override val parameterNames get() = values.keys.toTypedArray()
         }
         ItDatabase.newDriver(poolSize = 1).use { driver ->
-            val sum = driver.execute("SELECT :a::int + :b::int AS s", source) { rs -> rs.getInt(0) }
+            // The SqlParameterSource overload lives on the pinned SqlExecutor (Scope exposes only
+            // the Map form), so exercise it through usePinned.
+            val sum = driver.usePinned(transactional = false) { exec ->
+                exec.execute("SELECT :a::int + :b::int AS s", source) { rs -> rs.getInt(0) }
+            }
             assertEquals(12, sum.single())
         }
     }
@@ -356,7 +360,7 @@ class TableIntegrationTest {
         ItDatabase.newDriver(poolSize = 4).use { driver ->
             val threads = (1..8).map {
                 Thread {
-                    repeat(50) { sum.addAndGet(driver.execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 }.single()) }
+                    repeat(50) { sum.addAndGet(driver.autocommit { execute("SELECT 1") { rs -> rs.getInt(0) ?: 0 } }.single()) }
                 }
             }
             threads.forEach { it.start() }
@@ -576,42 +580,26 @@ object ItDatabase : Database<ItCatalog> {
     )
 
     init {
-        driver.executeUpdate(
-            """
-            CREATE TABLE IF NOT EXISTS public.it_products (
-                id uuid PRIMARY KEY,
-                price numeric NOT NULL,
-                qty int NOT NULL,
-                "displayName" text NOT NULL,
-                note text,
-                rank int
+        driver.autocommit {
+            executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS public.it_products (
+                    id uuid PRIMARY KEY,
+                    price numeric NOT NULL,
+                    qty int NOT NULL,
+                    "displayName" text NOT NULL,
+                    note text,
+                    rank int
+                )
+                """.trimIndent()
             )
-            """.trimIndent()
-        )
+        }
     }
-
-    override val dialect get() = driver.dialect
-    override val typeMapper get() = driver.typeMapper
 
     override fun <R> usePinned(transactional: Boolean, block: (io.github.kormium.SqlExecutor) -> R): R =
         driver.usePinned(transactional, block)
 
     override fun close() = driver.close()
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        driver.execute(sql, namedParameters, handler)
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        driver.execute(sql, paramSource, handler)
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        driver.execute(sql, namedParameters)
-
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        driver.execute(sql, paramSource)
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-        driver.executeUpdate(sql, namedParameters)
 }
 
 // Raw schema DDL for tests (Korm no longer owns createTable). Postgres types.

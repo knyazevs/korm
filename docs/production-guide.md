@@ -122,7 +122,9 @@ services should still translate database errors into application-specific respon
 
 ## Observability
 
-Until Korm ships a public observer/metrics API:
+A `WriteListener` commit hook (`db.writeListeners`) is available for write notification —
+cache invalidation, audit, metrics on commit — and backs reactive `korm-observe` queries.
+For timing/pool metrics, which are not yet built in:
 
 - wrap repository/service calls with timers;
 - configure HikariCP metrics directly on JVM JDBC deployments;

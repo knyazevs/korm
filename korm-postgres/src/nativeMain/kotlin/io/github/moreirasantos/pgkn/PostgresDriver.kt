@@ -17,6 +17,7 @@ import io.github.kormium.ConnectionPool
 import io.github.kormium.Dialect
 import io.github.kormium.KormConfig
 import io.github.kormium.PinnedConnection
+import io.github.kormium.WriteListeners
 import io.github.kormium.PostgresDialect
 import io.github.kormium.PostgresDriver
 import io.github.kormium.SqlExecutor
@@ -66,8 +67,9 @@ private class PostgresDriverImpl(
         require(poolSize >= 1) { "poolSize must be >= 1, was $poolSize" }
     }
 
-    override val dialect: Dialect = PostgresDialect
-    override val typeMapper: TypeMapper = StandardTypeMapper
+    private val dialect: Dialect = PostgresDialect
+    private val typeMapper: TypeMapper = StandardTypeMapper
+    override val writeListeners: WriteListeners = WriteListeners()
 
     // A single libpq connection is not thread-safe: it runs one command at a time
     // and concurrent use is undefined behaviour. We therefore keep a fixed set of
@@ -86,22 +88,6 @@ private class PostgresDriverImpl(
     // Held terminally by the first close() caller so the pool is torn down once.
     private val closeLock = Mutex()
 
-    private inline fun <T> withConnection(block: (CPointer<PGconn>) -> T): T {
-        // Fast path: take a free connection without spinning up a runBlocking loop.
-        val connection = pool.tryReceive().getOrNull() ?: try {
-            runBlocking { pool.receive() }
-        } catch (_: ClosedReceiveChannelException) {
-            throw ConnectionClosedException()
-        }
-        try {
-            ensureAlive(connection)
-            return block(connection)
-        } finally {
-            // Capacity == poolSize, so a borrowed connection always fits back in.
-            pool.trySend(connection)
-        }
-    }
-
     // libpq marks a connection CONNECTION_BAD once it dies (e.g. the server restarts or
     // the network drops). Reset it before reuse so a transient outage doesn't permanently
     // poison the pooled connection. PQstatus is local (no round-trip); PQreset reconnects.
@@ -113,22 +99,6 @@ private class PostgresDriverImpl(
             throw QueryExecutionException(message.ifEmpty { "Postgres connection is down and could not be reset" })
         }
     }
-
-    override fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T): List<T> =
-        withConnection { conn -> runQuery(conn, sql, namedParameters).handleResults(handler) }
-
-    override fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T): List<T> =
-        withConnection { conn -> doExecute(conn, sql, paramSource).handleResults(handler) }
-
-    override fun execute(sql: String, namedParameters: Map<String, Any?>): Long =
-        withConnection { conn -> runQuery(conn, sql, namedParameters).returnCount() }
-
-    override fun execute(sql: String, paramSource: SqlParameterSource): Long =
-        withConnection { conn -> doExecute(conn, sql, paramSource).returnCount() }
-
-    override fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-        // returnCount() reads PQcmdTuples and PQclears the result, so nothing leaks.
-        withConnection { conn -> runQuery(conn, sql, namedParameters).returnCount() }
 
     // One pool, two entry points (blocking usePinned + suspend useConnection). acquire mirrors
     // withConnection's borrow + liveness check; acquireSuspending overrides the default to take

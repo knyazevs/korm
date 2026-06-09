@@ -2,6 +2,7 @@ package io.github.kormium
 
 import io.github.kormium.database.Database
 import io.github.kormium.database.SuspendDatabase
+import io.github.kormium.WriteListeners
 
 /**
  * A Postgres-backed [Database] (and [SuspendDatabase]). This is the type returned by the
@@ -13,4 +14,8 @@ interface PostgresDriver : Database<Nothing>, SuspendDatabase<Nothing>, AutoClos
     // Resolves the config default inherited from both Database and SuspendDatabase; concrete
     // drivers supply it (from the createDatabase config argument).
     override val config: KormConfig
+
+    // Resolves the writeListeners default inherited from both interfaces; concrete drivers
+    // supply a real registry so change observation (korm-observe) works.
+    override val writeListeners: WriteListeners
 }

@@ -24,6 +24,7 @@ transactions and indexes.
 | `korm-postgres` | PostgreSQL dialect and backend factories for JDBC/libpq |
 | `korm-sqlite` | SQLite dialect and backend factories for sqlite-jdbc/sqlite3/AndroidX SQLite |
 | `korm-r2dbc` | Async PostgreSQL `SuspendDatabase` implementation |
+| `korm-observe` | Reactive `Flow` queries over core's `WriteListener` commit hook |
 | `korm-jdbc` | Shared JVM JDBC execution, pooling and named parameter binding |
 | `korm-ktor*` | Server integration over the suspend API |
 
@@ -164,7 +165,10 @@ A backend needs:
 2. A `TypeMapper` or reuse of `StandardTypeMapper`.
 3. A `ResultSet` adapter.
 4. A `SqlExecutor` for blocking, a `SuspendSqlExecutor` for suspend, or both.
-5. A `Database` and/or `SuspendDatabase` implementation.
+5. A `Database` and/or `SuspendDatabase` implementation. The handle is not itself a
+   `SqlExecutor`; it hands a pinned executor to `usePinned` / `useConnection`. To support
+   reactive observation, override `writeListeners` with a real `WriteListeners()` (the
+   default `WriteListeners.Disabled` opts out at no cost).
 6. A factory function that returns the driver.
 7. Tests for SQL rendering, type round trips, transactions and error mapping.
 

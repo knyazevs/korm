@@ -3,6 +3,7 @@ package io.github.kormium.database
 import io.github.kormium.Catalog
 import io.github.kormium.KormConfig
 import io.github.kormium.SuspendSqlExecutor
+import io.github.kormium.WriteListeners
 
 /**
  * The suspend counterpart of [Database], tagged with the [Catalog] [G] it connects to.
@@ -15,6 +16,13 @@ import io.github.kormium.SuspendSqlExecutor
 interface SuspendDatabase<out G : Catalog> : AutoCloseable {
     /** Per-database configuration; defaults to [KormConfig] defaults unless a backend overrides it. */
     val config: KormConfig get() = KormConfig()
+
+    /**
+     * The write-notification registry for this database. The default [WriteListeners.Disabled]
+     * means change observation (e.g. `korm-observe`) does nothing; a backend opts in by
+     * overriding this with a real [WriteListeners] instance.
+     */
+    val writeListeners: WriteListeners get() = WriteListeners.Disabled
 
     /**
      * Pins one connection for the duration of [block]; the [SuspendSqlExecutor] passed

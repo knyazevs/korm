@@ -42,11 +42,13 @@ dependencies {
 | `korm-postgres` | You use PostgreSQL through JDBC on JVM or libpq on Native |
 | `korm-sqlite` | You use SQLite on JVM, Native or Android |
 | `korm-r2dbc` | You want non-blocking PostgreSQL on JVM |
+| `korm-observe` | You want reactive `Flow` queries that re-emit when data changes |
 | `korm-ktor` | You want explicit database passing in Ktor routes |
 | `korm-ktor-di` | You use Ktor's built-in DI container |
 | `korm-ktor-koin` | You use Koin in a Ktor application |
 
-Backend artifacts bring `korm-core` transitively.
+Backend artifacts bring `korm-core` transitively. `korm-observe` is pure common code and
+supports the same targets as `korm-core` (JVM, Native, Android, iOS).
 
 ## Native Libraries
 

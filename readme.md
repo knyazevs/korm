@@ -57,6 +57,8 @@ val adults = db.autocommit {
   r2dbc gives a true async PostgreSQL option on JVM.
 - **SQLite for apps, tests and caches.** JVM uses sqlite-jdbc, Native uses sqlite3
   cinterop, Android uses AndroidX SQLite.
+- **Reactive queries.** `korm-observe` turns a query into a `Flow` that re-emits when the
+  tables it reads change — for Compose Multiplatform and Android UIs.
 - **Server integration.** Ktor helpers are split into DI-agnostic, Ktor DI and Koin
   artifacts.
 
@@ -79,6 +81,8 @@ dependencies {
     implementation("io.github.kormium:korm-postgres") // PostgreSQL, JVM + Native
     // implementation("io.github.kormium:korm-sqlite")   // SQLite, JVM + Native + Android
     // implementation("io.github.kormium:korm-r2dbc")    // async PostgreSQL, JVM only
+
+    // implementation("io.github.kormium:korm-observe")  // reactive Flow queries
 
     // optional Ktor integration
     // implementation("io.github.kormium:korm-ktor")

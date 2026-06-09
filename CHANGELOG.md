@@ -4,6 +4,28 @@ All notable changes to korm are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — Reactive queries
+
+### Added
+- **`korm-observe`** module: reactive `Flow` queries. `Table.observe(db) { where { … } }`
+  emits the result now and re-emits after every committed write to the table; a generic
+  `SuspendDatabase.observe(tables) { … }` covers joins and custom fetches. Writes are
+  conflated. See [Observing changes](docs/observe.md).
+- **`WriteListener` commit hook** on `Database` / `SuspendDatabase`
+  (`db.writeListeners.add { tables -> … }`): notified, after commit, with the set of tables a
+  scope wrote. A generic seam (also usable for cache invalidation, audit, metrics) that backs
+  `korm-observe`.
+- **`invalidates` argument** on the raw `Scope.execute` / `executeUpdate` (and suspend
+  counterparts): declare the tables a raw statement writes so observers are notified — the
+  analog of Room's `@RawQuery(observedEntities = …)`.
+
+### Changed
+- **Breaking: `Database` no longer extends `SqlExecutor`.** The pooled, scope-less
+  `db.execute(...)` / `db.executeUpdate(...)` is removed — run one-off statements through a
+  scope instead: `db.autocommit { execute(...) }`. This makes every write transactional and
+  observable. `SuspendDatabase` was never an executor, so it is unchanged. The
+  `SqlParameterSource` overloads now live only on the pinned `SqlExecutor` inside a scope.
+
 ## [0.2.0] — API redesign
 
 A breaking redesign of the core API. Korm now models runtime query/insert/update mapping

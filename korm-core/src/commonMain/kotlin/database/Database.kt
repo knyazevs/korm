@@ -3,6 +3,7 @@ package io.github.kormium.database
 import io.github.kormium.Catalog
 import io.github.kormium.KormConfig
 import io.github.kormium.SqlExecutor
+import io.github.kormium.WriteListeners
 
 /**
  * A database handle, tagged with the [Catalog] [G] it connects to. The tag is
@@ -11,10 +12,21 @@ import io.github.kormium.SqlExecutor
  * the tag by assigning it to a `Database<MyCatalog>`. A [io.github.kormium.Table]
  * tagged with the same catalog can then be used against it via
  * [io.github.kormium.transaction] / [io.github.kormium.autocommit].
+ *
+ * SQL runs only through a pinned [SqlExecutor] inside a scope — the database handle is not
+ * itself an [SqlExecutor]. Run one-off statements via `autocommit { execute(...) }` so every
+ * write goes through a scope (and is therefore transactional and observable).
  */
-interface Database<out G : Catalog> : SqlExecutor, AutoCloseable {
+interface Database<out G : Catalog> : AutoCloseable {
     /** Per-database configuration; defaults to [KormConfig] defaults unless a backend overrides it. */
     val config: KormConfig get() = KormConfig()
+
+    /**
+     * The write-notification registry for this database. The default [WriteListeners.Disabled]
+     * means change observation (e.g. `korm-observe`) does nothing; a backend opts in by
+     * overriding this with a real [WriteListeners] instance.
+     */
+    val writeListeners: WriteListeners get() = WriteListeners.Disabled
 
     /**
      * Pins one connection for the duration of [block]; the [SqlExecutor] passed to it

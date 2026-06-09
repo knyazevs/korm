@@ -162,11 +162,28 @@ Before recommending Korm for production, observability should have:
 - query timing hook or metrics bridge;
 - pool metrics guide for JDBC/HikariCP;
 - examples for Ktor `StatusPages`;
-- tests proving observers run on success and failure once that API exists.
+- tests proving observers run on success and failure (the `WriteListener` commit hook now
+  exists — see below).
+
+## Write Notification
+
+`Database`/`SuspendDatabase` expose a `writeListeners: WriteListeners` registry. After a
+`transaction { }` / `autocommit { }` (or suspend counterpart) commits, every registered
+`WriteListener` is called with the set of table names written during it (rolled-back work
+notifies nothing). This is a generic, synchronous commit hook — it backs `korm-observe`
+([Observing changes](observe.md)) but is equally usable for cache invalidation, audit or
+metrics:
+
+```kotlin
+db.writeListeners.add { tables -> log.info("committed writes to {}", tables) }
+```
+
+Raw SQL declares its tables via the `invalidates` argument on `execute`/`executeUpdate`;
+see [Observing changes](observe.md#raw-sql).
 
 ## Current Recommendation
 
-Until a public observability API exists:
+For timing and pool metrics (not yet covered by a built-in API):
 
 - rely on typed exceptions for application-level handling;
 - configure HikariCP metrics directly for JVM JDBC pool visibility;
