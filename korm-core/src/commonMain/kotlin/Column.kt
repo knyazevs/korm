@@ -35,7 +35,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     /** Rendered SQL column identifier. Equals [fieldKey] unless a custom name was supplied. */
     open var name: String,
     open var nullable: kotlin.Boolean,
-    val columnType: ColumnNameEnum,
+    val columnType: ColumnType<Z>,
 ) : Expression, Selectable<Z> {
 
     open fun init() {
@@ -56,16 +56,21 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     /** Whether this column is part of the table's primary key. */
     internal var isPrimaryKey: kotlin.Boolean = false
 
-    // As a selectable, read its value via the type mapper (its toSql is the SELECT SQL).
-    @Suppress("UNCHECKED_CAST")
+    // As a selectable, read its value via its column type (its toSql is the SELECT SQL).
     override fun read(rs: ResultSet, index: kotlin.Int, typeMapper: TypeMapper): Z? =
-        typeMapper.fromResult(rs, index, columnType) as Z?
+        columnType.read(rs, index)
+
+    // Converts a domain value to its bound form (e.g. enum -> name, @Serializable -> JsonElement)
+    // before it reaches the ParamBuilder. Null passes through; built-in types are identity.
+    @Suppress("UNCHECKED_CAST")
+    internal fun bindParam(value: Any?): Any? =
+        if (value == null) null else (columnType as ColumnType<Any?>).toParam(value)
 
     /**
      * A non-null column. Its entity property is `Z`: assigning `null` is a compile error, and
      * reading a field that was never assigned (or that the database returned as `NULL`) throws.
      */
-    class NotNullColumn<Z, T: Table<*, N>, N: Entity>(table: T, fieldKey: String, name: String, columnType: ColumnNameEnum)
+    class NotNullColumn<Z, T: Table<*, N>, N: Entity>(table: T, fieldKey: String, name: String, columnType: ColumnType<Z>)
         : Column<Z, T, N>(table, fieldKey, name, nullable = false, columnType) {
         operator fun getValue(n: N, property: KProperty<*>): Z {
             logger.trace { "Get value $fieldKey" }
@@ -81,7 +86,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     }
 
     /** A nullable column. Its entity property is `Z?`: an absent field reads back as `null`. */
-    class NullableColumn<Z, T: Table<*, N>, N: Entity>(table: T, fieldKey: String, name: String, columnType: ColumnNameEnum)
+    class NullableColumn<Z, T: Table<*, N>, N: Entity>(table: T, fieldKey: String, name: String, columnType: ColumnType<Z>)
         : Column<Z, T, N>(table, fieldKey, name, nullable = true, columnType) {
         @Suppress("UNCHECKED_CAST")
         operator fun getValue(n: N, property: KProperty<*>): Z? {
@@ -95,21 +100,15 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
         }
     }
 
-    enum class ColumnNameEnum {
-        BigDecimal,
-        UUID,
-        Double,
-        Int,
-        Boolean,
-        String,
-        Instant,
-        Json,
-        Long,
-        Float,
-        Short,
-        LocalDate,
-        LocalTime,
-        LocalDateTime
+    companion object {
+        /** Declares a column of any [ColumnType] — the open extension point. */
+        fun <Z> of(type: ColumnType<Z>, name: String? = null): Spec<Z> = Spec(name, type)
+
+        /** A column storing the enum [E] by name (text). */
+        inline fun <reified E : Enum<E>> enum(name: String? = null): Spec<E> = of(enumColumnType<E>(), name)
+
+        /** A column storing the `@Serializable` value [T] as JSON. */
+        inline fun <reified T> json(name: String? = null): Spec<T> = of(jsonColumnType<T>(), name)
     }
 
     // ---- column specs (the public declaration builders) ----
@@ -119,7 +118,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
      * [nullable] or [primaryKey] (mutually exclusive — a nullable primary key cannot be
      * expressed).
      */
-    sealed class Spec<Z>(private val name: String?, private val columnType: ColumnNameEnum) {
+    open class Spec<Z>(private val name: String?, private val columnType: ColumnType<Z>) {
         operator fun <T: Table<*, N>, N: Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, NotNullColumn<Z, T, N>> {
             val column = NotNullColumn<Z, T, N>(table, property.name, name ?: property.name, columnType).also { it.init() }
             return ReadOnlyProperty { _, _ -> column }
@@ -133,7 +132,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     }
 
     /** Spec for a nullable column. Has no [primaryKey] — nullable primary keys are not allowed. */
-    class NullableSpec<Z> internal constructor(private val name: String?, private val columnType: ColumnNameEnum) {
+    class NullableSpec<Z> internal constructor(private val name: String?, private val columnType: ColumnType<Z>) {
         operator fun <T: Table<*, N>, N: Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, NullableColumn<Z, T, N>> {
             val column = NullableColumn<Z, T, N>(table, property.name, name ?: property.name, columnType).also { it.init() }
             return ReadOnlyProperty { _, _ -> column }
@@ -141,7 +140,7 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     }
 
     /** Spec for a primary-key column. Has no [nullable] — nullable primary keys are not allowed. */
-    class PrimaryKeySpec<Z> internal constructor(private val name: String?, private val columnType: ColumnNameEnum) {
+    class PrimaryKeySpec<Z> internal constructor(private val name: String?, private val columnType: ColumnType<Z>) {
         operator fun <T: Table<*, N>, N: Entity> provideDelegate(table: T, property: KProperty<*>): ReadOnlyProperty<T, NotNullColumn<Z, T, N>> {
             val column = NotNullColumn<Z, T, N>(table, property.name, name ?: property.name, columnType)
                 .also { it.isPrimaryKey = true; it.init() }
@@ -151,18 +150,18 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
 
     // ---- the 14 typed column declarations ----
 
-    class UUID(name: String? = null) : Spec<kotlin.uuid.Uuid>(name, ColumnNameEnum.UUID)
-    class BigDecimal(name: String? = null) : Spec<com.ionspin.kotlin.bignum.decimal.BigDecimal>(name, ColumnNameEnum.BigDecimal)
-    class Double(name: String? = null) : Spec<kotlin.Double>(name, ColumnNameEnum.Double)
-    class Int(name: String? = null) : Spec<kotlin.Int>(name, ColumnNameEnum.Int)
-    class Boolean(name: String? = null) : Spec<kotlin.Boolean>(name, ColumnNameEnum.Boolean)
-    class Text(name: String? = null) : Spec<kotlin.String>(name, ColumnNameEnum.String)
-    class Instant(name: String? = null) : Spec<kotlinx.datetime.Instant>(name, ColumnNameEnum.Instant)
-    class Json(name: String? = null) : Spec<JsonElement>(name, ColumnNameEnum.Json)
-    class Long(name: String? = null) : Spec<kotlin.Long>(name, ColumnNameEnum.Long)
-    class Float(name: String? = null) : Spec<kotlin.Float>(name, ColumnNameEnum.Float)
-    class Short(name: String? = null) : Spec<kotlin.Short>(name, ColumnNameEnum.Short)
-    class LocalDate(name: String? = null) : Spec<kotlinx.datetime.LocalDate>(name, ColumnNameEnum.LocalDate)
-    class LocalTime(name: String? = null) : Spec<kotlinx.datetime.LocalTime>(name, ColumnNameEnum.LocalTime)
-    class LocalDateTime(name: String? = null) : Spec<kotlinx.datetime.LocalDateTime>(name, ColumnNameEnum.LocalDateTime)
+    class UUID(name: String? = null) : Spec<kotlin.uuid.Uuid>(name, UuidColumnType)
+    class BigDecimal(name: String? = null) : Spec<com.ionspin.kotlin.bignum.decimal.BigDecimal>(name, BigDecimalColumnType)
+    class Double(name: String? = null) : Spec<kotlin.Double>(name, DoubleColumnType)
+    class Int(name: String? = null) : Spec<kotlin.Int>(name, IntColumnType)
+    class Boolean(name: String? = null) : Spec<kotlin.Boolean>(name, BooleanColumnType)
+    class Text(name: String? = null) : Spec<kotlin.String>(name, TextColumnType)
+    class Instant(name: String? = null) : Spec<kotlinx.datetime.Instant>(name, InstantColumnType)
+    class Json(name: String? = null) : Spec<JsonElement>(name, JsonColumnType)
+    class Long(name: String? = null) : Spec<kotlin.Long>(name, LongColumnType)
+    class Float(name: String? = null) : Spec<kotlin.Float>(name, FloatColumnType)
+    class Short(name: String? = null) : Spec<kotlin.Short>(name, ShortColumnType)
+    class LocalDate(name: String? = null) : Spec<kotlinx.datetime.LocalDate>(name, LocalDateColumnType)
+    class LocalTime(name: String? = null) : Spec<kotlinx.datetime.LocalTime>(name, LocalTimeColumnType)
+    class LocalDateTime(name: String? = null) : Spec<kotlinx.datetime.LocalDateTime>(name, LocalDateTimeColumnType)
 }

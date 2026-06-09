@@ -75,6 +75,9 @@ Supported column types:
 | `Column.LocalDateTime` | `kotlinx.datetime.LocalDateTime` |
 | `Column.Json` | `kotlinx.serialization.json.JsonElement` |
 
+These are the built-ins; the type list is open — see [Custom column types](#custom-column-types)
+for enums, JSON-mapped values and your own types.
+
 Every column accepts:
 
 ```kotlin
@@ -85,6 +88,34 @@ Column.UUID().primaryKey()
 `findById` uses a single explicit primary key. If none is marked, it falls back to a column
 named `id`. For composite primary keys, use `find { ... }` or `find(Query(...))` instead
 of `findById`.
+
+## Custom Column Types
+
+The type list is open. Two ready-made helpers cover the common cases:
+
+```kotlin
+val role  by Column.enum<Role>()    // enum stored by name (text)
+val prefs by Column.json<Prefs>()   // @Serializable value stored as JSON (jsonb on Postgres)
+```
+
+For any other type, derive one from an existing column type with `convert` — you only map the
+value both ways (the storage, reading and any dialect casts are inherited). This replaces
+Room's `@TypeConverter`, type-safe and without annotations:
+
+```kotlin
+val color by Column.of(
+    TextColumnType.convert<Color, String>(
+        toStored   = { it.hex },
+        fromStored = { Color(it) },
+    ),
+)
+```
+
+A column type is just three pieces — `read` and an optional `toParam` (the entity property
+type and any conversion). Implement `ColumnType<T>` directly only when you need a genuinely
+new storage type; most custom types are a `convert` over `TextColumnType` / `JsonColumnType` /
+`IntColumnType`. Conversion applies on insert, update and in predicates, so
+`where { Users.role eq Role.ADMIN }` binds the stored form automatically.
 
 ## Entities
 

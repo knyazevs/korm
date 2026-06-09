@@ -53,7 +53,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         val fields = HashMap<String, Any?>(fieldDisplayName.size * 2)
         var index = 0
         for ((fieldName, column) in fieldDisplayName) {
-            fields[fieldName] = typeMapper.fromResult(rs, index, column.columnType)
+            fields[fieldName] = column.columnType.read(rs, index)
             index++
         }
         return hydrate(fields)
@@ -63,7 +63,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
     // so update() can tell "leave untouched" (absent) from "set to NULL" (present and null).
     private fun generatePresentFields(dao: T): List<Pair<String, Any?>> {
         return this.fieldDisplayName.filter { dao.fields.containsKey(it.key) }.map {
-            it.value.name to dao.fields[it.key]
+            it.value.name to it.value.bindParam(dao.fields[it.key])
         }
     }
 
@@ -165,7 +165,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
                 val colSql = group.columns.joinToString(", ") { dialect.quoteIdentifier(it.name) }
                 val tuples = group.entityIndices.joinToString(", ") { idx ->
                     val entity = entities[idx]
-                    "(${group.columns.joinToString(", ") { col -> builder.bind(entity.fields[col.fieldKey]) }})"
+                    "(${group.columns.joinToString(", ") { col -> builder.bind(col.bindParam(entity.fields[col.fieldKey])) }})"
                 }
                 statements += BatchStatement(
                     "INSERT INTO ${qualifiedTableName(dialect)} ($colSql) VALUES $tuples$returningSuffix",
