@@ -5,5 +5,5 @@ package = csqlite
 # SQLite ships with the OS on macOS, iOS and most Linux distros.
 linkerOpts.osx = -lsqlite3
 linkerOpts.ios = -lsqlite3
-linkerOpts.linux = -lsqlite3
+linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -lsqlite3
 linkerOpts.mingw = -lsqlite3
