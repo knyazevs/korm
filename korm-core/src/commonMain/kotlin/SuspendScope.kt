@@ -92,15 +92,8 @@ class SuspendScope<G : Catalog> internal constructor(
         asJoin().select(*fields, map = map)
 
     /** Runs a two-table join, reconstructing both sides as a `Pair` of entities. */
-    suspend fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> {
-        val aCols = left.getFieldDisplayNames()
-        val bCols = right.getFieldDisplayNames()
-        val rows = runSelect(exec, asJoin(), (aCols.values + bCols.values).toList())
-        return rows.map { row ->
-            left.hydrate(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
-                right.hydrate(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
-        }
-    }
+    suspend fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> =
+        select().map { row -> row.entity(left) to row.entity(right) }
 
     /** Runs a raw query on the pinned connection, mapping each row with [handler]. */
     suspend fun <R> execute(sql: String, params: Map<String, Any?> = emptyMap(), handler: (ResultSet) -> R): List<R> =

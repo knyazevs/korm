@@ -1,0 +1,28 @@
+# Korm
+
+> Type-safe ORM and SQL DSL for Kotlin Multiplatform (JVM + Native). Tables, entities, typed
+> predicates, transactions, joins, aggregations and migrations, with compile-time
+> database↔table safety. Backends: PostgreSQL (JDBC + native libpq), SQLite, async r2dbc,
+> plus Ktor integration. Package `io.github.kormium`.
+
+All queries run inside `db.transaction { }` or `db.autocommit { }` (suspend mirrors:
+`db.suspendTransaction { }` / `db.suspendAutocommit { }`). Table operations are scope
+extensions, not global table methods.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): canonical, copy-ready snippets for every common task (read this first)
+- [Quick start](docs/quick-start.md): minimal end-to-end setup
+- [Tables and entities](docs/tables-and-entities.md): columns, nullability, primary keys
+
+## Reference
+
+- [Queries, joins and aggregations](docs/queries.md): `find { where { } }`, joins, `entity()`, aggregates
+- [Transactions, suspend API and migrations](docs/transactions-and-migrations.md): scopes, savepoints, `migrate`
+- [Backends](docs/backends.md): PostgreSQL / SQLite / r2dbc driver setup
+- [Ktor integration](docs/ktor.md): per-DI-framework artifacts and request-scoped helpers
+- [Installation](docs/installation.md): Gradle, BOM, native system libraries
+
+## Examples
+
+- [samples/](samples/README.md): runnable projects (CRUD, Ktor DI/Koin, sharding, read-through cache, r2dbc)

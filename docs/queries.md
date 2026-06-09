@@ -141,27 +141,37 @@ rows.forEach { row ->
 }
 ```
 
-Joining a third table keeps the `select(...)` projection forms. The two-entity `Pair`
-mapping is intentionally limited to two-table joins.
+`find()` (entity `Pair`s) is limited to two-table joins, but `select()` returns rows you can
+rebuild any table's entity from with `row.entity(Table)`, so three-or-more-table joins still
+read as whole entities:
+
+```kotlin
+val rows = db.autocommit {
+    (Users innerJoin Orders on (Users.id eq Orders.userId)
+           innerJoin Items  on (Orders.id eq Items.orderId))
+        .select()
+        .map { Triple(it.entity(Users), it.entity(Orders), it.entity(Items)) }
+}
+```
 
 ## Aggregations
 
-Keep aggregate expressions in `val`s and reuse those values when reading rows. Aggregates
-are keyed by expression identity.
+Read an aggregate from a row with the same expression you selected. Aggregates are keyed
+structurally, so a freshly built expression reads the same value — a `val` is convenient for
+reuse (and for `having(...)`), but no longer required to read the row back.
 
 ```kotlin
-val orders = count()
 val total = Orders.total.sum()
 
 val result = db.autocommit {
     (Users innerJoin Orders on (Users.id eq Orders.userId))
         .groupBy(Users.id)
         .having(total gt Value(BigDecimal.fromInt(100)))
-        .select(Users.name, orders, total)
+        .select(Users.name, count(), total)
 }
 
 result.forEach { row ->
-    println("${row[Users.name]}: ${row[orders]} orders, ${row[total]}")
+    println("${row[Users.name]}: ${row[count()]} orders, ${row[total]}")
 }
 ```
 

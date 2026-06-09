@@ -61,6 +61,10 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     override fun read(rs: ResultSet, index: kotlin.Int, typeMapper: TypeMapper): Z? =
         typeMapper.fromResult(rs, index, columnType) as Z?
 
+    // The property delegate yields a fresh Column per access, so identity can't key a result row;
+    // table+SQL-name is the stable, dialect-independent key (aggregates embed this for their target).
+    override fun resultKey(): Any = "${table.tableName}.$name"
+
     /**
      * A non-null column. Its entity property is `Z`: assigning `null` is a compile error, and
      * reading a field that was never assigned (or that the database returned as `NULL`) throws.
