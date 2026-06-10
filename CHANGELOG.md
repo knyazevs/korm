@@ -4,6 +4,30 @@ All notable changes to Kormium are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Mixed `and` / `or` predicates now render with correct precedence.** Kotlin infix calls
+  are all same-precedence and left-associative, so `a or b and c` builds `(a OR b) AND c` —
+  but it previously rendered as `a OR b AND c`, which SQL parses as `a OR (b AND c)`,
+  silently changing the query. Nested compound operands with a different operator are now
+  parenthesized.
+- **`WriteListeners` registration is now lossless under concurrency.** `add` / `remove`
+  swap the copy-on-write listener list with a CAS loop instead of a plain volatile write,
+  so concurrent Flow collections through `kormium-observe` can no longer drop each other's
+  listeners (a dropped listener meant a Flow that silently stopped updating).
+- **The JDBC `:name` parse cache is now bounded.** It is an LRU capped at 1024 entries, and
+  SQL longer than 4096 chars (batch INSERTs, large IN-lists — a distinct string per call)
+  bypasses it, so long-lived servers no longer accumulate parse entries without limit.
+
+### Changed
+- **`leftJoin` entity pairs are now properly nullable** (breaking). `Table.leftJoin` returns
+  a dedicated `LeftJoinPair` whose `find()` is `List<Pair<A, B?>>`: the right side is `null`
+  for left rows with no match (detected by a `NULL` right-side primary key). Previously
+  `find()` claimed `Pair<A, B>` and the unmatched right entity threw on first property
+  access. The `select(...)` forms, `where`, `groupBy`, `distinct` and three-table chaining
+  are unchanged; `innerJoin` is unaffected.
+
 ## [0.4.0] — Rebrand to kormium
 
 ### Changed
