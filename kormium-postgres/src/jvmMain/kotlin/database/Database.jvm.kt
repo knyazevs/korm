@@ -4,19 +4,21 @@ import io.github.kormium.KormiumConfig
 import io.github.kormium.PgResultSetWrapper
 import io.github.kormium.PostgresDialect
 import io.github.kormium.PostgresDriver
-import io.github.kormium.StandardTypeMapper
+import io.github.kormium.PostgresJvmTypeMapper
 import io.github.kormium.jdbc.JdbcDatabase
 
 /**
  * A Postgres [PostgresDriver] backed by the shared [JdbcDatabase] (HikariCP pool).
  *
- * stringtype=unspecified lets the server infer a parameter's type from its column
- * context, so text-bound values (BigDecimal, uuid, timestamps, ...) are accepted by
- * numeric/uuid/timestamp columns — matching the native (libpq) driver, which sends
- * all parameters as untyped text. prepareThreshold=1 makes pgjdbc use a server-side
- * prepared statement from the first execution (default 5), so repeated statements skip
- * re-parsing. (The MySQL-style cachePrepStmts/prepStmtCacheSize properties are ignored
- * by pgjdbc.)
+ * Parameters are bound as properly-typed JDBC objects via [PostgresJvmTypeMapper], so a
+ * server-prepared statement declares its real parameter types and each execution is one
+ * protocol round-trip. (The previous `stringtype=unspecified` text binding made the server
+ * re-infer untyped parameters — an extra round-trip on every execution, ~2x on reads.)
+ * Raw SQL that binds a *String* to a non-text column (uuid, timestamptz, numeric, ...)
+ * must now cast explicitly, e.g. `WHERE id = :id::uuid`; DSL queries need nothing.
+ * prepareThreshold=1 makes pgjdbc use a server-side prepared statement from the first
+ * execution (default 5), so repeated statements skip re-parsing. (The MySQL-style
+ * cachePrepStmts/prepStmtCacheSize properties are ignored by pgjdbc.)
  */
 private class PostgresJdbcDriver(
     host: String,
@@ -27,12 +29,12 @@ private class PostgresJdbcDriver(
     poolSize: Int,
     config: KormiumConfig,
 ) : JdbcDatabase(
-    jdbcUrl = "jdbc:postgresql://$host:$port/$database?stringtype=unspecified&prepareThreshold=1",
+    jdbcUrl = "jdbc:postgresql://$host:$port/$database?prepareThreshold=1",
     username = user,
     password = password,
     poolSize = poolSize,
     dialect = PostgresDialect,
-    typeMapper = StandardTypeMapper,
+    typeMapper = PostgresJvmTypeMapper,
     wrap = ::PgResultSetWrapper,
     config = config,
 ), PostgresDriver

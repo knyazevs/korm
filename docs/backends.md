@@ -32,6 +32,15 @@ Implementations:
 Native builds need `libpq` headers/libraries on the build machine. See
 [Installation](installation.md#postgresql-native).
 
+PostgreSQL notes:
+
+- On JVM, parameters are bound as properly-typed JDBC objects (uuid, numeric,
+  timestamptz, jsonb, ...), so server-prepared statements execute in a single protocol
+  round-trip. **Raw SQL** that binds a `String` to a non-text column must cast it
+  explicitly — `WHERE id = :id::uuid` — or pass a typed value; DSL queries need nothing.
+- On Kotlin/Native, libpq sends parameters as text and the dialect adds the needed
+  `::type` casts.
+
 ## SQLite
 
 Artifact:
