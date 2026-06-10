@@ -152,6 +152,14 @@ rows.forEach { row ->
 
 Use `getOrNull` when a selected field can be absent or SQL `NULL`.
 
+For entity pairs, `find()` on a `leftJoin` returns a nullable right side:
+
+```kotlin
+val pairs: List<Pair<User, Order?>> = db.autocommit {
+    (Users leftJoin Orders on (Users.id eq Orders.userId)).find()
+}
+```
+
 ## Aggregate and Read the Result
 
 ```kotlin

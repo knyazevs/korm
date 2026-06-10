@@ -20,6 +20,8 @@ class Scope<G : Catalog> internal constructor(
      * a spurious refresh, never a missed one.
      */
     internal val dirtyTables: MutableSet<String> = mutableSetOf(),
+    /** Whether this scope runs inside a transaction (see [savepoint]). */
+    private val transactional: Boolean = true,
 ) {
     private var savepointCounter = 0
 
@@ -145,15 +147,23 @@ class Scope<G : Catalog> internal constructor(
         asJoin().select(*fields, map = map)
 
     /** Runs a two-table join, reconstructing both sides as a `Pair` of entities. */
-    fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> {
-        val aCols = left.getFieldDisplayNames()
-        val bCols = right.getFieldDisplayNames()
-        val rows = runSelect(exec, asJoin(), (aCols.values + bCols.values).toList())
-        return rows.map { row ->
-            left.hydrate(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
-                right.hydrate(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
-        }
-    }
+    fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> =
+        hydrateInnerPairs(left, right, runSelect(exec, asJoin(), pairSelectFields(left, right)))
+
+    /** Runs a two-table LEFT join, selecting the given fields (or all columns if none are given). */
+    fun <A : Entity, B : Entity> LeftJoinPair<G, A, B>.select(vararg fields: Selectable<*>): List<ResultRow> =
+        asJoin().select(*fields)
+
+    /** Runs a two-table LEFT join, mapping each [ResultRow] with [map]. */
+    fun <A : Entity, B : Entity, R> LeftJoinPair<G, A, B>.select(vararg fields: Selectable<*>, map: (ResultRow) -> R): List<R> =
+        asJoin().select(*fields, map = map)
+
+    /**
+     * Runs a two-table LEFT join, reconstructing both sides as entity pairs. The right side
+     * is `null` for left rows with no match (detected by a NULL right-side primary key).
+     */
+    fun <A : Entity, B : Entity> LeftJoinPair<G, A, B>.find(): List<Pair<A, B?>> =
+        hydrateLeftPairs(left, right, runSelect(exec, asJoin(), pairSelectFields(left, right)))
 
     /**
      * Runs a raw query on the pinned connection, mapping each row with [handler]. Kormium can't
@@ -194,8 +204,13 @@ class Scope<G : Catalog> internal constructor(
      * Runs [block] inside a SAVEPOINT on the same connection: if it throws, only its
      * work is rolled back (ROLLBACK TO SAVEPOINT) and the exception propagates; the
      * enclosing transaction may continue if the caller catches it.
+     *
+     * Requires a [transaction] scope — calling it inside [autocommit] throws
+     * [IllegalStateException] (a savepoint without a surrounding transaction is a server
+     * error on PostgreSQL and backend-dependent elsewhere).
      */
     fun <R> savepoint(block: Scope<G>.() -> R): R {
+        check(transactional) { "savepoint { } requires a transaction; use transaction { }, not autocommit { }" }
         val name = "korm_sp_${savepointCounter++}"
         exec.executeUpdate("SAVEPOINT $name")
         return try {
@@ -216,7 +231,7 @@ class Scope<G : Catalog> internal constructor(
 fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R {
     // The dirty-table set outlives the block so we can fire it after the commit returns.
     val dirty = mutableSetOf<String>()
-    val result = usePinned(transactional = true) { Scope<G>(it, config, dirty).block() }
+    val result = usePinned(transactional = true) { Scope<G>(it, config, dirty, transactional = true).block() }
     writeListeners.fire(dirty)
     return result
 }
@@ -227,7 +242,7 @@ fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R {
  */
 fun <G : Catalog, R> Database<G>.autocommit(block: Scope<G>.() -> R): R {
     val dirty = mutableSetOf<String>()
-    val result = usePinned(transactional = false) { Scope<G>(it, config, dirty).block() }
+    val result = usePinned(transactional = false) { Scope<G>(it, config, dirty, transactional = false).block() }
     writeListeners.fire(dirty)
     return result
 }

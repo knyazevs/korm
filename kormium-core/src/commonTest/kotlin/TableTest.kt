@@ -503,6 +503,49 @@ class TableTest {
     }
 
     @Test
+    fun testMixedAndOrKeepsKotlinEvaluationOrder() {
+        // Regression: Kotlin infix `or`/`and` are same-precedence and left-associative, so
+        // `a or b and c` builds AndOp(OrOp(a, b), c). Without parentheses SQL would parse it
+        // as `a OR (b AND c)` (AND binds tighter) — a silently different result set.
+        val expectedResult = """
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "products"
+            WHERE ("position" = :p0 OR "position" = :p1) AND "text" = :p2
+        """
+        db.transaction {
+            TestTable.find(
+                Query(TestTable.position eq 1 or (TestTable.position eq 2) and (TestTable.text eq "abc"))
+            )
+        }
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to 1, "p1" to 2, "p2" to "abc"), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testSameOperatorChainStaysFlat() {
+        // Associative chains need no parentheses: `a and b and c` renders flat.
+        val expectedResult = """
+            SELECT "id", "price", "position", "text", "nullableTest" FROM "products"
+            WHERE "position" = :p0 AND "text" = :p1 AND "position" = :p2
+        """
+        db.transaction {
+            TestTable.find(
+                Query(TestTable.position eq 1 and (TestTable.text eq "abc") and (TestTable.position eq 3))
+            )
+        }
+        assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
+        assertEquals(mapOf("p0" to 1, "p1" to "abc", "p2" to 3), databaseMockObj.internalParams)
+    }
+
+    @Test
+    fun testSavepointInAutocommitFailsFast() {
+        // A savepoint without a surrounding transaction is a server error on Postgres and
+        // backend-dependent elsewhere — fail uniformly with a clear message instead.
+        assertFailsWith<IllegalStateException> {
+            db.autocommit { savepoint { } }
+        }
+    }
+
+    @Test
     fun testUpdateWithNoNonNullFieldsFails() {
         assertFailsWith<IllegalArgumentException> {
             db.transaction { TestTable.update(Query(TestTable.id eq Uuid.random()), TestEntity()) }

@@ -109,7 +109,11 @@ private class JdbcPinnedConnection(
     }
 
     override fun rollback() {
-        conn.rollback()
+        try {
+            conn.rollback()
+        } catch (e: SQLException) {
+            throw translate(e)
+        }
     }
 
     override fun release() {

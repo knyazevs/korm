@@ -74,6 +74,20 @@ class EdgeCaseTest {
     }
 
     @Test
+    fun leftJoinFindMissingRightIsNullPair() {
+        val pid = Uuid.random()
+        ItDatabase.transaction { EdgeTable.insert(EdgeRow().apply { id = pid; num = 1 }) }
+        val pairs: List<Pair<EdgeRow, EdgeChildRow?>> = ItDatabase.autocommit {
+            (EdgeTable leftJoin EdgeChild on (EdgeTable.id eq EdgeChild.parentId))
+                .where(EdgeTable.id eq pid)
+                .find()
+        }
+        assertEquals(1, pairs.size)
+        assertEquals(pid, pairs.single().first.id)
+        assertNull(pairs.single().second, "an unmatched right side must be null")
+    }
+
+    @Test
     fun countOfEmptyIsZeroAndSumIsNull() {
         val c = count()
         val s = EdgeTable.num.sum()

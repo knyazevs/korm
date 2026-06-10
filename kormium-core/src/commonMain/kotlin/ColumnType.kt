@@ -24,7 +24,7 @@ import kotlin.uuid.Uuid
  * so a column type only describes value conversion, not the SQL column type.
  */
 interface ColumnType<T> {
-    /** Reads the value at [index] (1-based per [ResultSet]) from [rs], or null for SQL NULL. */
+    /** Reads the value at [index] (0-based per [ResultSet]) from [rs], or null for SQL NULL. */
     fun read(rs: ResultSet, index: Int): T?
 
     /**

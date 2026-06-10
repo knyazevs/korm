@@ -128,7 +128,16 @@ val pairs: List<Pair<User, Order>> = db.autocommit {
 }
 ```
 
-`leftJoin` is available. Read nullable right-side fields with `getOrNull`:
+`leftJoin` keeps the right side nullable. Its `find()` returns `Pair<A, B?>` — the right
+entity is `null` for left rows with no match (detected by a `NULL` right-side primary key):
+
+```kotlin
+val pairs: List<Pair<User, Order?>> = db.autocommit {
+    (Users leftJoin Orders on (Users.id eq Orders.userId)).find()
+}
+```
+
+In the `select(...)` forms, read nullable right-side fields with `getOrNull`:
 
 ```kotlin
 val rows = db.autocommit {
