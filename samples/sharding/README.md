@@ -8,7 +8,7 @@ A standalone console app (over **SQLite**, no external database) showing two thi
 - **Sharding** — one catalog (`AccountsCatalog`) spread across several `Database` instances,
   routed by key (`id % shards`).
 
-Each shard is its own SQLite **file** in the system temp dir: korm opens `:memory:` in
+Each shard is its own SQLite **file** in the system temp dir: Kormium opens `:memory:` in
 shared-cache mode, so two `:memory:` handles would be the *same* database, not two shards. The
 files (and their WAL sidecars) are cleaned up on exit.
 

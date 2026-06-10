@@ -1,11 +1,11 @@
 # Production Guide
 
-This guide describes what a team should think through before using Korm in a real service.
-It is intentionally conservative because Korm is still pre-1.0.
+This guide describes what a team should think through before using Kormium in a real service.
+It is intentionally conservative because Kormium is still pre-1.0.
 
 ## Production Readiness Position
 
-Korm is suitable today for:
+Kormium is suitable today for:
 
 - prototypes;
 - internal tools;
@@ -13,14 +13,14 @@ Korm is suitable today for:
 - benchmarks;
 - services where the team can tolerate API changes and help debug backend issues.
 
-Korm should not yet be the only persistence layer for a critical system unless the team is
+Kormium should not yet be the only persistence layer for a critical system unless the team is
 ready to own the risk and test its exact backend/platform combination.
 
 ## Application Checklist
 
 Before deploying:
 
-- pin exact Korm versions;
+- pin exact Kormium versions;
 - choose one backend path deliberately: JDBC, libpq, SQLite or r2dbc;
 - run integration tests against the same database version used in production;
 - run migration tests on a copy of realistic schema/data;
@@ -34,7 +34,7 @@ Before deploying:
 
 ### PostgreSQL JVM
 
-JVM PostgreSQL uses HikariCP through `korm-jdbc`.
+JVM PostgreSQL uses HikariCP through `kormium-jdbc`.
 
 Production considerations:
 
@@ -45,7 +45,7 @@ Production considerations:
 
 ### PostgreSQL Native
 
-Native PostgreSQL uses libpq with Korm's pool implementation.
+Native PostgreSQL uses libpq with Kormium's pool implementation.
 
 Production considerations:
 
@@ -55,7 +55,7 @@ Production considerations:
 
 ### SQLite
 
-SQLite allows one writer. Korm defaults `poolSize` to 1 for SQLite.
+SQLite allows one writer. Kormium defaults `poolSize` to 1 for SQLite.
 
 Production considerations:
 
@@ -87,7 +87,7 @@ Reusable helpers should extend `Scope<G>` or `SuspendScope<G>`.
 
 ## Migrations
 
-Korm migrations are idempotent by ID. Production still needs process discipline.
+Kormium migrations are idempotent by ID. Production still needs process discipline.
 
 Recommendations:
 
@@ -105,7 +105,7 @@ Open production hardening item:
 
 ## Error Handling
 
-At application boundaries, catch Korm exceptions and map them to domain errors:
+At application boundaries, catch Kormium exceptions and map them to domain errors:
 
 ```kotlin
 try {
@@ -117,13 +117,13 @@ try {
 }
 ```
 
-For Ktor, `KormException.httpStatusCode()` gives a baseline HTTP mapping. Most production
+For Ktor, `KormiumException.httpStatusCode()` gives a baseline HTTP mapping. Most production
 services should still translate database errors into application-specific response bodies.
 
 ## Observability
 
 A `WriteListener` commit hook (`db.writeListeners`) is available for write notification —
-cache invalidation, audit, metrics on commit — and backs reactive `korm-observe` queries.
+cache invalidation, audit, metrics on commit — and backs reactive `kormium-observe` queries.
 For timing/pool metrics, which are not yet built in:
 
 - wrap repository/service calls with timers;
@@ -150,17 +150,17 @@ applications.
 
 ## Release Discipline
 
-For applications using Korm pre-1.0:
+For applications using Kormium pre-1.0:
 
-- read the Korm changelog before upgrades;
+- read the Kormium changelog before upgrades;
 - upgrade in small steps;
 - run migrations in staging;
 - run focused integration tests for every backend you use;
 - avoid unreviewed dependency bumps in persistence code.
 
-## When Korm Becomes Recommendable
+## When Kormium Becomes Recommendable
 
-For broad production recommendation, Korm should have:
+For broad production recommendation, Kormium should have:
 
 - documented API stability policy;
 - compatibility matrix by version;

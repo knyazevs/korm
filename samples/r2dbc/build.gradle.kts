@@ -15,7 +15,7 @@ repositories {
 
 val ktorVersion = "3.5.0"
 
-// JVM-only: r2dbc (and korm-r2dbc) are JVM-only, so this sample has no native target.
+// JVM-only: r2dbc (and kormium-r2dbc) are JVM-only, so this sample has no native target.
 kotlin {
     jvmToolchain(21)
     jvm {
@@ -39,10 +39,10 @@ kotlin {
                 implementation("org.slf4j:slf4j-simple:2.0.16")
 
                 // The async (non-blocking) Postgres backend...
-                implementation(project(":korm-r2dbc"))
+                implementation(project(":kormium-r2dbc"))
                 // ...used through the SAME ktor-di helpers as the blocking sample — the routes
                 // are identical; only the registered driver differs.
-                implementation(project(":korm-ktor-di"))
+                implementation(project(":kormium-ktor-di"))
             }
         }
         val jvmTest by getting {

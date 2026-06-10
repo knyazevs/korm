@@ -62,9 +62,9 @@ private fun account(id: Int, owner: String) = Account().apply { this.id = id; th
 
 fun main() {
     // Two shards for AccountsCatalog, each its OWN database. They must be distinct files:
-    // korm opens ":memory:" in shared-cache mode, so two ":memory:" handles would be the same
+    // Kormium opens ":memory:" in shared-cache mode, so two ":memory:" handles would be the same
     // database — not two shards. AuditCatalog is a separate (in-memory) database.
-    val shardPaths = List(2) { Path(SystemTemporaryDirectory, "korm-shard-$it.db") }
+    val shardPaths = List(2) { Path(SystemTemporaryDirectory, "kormium-shard-$it.db") }
     val shards: List<Database<AccountsCatalog>> = shardPaths.map { createSqliteDatabase(it.toString()) }
     val auditDb: Database<AuditCatalog> = createSqliteDatabase()
 
@@ -96,6 +96,6 @@ fun main() {
     }
 }
 
-// Schema owned by the app, not Korm.
+// Schema owned by the app, not Kormium.
 internal val accountsDdl = """CREATE TABLE IF NOT EXISTS "accounts" ("id" INTEGER NOT NULL, "owner" TEXT NOT NULL, PRIMARY KEY ("id"))"""
 internal val auditDdl = """CREATE TABLE IF NOT EXISTS "audit" ("id" INTEGER NOT NULL, "message" TEXT NOT NULL, PRIMARY KEY ("id"))"""

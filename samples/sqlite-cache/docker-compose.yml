@@ -5,7 +5,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: korm-sqlite-cache-postgres
+    container_name: kormium-sqlite-cache-postgres
     environment:
       POSTGRES_PASSWORD: password
     ports:

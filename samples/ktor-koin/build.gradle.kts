@@ -55,9 +55,9 @@ kotlin {
                 implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
-                implementation(project(":korm-postgres"))
+                implementation(project(":kormium-postgres"))
                 // Reified call.transaction(Catalog){} resolving Database<G> from Koin.
-                implementation(project(":korm-ktor-koin"))
+                implementation(project(":kormium-ktor-koin"))
             }
         }
         val commonTest by getting {

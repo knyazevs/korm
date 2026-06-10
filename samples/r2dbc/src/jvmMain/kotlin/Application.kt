@@ -2,7 +2,7 @@
 
 package io.github.kormium.samples.r2dbc
 
-import io.github.kormium.KormException
+import io.github.kormium.KormiumException
 import io.github.kormium.Query
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.eq
@@ -28,7 +28,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * The same korm + Ktor wiring as the `ktor-di` sample, but backed by the ASYNC r2dbc driver
+ * The same Kormium + Ktor wiring as the `ktor-di` sample, but backed by the ASYNC r2dbc driver
  * instead of blocking JDBC. The only difference is the registered dependency:
  *
  *     provide<SuspendDatabase<AppCatalog>> { createR2dbcDatabase(...) }
@@ -56,7 +56,7 @@ fun Application.module() {
 fun Application.configure() {
     install(ContentNegotiation) { json() }
     install(StatusPages) {
-        exception<KormException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
+        exception<KormiumException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
     }
 
     routing {

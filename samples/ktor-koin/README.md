@@ -1,7 +1,7 @@
 # Sample: ktor-koin
 
 The same Ktor web CRUD over **Postgres** as [ktor-di](../ktor-di), but the database is wired
-through **Koin** instead of Ktor's built-in DI — i.e. the `korm-ktor-koin` artifact:
+through **Koin** instead of Ktor's built-in DI — i.e. the `kormium-ktor-koin` artifact:
 
 - `install(Koin) { modules(module { single<Database<AppCatalog>> { createDatabase(...) } }) }`,
   with `onClose { it?.close() }` to close the pool when Koin shuts down with the application

@@ -3,7 +3,7 @@
 A standalone console app — **no server, no external database** — over **SQLite**, running the
 same `commonMain` code on JVM and Kotlin/Native.
 
-Korm intentionally does **not** ship a `Repository` type (like Exposed, you call table operations
+Kormium intentionally does **not** ship a `Repository` type (like Exposed, you call table operations
 inside `suspendTransaction { }` / `suspendAutocommit { }`). This sample shows the recommended
 pattern when you want a Room-style "home" for a table's queries: a small `Repository<G, T>` base
 ([`Repository.kt`](src/commonMain/kotlin/Repository.kt)) that you **copy into your project** and
@@ -12,7 +12,7 @@ adapt — it is ~25 lines and yours to change.
 Shows:
 - a copyable `Repository` base with `findById` / `all` / `insert` / `deleteWhere` and `observeAll()`;
 - a subclass (`UserRepository`) adding a custom query (`adults()`) and a reactive
-  `observeAdults(): Flow<List<User>>` via `korm-observe`;
+  `observeAdults(): Flow<List<User>>` via `kormium-observe`;
 - a cross-repository **transaction** (`ShopService.register`) wrapping two writes in one
   `suspendTransaction { }` so they commit atomically.
 

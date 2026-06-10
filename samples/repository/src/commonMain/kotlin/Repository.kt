@@ -12,7 +12,7 @@ import io.github.kormium.suspendTransaction
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Korm intentionally does NOT ship a Repository type — like Exposed, you call table operations
+ * Kormium intentionally does NOT ship a Repository type — like Exposed, you call table operations
  * inside `suspendTransaction { }` / `suspendAutocommit { }`. This little base is the recommended
  * pattern when you want a Room-style "home" for a table's queries; copy it into your project and
  * adapt it. It is ~25 lines and yours to change.

@@ -1,6 +1,6 @@
 # Transactions and Migrations
 
-Korm table operations run inside a scope. A scope pins one connection and provides the
+Kormium table operations run inside a scope. A scope pins one connection and provides the
 executor used by table, query and migration operations.
 
 ## Blocking Scopes
@@ -16,7 +16,7 @@ val users = db.autocommit {
 ```
 
 - `transaction { }` opens one transaction and commits on success.
-- If the block throws, Korm rolls the transaction back and rethrows.
+- If the block throws, Kormium rolls the transaction back and rethrows.
 - `autocommit { }` pins a connection but does not wrap the block in an explicit
   transaction.
 
@@ -35,7 +35,7 @@ db.transaction {
 }
 ```
 
-If the savepoint block throws, Korm rolls back to that savepoint. The enclosing transaction
+If the savepoint block throws, Kormium rolls back to that savepoint. The enclosing transaction
 can continue if you catch the exception.
 
 ## Transactional Helpers
@@ -93,7 +93,7 @@ suspend fun handler() {
 }
 ```
 
-For `korm-postgres` and `korm-sqlite`, suspend work is offloaded from the caller:
+For `kormium-postgres` and `kormium-sqlite`, suspend work is offloaded from the caller:
 
 - on JVM, to a virtual-thread dispatcher;
 - on Native, to `Dispatchers.Default`.
@@ -102,7 +102,7 @@ This keeps coroutine workers free, but the underlying driver is still blocking.
 
 ## True Async PostgreSQL
 
-`korm-r2dbc` implements `SuspendDatabase<G>` only. There is no blocking `Database<G>` API
+`kormium-r2dbc` implements `SuspendDatabase<G>` only. There is no blocking `Database<G>` API
 because r2dbc is non-blocking.
 
 ```kotlin
@@ -126,15 +126,15 @@ applications, a normal connection pool plus virtual-thread offload is simpler an
 
 ## Migrations
 
-Migrations live in the separate **`korm-migrate`** module (Korm core does not own schema). Add
+Migrations live in the separate **`kormium-migrate`** module (Kormium core does not own schema). Add
 the dependency and import from `io.github.kormium.migrate`:
 
 ```kotlin
 // build.gradle.kts
-implementation("io.github.kormium:korm-migrate")
+implementation("io.github.kormium:kormium-migrate")
 ```
 
-A migration is **raw SQL** with a stable `id` and is bound to a catalog. Korm does not generate
+A migration is **raw SQL** with a stable `id` and is bound to a catalog. Kormium does not generate
 DDL, so the SQL is intentionally backend-specific — write it for the database you target. A
 single SQL string is split into statements on top-level `;` (quoted strings/identifiers,
 `--` / `/* */` comments and Postgres `$tag$…$tag$` bodies are respected):
@@ -158,7 +158,7 @@ statements explicitly: `Migration("002-fn", listOf(stmtA, stmtB))`.
 
 What the runner guarantees:
 
-- **Ordered & idempotent.** Applied ids are recorded in `korm_migrations` (with the SQL
+- **Ordered & idempotent.** Applied ids are recorded in `kormium_migrations` (with the SQL
   checksum, an `applied_at` timestamp and the apply order); only missing migrations run, so
   calling `migrate(...)` on every startup is safe.
 - **Checksum validation.** If an already-applied migration's SQL is later edited, `migrate`
@@ -185,7 +185,7 @@ val db: Database<App> = createDatabase(host = "…", database = "…", user = "�
 
 ## Error Handling
 
-Backend errors are normalized to Korm exceptions where possible.
+Backend errors are normalized to Kormium exceptions where possible.
 
 ```kotlin
 try {

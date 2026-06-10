@@ -1,6 +1,6 @@
-# Korm Documentation
+# Kormium Documentation
 
-This directory is the long-form documentation for Korm. The root [README](../readme.md)
+This directory is the long-form documentation for Kormium. The root [README](../readme.md)
 is intentionally short; the deeper material lives here.
 
 ## Reading Path
@@ -28,25 +28,25 @@ is intentionally short; the deeper material lives here.
 
 ## API Surface
 
-Korm is split into small artifacts:
+Kormium is split into small artifacts:
 
 | Module | Purpose |
 | --- | --- |
-| `korm-bom` | Bill of Materials for version alignment |
-| `korm-core` | Backend-agnostic DSL, scopes and transactions |
-| `korm-postgres` | PostgreSQL dialect and drivers: JDBC/HikariCP on JVM, libpq on Native |
-| `korm-sqlite` | SQLite dialect and drivers: sqlite-jdbc, sqlite3 and AndroidX SQLite |
-| `korm-r2dbc` | True async PostgreSQL on JVM, suspend API only |
-| `korm-observe` | Reactive `Flow` queries that re-emit when watched tables change |
-| `korm-migrate` | Ordered, idempotent raw-SQL migration runner with a recorded journal |
-| `korm-jdbc` | Internal/shared JVM JDBC plumbing used by JVM drivers |
-| `korm-ktor` | Ktor helpers without a DI dependency |
-| `korm-ktor-di` | Ktor built-in DI integration |
-| `korm-ktor-koin` | Koin integration for Ktor |
+| `kormium-bom` | Bill of Materials for version alignment |
+| `kormium-core` | Backend-agnostic DSL, scopes and transactions |
+| `kormium-postgres` | PostgreSQL dialect and drivers: JDBC/HikariCP on JVM, libpq on Native |
+| `kormium-sqlite` | SQLite dialect and drivers: sqlite-jdbc, sqlite3 and AndroidX SQLite |
+| `kormium-r2dbc` | True async PostgreSQL on JVM, suspend API only |
+| `kormium-observe` | Reactive `Flow` queries that re-emit when watched tables change |
+| `kormium-migrate` | Ordered, idempotent raw-SQL migration runner with a recorded journal |
+| `kormium-jdbc` | Internal/shared JVM JDBC plumbing used by JVM drivers |
+| `kormium-ktor` | Ktor helpers without a DI dependency |
+| `kormium-ktor-di` | Ktor built-in DI integration |
+| `kormium-ktor-koin` | Koin integration for Ktor |
 
 ## Current Status
 
-Korm is pre-1.0. The API is already useful and tested, but not frozen. Documentation should
+Kormium is pre-1.0. The API is already useful and tested, but not frozen. Documentation should
 prefer honest precision over marketing claims: describe what is shipped, what is tested in
 CI and what is planned separately.
 

@@ -1,12 +1,12 @@
-# Korm
+# Kormium
 
 [![CI](https://github.com/kormium/kormium/actions/workflows/ci.yml/badge.svg)](https://github.com/kormium/kormium/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.kormium/korm-core.svg)](https://central.sonatype.com/search?q=g%3Aio.github.kormium)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.kormium/kormium-core.svg)](https://central.sonatype.com/search?q=g%3Aio.github.kormium)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Type-safe ORM and SQL DSL for Kotlin Multiplatform.
 
-Korm gives you an Exposed-like Kotlin API for tables, entities, typed predicates,
+Kormium gives you an Exposed-like Kotlin API for tables, entities, typed predicates,
 transactions, migrations, joins and aggregations, while keeping the core portable across
 JVM and Kotlin/Native. It ships PostgreSQL, SQLite, async r2dbc PostgreSQL and Ktor
 integration modules.
@@ -42,7 +42,7 @@ val adults = db.autocommit {
 }
 ```
 
-## Why Korm?
+## Why Kormium?
 
 - **Multiplatform core.** Write tables, entities, queries and migrations once; run them
   on JVM and Kotlin/Native backends.
@@ -57,14 +57,14 @@ val adults = db.autocommit {
   r2dbc gives a true async PostgreSQL option on JVM.
 - **SQLite for apps, tests and caches.** JVM uses sqlite-jdbc, Native uses sqlite3
   cinterop, Android uses AndroidX SQLite.
-- **Reactive queries.** `korm-observe` turns a query into a `Flow` that re-emits when the
+- **Reactive queries.** `kormium-observe` turns a query into a `Flow` that re-emits when the
   tables it reads change — for Compose Multiplatform and Android UIs.
 - **Server integration.** Ktor helpers are split into DI-agnostic, Ktor DI and Koin
   artifacts.
 
 ## Status
 
-Korm is **pre-1.0**. The public API is usable and tested, but still allowed to change.
+Kormium is **pre-1.0**. The public API is usable and tested, but still allowed to change.
 It is a good fit for experiments, internal tools, prototypes, benchmarks and feedback.
 Do not make it the only persistence layer for critical production systems yet.
 
@@ -72,23 +72,23 @@ Requires **JDK 21+** for JVM builds. The JVM suspend offload path uses virtual t
 
 ## Install
 
-Korm is published to Maven Central under `io.github.kormium`.
+Kormium is published to Maven Central under `io.github.kormium`.
 
 ```kotlin
 dependencies {
-    implementation(platform("io.github.kormium:korm-bom:<version>"))
+    implementation(platform("io.github.kormium:kormium-bom:<version>"))
 
-    implementation("io.github.kormium:korm-postgres") // PostgreSQL, JVM + Native
-    // implementation("io.github.kormium:korm-sqlite")   // SQLite, JVM + Native + Android
-    // implementation("io.github.kormium:korm-r2dbc")    // async PostgreSQL, JVM only
+    implementation("io.github.kormium:kormium-postgres") // PostgreSQL, JVM + Native
+    // implementation("io.github.kormium:kormium-sqlite")   // SQLite, JVM + Native + Android
+    // implementation("io.github.kormium:kormium-r2dbc")    // async PostgreSQL, JVM only
 
-    // implementation("io.github.kormium:korm-observe")  // reactive Flow queries
-    // implementation("io.github.kormium:korm-migrate")  // SQL migration runner
+    // implementation("io.github.kormium:kormium-observe")  // reactive Flow queries
+    // implementation("io.github.kormium:kormium-migrate")  // SQL migration runner
 
     // optional Ktor integration
-    // implementation("io.github.kormium:korm-ktor")
-    // implementation("io.github.kormium:korm-ktor-di")
-    // implementation("io.github.kormium:korm-ktor-koin")
+    // implementation("io.github.kormium:kormium-ktor")
+    // implementation("io.github.kormium:kormium-ktor-di")
+    // implementation("io.github.kormium:kormium-ktor-koin")
 }
 ```
 
@@ -121,14 +121,14 @@ module details.
 | JVM | JDBC/HikariCP; async r2dbc | sqlite-jdbc | Main server target |
 | Linux Native | libpq | sqlite3 | Covered by CI native tests |
 | macOS Native | libpq | sqlite3 | Published artifacts for x64 and arm64 |
-| Android | Not shipped | AndroidX SQLite | `korm-core` and `korm-sqlite` compile for Android |
-| iOS | Not shipped | sqlite3 | `korm-core`, `korm-sqlite` and Ktor integration compile for iOS |
+| Android | Not shipped | AndroidX SQLite | `kormium-core` and `kormium-sqlite` compile for Android |
+| iOS | Not shipped | sqlite3 | `kormium-core`, `kormium-sqlite` and Ktor integration compile for iOS |
 | Windows Native | Planned | Planned | mingw targets are deferred |
 | Wasm | Research | Planned | No shipped backend yet |
 
 ## Minimal Workflow
 
-Korm does not own schema management — create tables with raw SQL or a migration tool.
+Kormium does not own schema management — create tables with raw SQL or a migration tool.
 
 ```kotlin
 db.transaction {
@@ -170,4 +170,4 @@ See [Samples and benchmarks](docs/project.md#samples).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

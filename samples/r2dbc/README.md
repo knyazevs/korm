@@ -1,7 +1,7 @@
 # r2dbc sample
 
-A Ktor CRUD service backed by the **async, non-blocking** Postgres driver (`korm-r2dbc`,
-r2dbc-postgresql) — and wired through the **same** `korm-ktor-di` helpers as the blocking
+A Ktor CRUD service backed by the **async, non-blocking** Postgres driver (`kormium-r2dbc`,
+r2dbc-postgresql) — and wired through the **same** `kormium-ktor-di` helpers as the blocking
 [ktor-di](../ktor-di) sample.
 
 The point of this sample is the diff against `ktor-di`: it's a single line.

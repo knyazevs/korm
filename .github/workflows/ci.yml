@@ -37,27 +37,27 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # JVM unit tests. korm-sqlite runs against an in-memory database (no Docker); it covers
+      # JVM unit tests. kormium-sqlite runs against an in-memory database (no Docker); it covers
       # both the blocking and the suspend (offload) paths.
       - name: JVM tests
-        run: ./gradlew :korm-core:jvmTest :korm-sqlite:jvmTest :korm-migrate:jvmTest --console=plain
+        run: ./gradlew :kormium-core:jvmTest :kormium-sqlite:jvmTest :kormium-migrate:jvmTest --console=plain
 
       # Native (libpq) tests against the Postgres service above. The host native test task
       # on a Linux runner is linuxX64Test (the modules now declare real native targets).
-      # korm-sqlite's native tests use an in-memory database (no Postgres needed).
+      # kormium-sqlite's native tests use an in-memory database (no Postgres needed).
       - name: Native tests
         env:
-          KORM_DB_HOST: localhost
-          KORM_DB_PORT: "5432"
-          KORM_DB_NAME: postgres
-          KORM_DB_USER: postgres
-          KORM_DB_PASSWORD: password
-        run: ./gradlew :korm-core:linuxX64Test :korm-postgres:linuxX64Test :korm-sqlite:linuxX64Test :korm-migrate:linuxX64Test --console=plain
+          KORMIUM_DB_HOST: localhost
+          KORMIUM_DB_PORT: "5432"
+          KORMIUM_DB_NAME: postgres
+          KORMIUM_DB_USER: postgres
+          KORMIUM_DB_PASSWORD: password
+        run: ./gradlew :kormium-core:linuxX64Test :kormium-postgres:linuxX64Test :kormium-sqlite:linuxX64Test :kormium-migrate:linuxX64Test --console=plain
 
       # The ktor integration libraries are libraries (no native exe link), so assemble
       # builds their JVM + native artifacts to verify they compile on every target.
       - name: Build ktor integration modules
-        run: ./gradlew :korm-ktor:assemble :korm-ktor-di:assemble :korm-ktor-koin:assemble --console=plain
+        run: ./gradlew :kormium-ktor:assemble :kormium-ktor-di:assemble :kormium-ktor-koin:assemble --console=plain
 
       # Self-contained SQLite samples — tests run on both JVM and native (no Docker needed).
       # The samples still use a single host-named native target, so their task is `nativeTest`.
@@ -72,7 +72,7 @@ jobs:
       # Async r2dbc backend (JVM-only) — end-to-end tests spin up their own Postgres via
       # Testcontainers.
       - name: r2dbc tests (Testcontainers, JVM)
-        run: ./gradlew :korm-r2dbc:jvmTest --console=plain
+        run: ./gradlew :kormium-r2dbc:jvmTest --console=plain
 
       # Postgres samples — JVM end-to-end tests spin up their own Postgres via Testcontainers.
       # samples:r2dbc is the async variant of ktor-di.
@@ -94,7 +94,7 @@ jobs:
   # Compose Multiplatform targets (androidTarget + iosX64/iosArm64/iosSimulatorArm64).
   # iOS klibs only compile on a macOS host; the macos-latest runner also ships the Android
   # SDK, so it covers both. The unqualified task names run in every module that declares
-  # them — i.e. korm-core, korm-sqlite and the three korm-ktor* modules.
+  # them — i.e. kormium-core, kormium-sqlite and the three kormium-ktor* modules.
   mobile:
     runs-on: macos-latest
     steps:

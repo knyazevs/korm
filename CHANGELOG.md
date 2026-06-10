@@ -1,19 +1,35 @@
 # Changelog
 
-All notable changes to korm are documented here. The format is based on
+All notable changes to Kormium are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] — Rebrand to kormium
 
 ### Changed
-- **Migrations moved out of `korm-core` into a new `korm-migrate` module** (breaking). Core does
+- **All published artifacts renamed `korm-*` → `kormium-*`** (breaking — Maven coordinates change).
+  Update dependencies from `io.github.kormium:korm-core` to `io.github.kormium:kormium-core` (likewise
+  `-postgres`, `-sqlite`, `-r2dbc`, `-jdbc`, `-migrate`, `-observe`, `-ktor`, `-ktor-di`, `-ktor-koin`,
+  `-bom`). Gradle project paths become `:kormium-*`. The Maven **group** stays `io.github.kormium`.
+- **Public API identifiers renamed `Korm*` → `Kormium*`** (breaking): `KormConfig` → `KormiumConfig`,
+  `KormConfigBuilder` → `KormiumConfigBuilder`, `KormBuilder` → `KormiumBuilder`, `KormException` →
+  `KormiumException`, `KormHandle` → `KormiumHandle`, and the `KormUuid` / `KormId` / `KormBigDecimal`
+  column types → `Kormium*`. In `kormium-ktor` the lifecycle plugin `Korm` → `Kormium`
+  (`install(Kormium) { ... }`) and the `ApplicationCall.korm()` helper → `kormium()`.
+- **Migration journal table renamed `korm_migrations` → `kormium_migrations`** (breaking for existing
+  databases — the new table starts empty, so prior migrations re-apply; since 0.x is unpublished, drop
+  any throwaway dev database).
+- **License changed from MIT to Apache License 2.0** — adds an explicit patent grant and aligns with
+  the Kotlin / Exposed ecosystem. See `LICENSE` and the new `NOTICE`.
+- **Migrations moved out of `kormium-core` into a new `kormium-migrate` module** (breaking). Core does
   not own schema, so the migration runner is now opt-in. `io.github.kormium.Migration` / `migrate`
-  become `io.github.kormium.migrate.{Migration, migrate}`; add the `korm-migrate` dependency and
+  become `io.github.kormium.migrate.{Migration, migrate}`; add the `kormium-migrate` dependency and
   update imports. They still run the same way via `beforeStart { migrate(appMigrations) }`.
 
 ### Added
-- **`korm-migrate`** module: an ordered, idempotent **raw-SQL** migration runner.
+- **Per-module `README.md`** for every published artifact (purpose, Maven coordinates, usage example,
+  platforms), linked from `docs/installation.md`.
+- **`kormium-migrate`** module: an ordered, idempotent **raw-SQL** migration runner.
   - `Migration(id, sql)` takes raw SQL split into statements on top-level `;` (quoted
     strings/identifiers, `--` / `/* */` comments and Postgres `$tag$…$tag$` bodies respected), or
     `Migration(id, statements)` for explicit statements.
@@ -24,37 +40,37 @@ All notable changes to korm are documented here. The format is based on
     double-apply (all-or-nothing — a failed batch records nothing). SQLite has no advisory lock, so
     concurrent cross-process migration is not fully serialized, but the journal primary key plus the
     all-or-nothing rule out double-application (prefer migrating SQLite from one process).
-  - The `korm_migrations` journal now also records the SQL `checksum`, an `applied_at` timestamp
+  - The `kormium_migrations` journal now also records the SQL `checksum`, an `applied_at` timestamp
     and the apply-order index.
 - **`Dialect.advisoryLockSql(key)`** (defaults to `null`): a backend exposes advisory-lock SQL for
   the migration runner; `PostgresDialect` returns `pg_advisory_xact_lock`.
 
 ### Migration notes
 - The previous `up: Scope.() -> Unit` lambda form is removed — migrations are raw SQL now. Move
-  any seed/data logic that used Korm operations into application startup or an explicit-statement
+  any seed/data logic that used Kormium operations into application startup or an explicit-statement
   migration.
-- The `korm_migrations` journal gained columns; since 0.x is unpublished, drop any throwaway dev
+- The `kormium_migrations` journal gained columns; since 0.x is unpublished, drop any throwaway dev
   journal so it is recreated with the new schema.
 
 ## [0.3.0] — Reactive queries
 
 ### Added
-- **`korm-observe`** module: reactive `Flow` queries. `Table.observe(db) { where { … } }`
+- **`kormium-observe`** module: reactive `Flow` queries. `Table.observe(db) { where { … } }`
   emits the result now and re-emits after every committed write to the table; a generic
   `SuspendDatabase.observe(tables) { … }` covers joins and custom fetches. Writes are
   conflated. See [Observing changes](docs/observe.md).
 - **`WriteListener` commit hook** on `Database` / `SuspendDatabase`
   (`db.writeListeners.add { tables -> … }`): notified, after commit, with the set of tables a
   scope wrote. A generic seam (also usable for cache invalidation, audit, metrics) that backs
-  `korm-observe`.
+  `kormium-observe`.
 - **`invalidates` argument** on the raw `Scope.execute` / `executeUpdate` (and suspend
   counterparts): declare the tables a raw statement writes so observers are notified — the
   analog of Room's `@RawQuery(observedEntities = …)`.
 - **`createX { }` configuration builders.** `createSqliteDatabase("app.db") { config { … };
   beforeStart { … } }` and the same for `createDatabase(...)` (PostgreSQL). `config { }` is a
-  mutable view of `KormConfig`; `beforeStart { }` runs once before the database is returned —
+  mutable view of `KormiumConfig`; `beforeStart { }` runs once before the database is returned —
   the place to run migrations (your own package, or Flyway/Liquibase), which the builder does
-  not own. The existing `config: KormConfig` factory overloads are unchanged.
+  not own. The existing `config: KormiumConfig` factory overloads are unchanged.
 - **Open column-type system.** Column types are now an extensible `ColumnType<T>` interface
   instead of a fixed list. New built-ins `Column.enum<E>()` (enum by name) and
   `Column.json<T>()` (`@Serializable` value as JSON), a `ColumnType<S>.convert(to, from)`
@@ -67,7 +83,7 @@ All notable changes to korm are documented here. The format is based on
   `Column.ColumnNameEnum` is removed and `TypeMapper.fromResult(...)` is gone (reading is now
   `ColumnType.read`); `Column.columnType` is a `ColumnType<Z>`. Ordinary table/query/insert
   code is unaffected and behaves identically — only custom `TypeMapper`s or code referencing
-  `ColumnNameEnum` need migration (nothing in Korm itself did).
+  `ColumnNameEnum` need migration (nothing in Kormium itself did).
 - **Breaking: `Database` no longer extends `SqlExecutor`.** The pooled, scope-less
   `db.execute(...)` / `db.executeUpdate(...)` is removed — run one-off statements through a
   scope instead: `db.autocommit { execute(...) }`. This makes every write transactional and
@@ -76,7 +92,7 @@ All notable changes to korm are documented here. The format is based on
 
 ## [0.2.0] — API redesign
 
-A breaking redesign of the core API. Korm now models runtime query/insert/update mapping
+A breaking redesign of the core API. Kormium now models runtime query/insert/update mapping
 only — schema ownership moves out to migrations / raw SQL. (Pre-1.0, so breaking changes
 bump the minor version.)
 
@@ -91,7 +107,7 @@ bump the minor version.)
 - **`upsert(entity, onConflict, update, returning)`** and **`insertOrIgnore(entity,
   onConflict)`** for single- and composite-column conflict targets, rendered cross-dialect
   as `ON CONFLICT … DO UPDATE` / `DO NOTHING`.
-- **Per-database `KormConfig`** (with `batchInsertMode`), threaded through
+- **Per-database `KormiumConfig`** (with `batchInsertMode`), threaded through
   `createDatabase` / `createSqliteDatabase` / `createR2dbcDatabase` and carried on the
   `Database` / `SuspendDatabase` handle.
 - **Batch insert modes** for `insertAll`: `Strict`, `GroupByAssignedFields` (default,
@@ -120,7 +136,7 @@ bump the minor version.)
 ### Removed
 - **`createTable()` / `dropTable()`** (from `Scope` / `SuspendScope`), the
   `createTableSql` / `dropTableSql` builders on `Table`, and `Dialect.sqlType` (with its
-  `PostgresDialect` / `SqliteDialect` overrides). Korm no longer owns schema DDL — create
+  `PostgresDialect` / `SqliteDialect` overrides). Kormium no longer owns schema DDL — create
   schema via raw `CREATE TABLE` (`execSql` / `executeUpdate`) or a migration tool
   (Flyway, Liquibase, …).
 
@@ -134,9 +150,9 @@ First release published to Maven Central (group `io.github.kormium`), with artif
 for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
 
 ### Added
-- **Kotlin Multiplatform ORM** with a backend-agnostic core (`korm-core`) and pluggable
-  backends: **PostgreSQL** (`korm-postgres`, JVM via JDBC/HikariCP + Native via libpq) and
-  **SQLite** (`korm-sqlite`, JVM via sqlite-jdbc + Native via the sqlite3 cinterop).
+- **Kotlin Multiplatform ORM** with a backend-agnostic core (`kormium-core`) and pluggable
+  backends: **PostgreSQL** (`kormium-postgres`, JVM via JDBC/HikariCP + Native via libpq) and
+  **SQLite** (`kormium-sqlite`, JVM via sqlite-jdbc + Native via the sqlite3 cinterop).
 - Compile-time database↔table safety via `Catalog` tags and `Database<G>`; sharding by
   holding many `Database<G>` instances.
 - Transactions and scopes: `transaction { }` / `autocommit { }` (+ `suspend` variants),
@@ -146,14 +162,14 @@ for **JVM** and **Kotlin/Native** (`linuxX64`, `macosX64`, `macosArm64`).
 - Schema + idempotent migrations: `createTable()`/`dropTable()`, `Database.migrate(...)`.
 - 14 column types (incl. `Long`, `Float`, `Short`, `LocalDate`/`LocalTime`/`LocalDateTime`),
   primary-key abstraction, `INSERT … RETURNING` (opt-in), batch insert, `count()`.
-- Ktor server integration split per DI framework: `korm-ktor` (DI-agnostic),
-  `korm-ktor-di` (Ktor built-in DI), `korm-ktor-koin` (Koin).
-- `korm-bom` Bill of Materials pinning all artifact versions.
+- Ktor server integration split per DI framework: `kormium-ktor` (DI-agnostic),
+  `kormium-ktor-di` (Ktor built-in DI), `kormium-ktor-koin` (Koin).
+- `kormium-bom` Bill of Materials pinning all artifact versions.
 
 ### Changed
-- Module layout unified under the `korm-` prefix: `core` → `korm-core`; the former `pg`
+- Module layout unified under the `kormium-` prefix: `core` → `kormium-core`; the former `pg`
   (Postgres dialect/driver interface) and `pgkn` (native libpq driver) modules were folded
-  into `korm-postgres` (commonMain + nativeMain respectively).
+  into `kormium-postgres` (commonMain + nativeMain respectively).
 - Publishing moved from the retired OSSRH endpoint to the **Maven Central Portal**, driven
   by the `com.vanniktech.maven.publish` plugin.
 

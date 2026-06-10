@@ -100,7 +100,7 @@ user.deletedAt = null // present; written as SQL NULL
 user.unset(Users.deletedAt) // absent; omitted again
 ```
 
-This lets database defaults and generated columns work without Korm modeling schema
+This lets database defaults and generated columns work without Kormium modeling schema
 defaults.
 
 ## Upsert

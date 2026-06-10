@@ -1,11 +1,11 @@
 # Design
 
-This page explains the internal shape of Korm so contributors can reason about changes
+This page explains the internal shape of Kormium so contributors can reason about changes
 without first reading every module.
 
 ## Design Goals
 
-Korm optimizes for:
+Kormium optimizes for:
 
 - a type-safe Kotlin API that still maps clearly to SQL;
 - shared table/query definitions across JVM and Kotlin/Native;
@@ -20,13 +20,13 @@ transactions and indexes.
 
 | Module | Responsibility |
 | --- | --- |
-| `korm-core` | DSL, table/entity model, query rendering contracts, scopes and migrations |
-| `korm-postgres` | PostgreSQL dialect and backend factories for JDBC/libpq |
-| `korm-sqlite` | SQLite dialect and backend factories for sqlite-jdbc/sqlite3/AndroidX SQLite |
-| `korm-r2dbc` | Async PostgreSQL `SuspendDatabase` implementation |
-| `korm-observe` | Reactive `Flow` queries over core's `WriteListener` commit hook |
-| `korm-jdbc` | Shared JVM JDBC execution, pooling and named parameter binding |
-| `korm-ktor*` | Server integration over the suspend API |
+| `kormium-core` | DSL, table/entity model, query rendering contracts, scopes and migrations |
+| `kormium-postgres` | PostgreSQL dialect and backend factories for JDBC/libpq |
+| `kormium-sqlite` | SQLite dialect and backend factories for sqlite-jdbc/sqlite3/AndroidX SQLite |
+| `kormium-r2dbc` | Async PostgreSQL `SuspendDatabase` implementation |
+| `kormium-observe` | Reactive `Flow` queries over core's `WriteListener` commit hook |
+| `kormium-jdbc` | Shared JVM JDBC execution, pooling and named parameter binding |
+| `kormium-ktor*` | Server integration over the suspend API |
 
 The core module cannot depend on a concrete backend. Backends depend on core and provide
 execution.
@@ -81,13 +81,13 @@ placeholder on the right.
 `TypeMapper` converts values:
 
 - `toParameter` maps Kotlin values to the driver's parameter representation;
-- `fromResult` maps a result-set column back into the Kotlin type for a Korm column.
+- `fromResult` maps a result-set column back into the Kotlin type for a Kormium column.
 
 The rule is simple: identifiers are rendered by the dialect, values are bound as parameters.
 
 ## Execution Surfaces
 
-Korm has two sibling database interfaces:
+Kormium has two sibling database interfaces:
 
 ```kotlin
 interface Database<out G : Catalog>
@@ -154,7 +154,7 @@ Each migration:
 
 - has a stable ID;
 - runs only once;
-- is recorded in `korm_migrations`;
+- is recorded in `kormium_migrations`;
 - runs inside its own transaction.
 
 ## Adding a Backend

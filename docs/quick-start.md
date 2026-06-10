@@ -60,7 +60,7 @@ catalog-agnostic.
 
 ## 4. Create the Table
 
-Korm maps queries and rows; it does not own schema management. Create tables with raw
+Kormium maps queries and rows; it does not own schema management. Create tables with raw
 SQL (or a migration tool / `Database.migrate`):
 
 ```kotlin

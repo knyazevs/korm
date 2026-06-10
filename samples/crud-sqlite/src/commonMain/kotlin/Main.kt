@@ -36,7 +36,7 @@ fun main() {
     // ":memory:" needs no files; pass a path (e.g. "shop.db") to persist instead.
     val db: Database<Shop> = createSqliteDatabase()
     db.use {
-        // Migrations are idempotent and recorded in korm_migrations — safe to run on every start.
+        // Migrations are idempotent and recorded in kormium_migrations — safe to run on every start.
         db.migrate(
             listOf(
                 Migration("001-create-users", usersDdl),
@@ -61,5 +61,5 @@ fun main() {
     }
 }
 
-// Schema is owned by the app (raw SQL / migrations), not Korm.
+// Schema is owned by the app (raw SQL / migrations), not Kormium.
 internal val usersDdl = """CREATE TABLE IF NOT EXISTS "users" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, "age" INTEGER NOT NULL, PRIMARY KEY ("id"))"""

@@ -10,12 +10,12 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
 }
 
-rootProject.name = "korm"
-include("korm-core", "korm-postgres", "korm-jdbc", "korm-sqlite", "korm-r2dbc", "benchmarks")
-include("korm-observe")
-include("korm-migrate")
-include("korm-ktor", "korm-ktor-di", "korm-ktor-koin")
-include("korm-bom")
+rootProject.name = "kormium"
+include("kormium-core", "kormium-postgres", "kormium-jdbc", "kormium-sqlite", "kormium-r2dbc", "benchmarks")
+include("kormium-observe")
+include("kormium-migrate")
+include("kormium-ktor", "kormium-ktor-di", "kormium-ktor-koin")
+include("kormium-bom")
 include(
     "samples:ktor-di",
     "samples:ktor-koin",

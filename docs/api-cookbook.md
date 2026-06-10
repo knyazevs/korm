@@ -25,7 +25,7 @@ class User : Entity() {
 
 ## Create Tables and Indexes
 
-Korm does not own schema; create it with raw SQL or a migration tool.
+Kormium does not own schema; create it with raw SQL or a migration tool.
 
 ```kotlin
 db.transaction {
@@ -91,7 +91,7 @@ db.transaction {
 }
 ```
 
-An assigned `null` is different from an untouched property. Korm writes assigned `null`
+An assigned `null` is different from an untouched property. Kormium writes assigned `null`
 values as SQL `NULL`.
 
 ## Paginate
@@ -213,11 +213,11 @@ try {
 }
 ```
 
-For Ktor, `korm-ktor` includes `KormException.httpStatusCode()`.
+For Ktor, `kormium-ktor` includes `KormiumException.httpStatusCode()`.
 
 ## Run Migrations on Startup
 
-Migrations live in the `korm-migrate` module (`implementation("io.github.kormium:korm-migrate")`).
+Migrations live in the `kormium-migrate` module (`implementation("io.github.kormium:kormium-migrate")`).
 A migration is raw SQL; one string is split into statements on top-level `;`.
 
 ```kotlin
@@ -240,8 +240,8 @@ migration fails fast with `MigrationChecksumException`. Add a new migration inst
 ## Configure a Database with a Builder
 
 `createSqliteDatabase { }` / `createDatabase { }` take an optional configuration block. `config { }`
-sets `KormConfig`; `beforeStart { }` runs once before the database is returned — the place to run
-migrations (the `korm-migrate` module, or Flyway/Liquibase). The receiver is the database, so a
+sets `KormiumConfig`; `beforeStart { }` runs once before the database is returned — the place to run
+migrations (the `kormium-migrate` module, or Flyway/Liquibase). The receiver is the database, so a
 migration list resolves its own catalog:
 
 ```kotlin
@@ -298,7 +298,7 @@ Use `SuspendDatabase` in server routes so the route body can suspend naturally.
 
 ## A Repository
 
-Korm does not ship a `Repository` type — like Exposed, you call table operations inside
+Kormium does not ship a `Repository` type — like Exposed, you call table operations inside
 `suspendTransaction { }` / `suspendAutocommit { }`. When you want a Room-style home for a table's
 queries, this small base is the recommended pattern; copy it and adapt it (it is yours to change):
 
@@ -310,7 +310,7 @@ abstract class Repository<G : Catalog, T : Entity>(
     suspend fun findById(id: Any) = db.suspendAutocommit { table.findById(id) }
     suspend fun all() = db.suspendAutocommit { table.all() }
     suspend fun insert(entity: T) = db.suspendTransaction { table.insert(entity) }
-    fun observeAll(): Flow<List<T>> = table.observe(db)                 // needs korm-observe
+    fun observeAll(): Flow<List<T>> = table.observe(db)                 // needs kormium-observe
     protected suspend fun <R> read(block: suspend SuspendScope<G>.() -> R) = db.suspendAutocommit(block)
     protected suspend fun <R> write(block: suspend SuspendScope<G>.() -> R) = db.suspendTransaction(block)
 }

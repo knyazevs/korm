@@ -44,8 +44,8 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 // Postgres = source of truth; SQLite = local read-through cache.
-                implementation(project(":korm-postgres"))
-                implementation(project(":korm-sqlite"))
+                implementation(project(":kormium-postgres"))
+                implementation(project(":kormium-sqlite"))
             }
         }
         val commonTest by getting {
@@ -57,6 +57,6 @@ kotlin {
                 implementation("org.postgresql:postgresql:42.7.4")
             }
         }
-        // The native Postgres driver now ships inside :korm-postgres (nativeMain).
+        // The native Postgres driver now ships inside :kormium-postgres (nativeMain).
     }
 }

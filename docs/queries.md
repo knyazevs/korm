@@ -1,6 +1,6 @@
 # Queries
 
-Korm queries are built from typed expressions and rendered into parameterized SQL. Values are
+Kormium queries are built from typed expressions and rendered into parameterized SQL. Values are
 bound through the backend driver; they are not inlined into the SQL string.
 
 ## Basic Selects
@@ -87,7 +87,7 @@ val adults: Long = db.autocommit {
 }
 ```
 
-`returning = false` is the fast path: Korm runs an `INSERT` and returns the entity or list you
+`returning = false` is the fast path: Kormium runs an `INSERT` and returns the entity or list you
 passed in. `returning = true` adds SQL `RETURNING` and maps the stored row back into an
 entity, which is useful for database-generated values.
 
@@ -207,6 +207,6 @@ Users.find(Query(RawExpression("""lower("name") = 'ada'""")))
 
 ## Observing Changes
 
-To re-run a query automatically whenever its data changes, use `korm-observe`:
+To re-run a query automatically whenever its data changes, use `kormium-observe`:
 `Users.observe(db) { where { Users.age gtEq 18 } }` returns a `Flow<List<User>>` that
 re-emits after every committed write to the table. See [Observing changes](observe.md).

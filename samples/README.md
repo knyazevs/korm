@@ -1,4 +1,4 @@
-# korm samples
+# Kormium samples
 
 Each subdirectory is a focused, runnable sample. Run gradle commands from the repository root.
 

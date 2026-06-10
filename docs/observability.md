@@ -8,12 +8,12 @@ Production users need to answer simple questions when something goes wrong:
 - Was the failure a constraint violation, timeout, connection failure or cancellation?
 - Can logs be enabled without leaking secrets or personally identifiable data?
 
-Korm does not have a complete observability API yet. This page defines the target behavior
-and the minimum contract needed before recommending Korm for production.
+Kormium does not have a complete observability API yet. This page defines the target behavior
+and the minimum contract needed before recommending Kormium for production.
 
 ## Current State
 
-Today Korm has:
+Today Kormium has:
 
 - typed exceptions for common constraint failures;
 - backend-specific exception translation for JDBC, r2dbc, SQLite and libpq paths;
@@ -52,7 +52,7 @@ Raw SQL text is high-cardinality and should not be used as a metric label.
 
 ### Parameters Are Sensitive by Default
 
-Korm should never log bound parameter values by default.
+Kormium should never log bound parameter values by default.
 
 Target redaction levels:
 
@@ -70,7 +70,7 @@ The default should be `none` or `types`, not `values`.
 A future observability API should be backend-neutral:
 
 ```kotlin
-interface KormObserver {
+interface KormiumObserver {
     fun onQueryStart(event: QueryStart)
     fun onQuerySuccess(event: QuerySuccess)
     fun onQueryFailure(event: QueryFailure)
@@ -102,7 +102,7 @@ createDatabase(
     database = "postgres",
     user = "postgres",
     password = "password",
-    observability = KormObservability {
+    observability = KormiumObservability {
         slowQueryThreshold = 250.milliseconds
         parameterLogging = ParameterLogging.Types
     },
@@ -122,19 +122,19 @@ They should not include raw parameter values unless explicitly configured.
 
 ## Metrics
 
-Recommended metric names if Korm ships a metrics bridge:
+Recommended metric names if Kormium ships a metrics bridge:
 
 | Metric | Type | Labels |
 | --- | --- | --- |
-| `korm.query.duration` | timer/histogram | backend, operation, outcome |
-| `korm.transaction.duration` | timer/histogram | backend, outcome |
-| `korm.query.rows` | distribution/counter | backend, operation |
-| `korm.pool.acquire.duration` | timer/histogram | backend |
-| `korm.pool.active` | gauge | backend, pool |
-| `korm.pool.idle` | gauge | backend, pool |
-| `korm.pool.pending` | gauge | backend, pool |
+| `kormium.query.duration` | timer/histogram | backend, operation, outcome |
+| `kormium.transaction.duration` | timer/histogram | backend, outcome |
+| `kormium.query.rows` | distribution/counter | backend, operation |
+| `kormium.pool.acquire.duration` | timer/histogram | backend |
+| `kormium.pool.active` | gauge | backend, pool |
+| `kormium.pool.idle` | gauge | backend, pool |
+| `kormium.pool.pending` | gauge | backend, pool |
 
-For JVM JDBC, HikariCP already exposes pool metrics when configured by the application. Korm
+For JVM JDBC, HikariCP already exposes pool metrics when configured by the application. Kormium
 should document how to wire that before adding its own duplicate pool gauges.
 
 ## Failure Classification
@@ -154,7 +154,7 @@ Failures should be easy to classify:
 
 ## Production Checklist
 
-Before recommending Korm for production, observability should have:
+Before recommending Kormium for production, observability should have:
 
 - documented exception taxonomy;
 - no parameter values in logs by default;
@@ -170,7 +170,7 @@ Before recommending Korm for production, observability should have:
 `Database`/`SuspendDatabase` expose a `writeListeners: WriteListeners` registry. After a
 `transaction { }` / `autocommit { }` (or suspend counterpart) commits, every registered
 `WriteListener` is called with the set of table names written during it (rolled-back work
-notifies nothing). This is a generic, synchronous commit hook — it backs `korm-observe`
+notifies nothing). This is a generic, synchronous commit hook — it backs `kormium-observe`
 ([Observing changes](observe.md)) but is equally usable for cache invalidation, audit or
 metrics:
 
@@ -190,4 +190,4 @@ For timing and pool metrics (not yet covered by a built-in API):
 - use database-native tools for slow query analysis;
 - avoid enabling trace logs in environments where parameter values may contain sensitive
   data;
-- wrap Korm calls at your application boundary if you need timings today.
+- wrap Kormium calls at your application boundary if you need timings today.

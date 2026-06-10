@@ -1,19 +1,19 @@
 # Installation
 
-Korm is published to Maven Central under the group `io.github.kormium`.
+Kormium is published to Maven Central under the group `io.github.kormium`.
 
-The recommended Gradle setup is to import `korm-bom` once and then declare artifacts
+The recommended Gradle setup is to import `kormium-bom` once and then declare artifacts
 without versions:
 
 ```kotlin
 dependencies {
-    implementation(platform("io.github.kormium:korm-bom:<version>"))
+    implementation(platform("io.github.kormium:kormium-bom:<version>"))
 
-    implementation("io.github.kormium:korm-postgres")
+    implementation("io.github.kormium:kormium-postgres")
     // or:
-    implementation("io.github.kormium:korm-sqlite")
+    implementation("io.github.kormium:kormium-sqlite")
     // or, JVM-only true async PostgreSQL:
-    implementation("io.github.kormium:korm-r2dbc")
+    implementation("io.github.kormium:kormium-r2dbc")
 }
 ```
 
@@ -21,8 +21,8 @@ Without the BOM, put the same version on every artifact:
 
 ```kotlin
 dependencies {
-    implementation("io.github.kormium:korm-postgres:<version>")
-    implementation("io.github.kormium:korm-ktor:<version>")
+    implementation("io.github.kormium:kormium-postgres:<version>")
+    implementation("io.github.kormium:kormium-ktor:<version>")
 }
 ```
 
@@ -38,23 +38,26 @@ dependencies {
 
 | Artifact | Add when |
 | --- | --- |
-| `korm-core` | You implement a custom backend or only need the common DSL types |
-| `korm-postgres` | You use PostgreSQL through JDBC on JVM or libpq on Native |
-| `korm-sqlite` | You use SQLite on JVM, Native or Android |
-| `korm-r2dbc` | You want non-blocking PostgreSQL on JVM |
-| `korm-observe` | You want reactive `Flow` queries that re-emit when data changes |
-| `korm-ktor` | You want explicit database passing in Ktor routes |
-| `korm-ktor-di` | You use Ktor's built-in DI container |
-| `korm-ktor-koin` | You use Koin in a Ktor application |
+| [`kormium-core`](../kormium-core/README.md) | You implement a custom backend or only need the common DSL types |
+| [`kormium-postgres`](../kormium-postgres/README.md) | You use PostgreSQL through JDBC on JVM or libpq on Native |
+| [`kormium-sqlite`](../kormium-sqlite/README.md) | You use SQLite on JVM, Native or Android |
+| [`kormium-r2dbc`](../kormium-r2dbc/README.md) | You want non-blocking PostgreSQL on JVM |
+| [`kormium-jdbc`](../kormium-jdbc/README.md) | You implement a custom JDBC backend (shared JVM plumbing) |
+| [`kormium-migrate`](../kormium-migrate/README.md) | You want a raw-SQL schema migration runner |
+| [`kormium-observe`](../kormium-observe/README.md) | You want reactive `Flow` queries that re-emit when data changes |
+| [`kormium-ktor`](../kormium-ktor/README.md) | You want explicit database passing in Ktor routes |
+| [`kormium-ktor-di`](../kormium-ktor-di/README.md) | You use Ktor's built-in DI container |
+| [`kormium-ktor-koin`](../kormium-ktor-koin/README.md) | You use Koin in a Ktor application |
+| [`kormium-bom`](../kormium-bom/README.md) | Always — pins one consistent version across all artifacts |
 
-Backend artifacts bring `korm-core` transitively. `korm-observe` is pure common code and
-supports the same targets as `korm-core` (JVM, Native, Android, iOS).
+Backend artifacts bring `kormium-core` transitively. `kormium-observe` is pure common code and
+supports the same targets as `kormium-core` (JVM, Native, Android, iOS).
 
 ## Native Libraries
 
 ### PostgreSQL Native
 
-`korm-postgres` links against `libpq` on Kotlin/Native.
+`kormium-postgres` links against `libpq` on Kotlin/Native.
 
 ```bash
 # macOS
@@ -68,7 +71,7 @@ Windows Native is planned but not shipped yet.
 
 ### SQLite Native
 
-`korm-sqlite` links against `sqlite3` on Kotlin/Native. macOS and iOS ship SQLite. On
+`kormium-sqlite` links against `sqlite3` on Kotlin/Native. macOS and iOS ship SQLite. On
 Debian/Ubuntu install headers if missing:
 
 ```bash
@@ -77,7 +80,7 @@ sudo apt-get install libsqlite3-dev
 
 ## Platform Matrix
 
-| Platform | `korm-core` | `korm-postgres` | `korm-sqlite` | `korm-r2dbc` | Ktor modules |
+| Platform | `kormium-core` | `kormium-postgres` | `kormium-sqlite` | `kormium-r2dbc` | Ktor modules |
 | --- | --- | --- | --- | --- | --- |
 | JVM | Yes | JDBC/HikariCP | sqlite-jdbc | Yes | Yes |
 | Linux Native | Yes | libpq | sqlite3 | No | Yes |

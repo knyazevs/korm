@@ -12,7 +12,7 @@ kotlin {
 }
 
 dependencies {
-    jmhImplementation(project(":korm-postgres"))
+    jmhImplementation(project(":kormium-postgres"))
     jmhImplementation("org.testcontainers:postgresql:1.20.4")
     jmhImplementation("org.postgresql:postgresql:42.7.4")
     jmhImplementation("com.ionspin.kotlin:bignum:0.3.10")

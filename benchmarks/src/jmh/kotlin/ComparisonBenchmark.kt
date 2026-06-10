@@ -1,4 +1,4 @@
-package korm.bench
+package kormium.bench
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -34,12 +34,12 @@ import org.openjdk.jmh.annotations.Threads
 import org.openjdk.jmh.annotations.Warmup
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.concurrent.TimeUnit
-import com.ionspin.kotlin.bignum.decimal.BigDecimal as KormBigDecimal
+import com.ionspin.kotlin.bignum.decimal.BigDecimal as KormiumBigDecimal
 import org.jetbrains.exposed.sql.Database as ExposedDatabase
 import org.jetbrains.exposed.sql.Table as ExposedSqlTable
-import kotlin.uuid.Uuid as KormUuid
+import kotlin.uuid.Uuid as KormiumUuid
 
-// --- korm mapping ---
+// --- kormium mapping ---
 object Cmp : Catalog
 
 class CmpRow : Entity() {
@@ -84,19 +84,19 @@ open class HibBench {
 open class ComparisonBenchmark {
 
     private lateinit var container: PostgreSQLContainer<*>
-    private lateinit var kormDb: Database<Cmp>
+    private lateinit var kormiumDb: Database<Cmp>
     private lateinit var exposedDb: ExposedDatabase
     private lateinit var exposedDs: HikariDataSource
     private lateinit var sessionFactory: SessionFactory
 
     private val seededJavaId: java.util.UUID = java.util.UUID.randomUUID()
-    private val seededKormId: KormUuid = KormUuid.fromLongs(seededJavaId.mostSignificantBits, seededJavaId.leastSignificantBits)
+    private val seededKormiumId: KormiumUuid = KormiumUuid.fromLongs(seededJavaId.mostSignificantBits, seededJavaId.leastSignificantBits)
 
     @Setup
     fun setup() {
-        // Use an external Postgres (shared with the native benchmark) when KORM_DB_HOST is
+        // Use an external Postgres (shared with the native benchmark) when KORMIUM_DB_HOST is
         // set; otherwise spin up an ephemeral Testcontainers one.
-        val envHost = System.getenv("KORM_DB_HOST")
+        val envHost = System.getenv("KORMIUM_DB_HOST")
         val host: String
         val port: Int
         val database: String
@@ -104,10 +104,10 @@ open class ComparisonBenchmark {
         val password: String
         if (envHost != null) {
             host = envHost
-            port = System.getenv("KORM_DB_PORT")?.toInt() ?: 5432
-            database = System.getenv("KORM_DB_NAME") ?: "postgres"
-            user = System.getenv("KORM_DB_USER") ?: "postgres"
-            password = System.getenv("KORM_DB_PASSWORD") ?: "password"
+            port = System.getenv("KORMIUM_DB_PORT")?.toInt() ?: 5432
+            database = System.getenv("KORMIUM_DB_NAME") ?: "postgres"
+            user = System.getenv("KORMIUM_DB_USER") ?: "postgres"
+            password = System.getenv("KORMIUM_DB_PASSWORD") ?: "password"
         } else {
             container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
             host = container.host
@@ -118,14 +118,14 @@ open class ComparisonBenchmark {
         }
         val jdbcUrl = "jdbc:postgresql://$host:$port/$database"
 
-        kormDb = createDatabase(host, port, database, user, password, poolSize = 8)
+        kormiumDb = createDatabase(host, port, database, user, password, poolSize = 8)
         // Start from a clean table (the insert benchmarks bloat it across runs) and index
         // `name` so selectWhere is an index lookup, not a size-dependent sequential scan.
-        kormDb.transaction {
+        kormiumDb.transaction {
             CmpTable.execSql("DROP TABLE IF EXISTS \"cmp_bench\"")
             CmpTable.execSql(cmpBenchDdl)
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
-            CmpTable.insert(CmpRow().apply { id = seededKormId; name = "seed"; amount = KormBigDecimal.fromInt(1) })
+            CmpTable.insert(CmpRow().apply { id = seededKormiumId; name = "seed"; amount = KormiumBigDecimal.fromInt(1) })
         }
 
         exposedDs = HikariDataSource(HikariConfig().apply {
@@ -151,21 +151,21 @@ open class ComparisonBenchmark {
     fun teardown() {
         runCatching { sessionFactory.close() }
         runCatching { exposedDs.close() }
-        runCatching { kormDb.close() }
+        runCatching { kormiumDb.close() }
         if (::container.isInitialized) container.stop()
     }
 
-    // --- korm ---
+    // --- kormium ---
     @Benchmark
-    fun kormFindById(): Any? = kormDb.autocommit { CmpTable.findById(seededKormId) }
+    fun kormiumFindById(): Any? = kormiumDb.autocommit { CmpTable.findById(seededKormiumId) }
 
     @Benchmark
-    fun kormInsert(): Any? = kormDb.transaction {
-        CmpTable.insert(CmpRow().apply { id = KormUuid.random(); name = "x"; amount = KormBigDecimal.fromInt(1) })
+    fun kormiumInsert(): Any? = kormiumDb.transaction {
+        CmpTable.insert(CmpRow().apply { id = KormiumUuid.random(); name = "x"; amount = KormiumBigDecimal.fromInt(1) })
     }
 
     @Benchmark
-    fun kormSelectWhere(): Any? = kormDb.autocommit { CmpTable.find(Query(CmpTable.name eq "seed")) }
+    fun kormiumSelectWhere(): Any? = kormiumDb.autocommit { CmpTable.find(Query(CmpTable.name eq "seed")) }
 
     // --- Exposed ---
     @Benchmark

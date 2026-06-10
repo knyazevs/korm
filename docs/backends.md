@@ -8,7 +8,7 @@ that executes parameterized SQL.
 Artifact:
 
 ```kotlin
-implementation("io.github.kormium:korm-postgres")
+implementation("io.github.kormium:kormium-postgres")
 ```
 
 Factory:
@@ -26,7 +26,7 @@ val db: Database<App> = createDatabase(
 
 Implementations:
 
-- JVM: PostgreSQL JDBC driver plus HikariCP through `korm-jdbc`.
+- JVM: PostgreSQL JDBC driver plus HikariCP through `kormium-jdbc`.
 - Kotlin/Native: libpq cinterop.
 
 Native builds need `libpq` headers/libraries on the build machine. See
@@ -37,7 +37,7 @@ Native builds need `libpq` headers/libraries on the build machine. See
 Artifact:
 
 ```kotlin
-implementation("io.github.kormium:korm-sqlite")
+implementation("io.github.kormium:kormium-sqlite")
 ```
 
 Factory:
@@ -65,7 +65,7 @@ SQLite notes:
 Artifact:
 
 ```kotlin
-implementation("io.github.kormium:korm-r2dbc")
+implementation("io.github.kormium:kormium-r2dbc")
 ```
 
 Factory:
@@ -81,14 +81,14 @@ val db: SuspendDatabase<App> = createR2dbcDatabase(
 )
 ```
 
-`korm-r2dbc` is JVM-only and implements the suspend API only. It is the backend to choose
+`kormium-r2dbc` is JVM-only and implements the suspend API only. It is the backend to choose
 when you need true non-blocking PostgreSQL I/O.
 
 ## Type Mapping
 
-Korm's common column types map through backend-specific SQL types:
+Kormium's common column types map through backend-specific SQL types:
 
-| Korm type | PostgreSQL | SQLite |
+| Kormium type | PostgreSQL | SQLite |
 | --- | --- | --- |
 | `UUID` | `UUID` | `TEXT` |
 | `Text` | `TEXT` | `TEXT` |

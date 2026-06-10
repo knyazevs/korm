@@ -1,10 +1,10 @@
 # Tables and Entities
 
-Korm models database shape with three pieces:
+Kormium models database shape with three pieces:
 
 - `Catalog` marks a logical database.
 - `Table<G, T>` describes a table belonging to catalog `G`.
-- `Entity` exposes typed delegated properties backed by Korm's internal row state.
+- `Entity` exposes typed delegated properties backed by Kormium's internal row state.
 
 ## Catalogs
 
@@ -38,7 +38,7 @@ fun shardFor(tenantId: String): Database<Main> = if (tenantId.hashCode() % 2 == 
 object Users : Table<Main, User>("users", ::User)
 ```
 
-The first argument is the SQL table name. Korm renders it through the backend dialect's
+The first argument is the SQL table name. Kormium renders it through the backend dialect's
 identifier quoting. Schema-qualified table names are intentionally not part of the table
 metadata API; use the database connection's default schema/search path or raw SQL migrations
 for schema setup.
@@ -128,8 +128,8 @@ class User : Entity() {
 }
 ```
 
-Entities are intentionally small. They inherit Korm's internal field storage and expose
-typed property delegates. This gives Korm two useful update semantics:
+Entities are intentionally small. They inherit Kormium's internal field storage and expose
+typed property delegates. This gives Kormium two useful update semantics:
 
 - A property never assigned on the entity is omitted from `UPDATE`.
 - A property assigned to `null` is included and written as SQL `NULL`.
@@ -140,12 +140,12 @@ Users.update(User().apply { note = null }) {
 }
 ```
 
-This updates only `note`. Korm tracks assigned fields internally; entities should not expose
+This updates only `note`. Kormium tracks assigned fields internally; entities should not expose
 or mutate that storage directly.
 
 ## Schema Management
 
-Korm does not own schema management. A `Table` describes how rows map to entities for
+Kormium does not own schema management. A `Table` describes how rows map to entities for
 queries, inserts and updates — not the full database schema. Create and evolve schema with
 a migration tool (Flyway, Liquibase) or raw SQL, which also gives you indexes, foreign
 keys, checks, defaults and generated columns that the mapping layer intentionally does not
@@ -167,5 +167,5 @@ db.transaction {
 }
 ```
 
-For repeatable, ordered setup use `Database.migrate(...)` from the `korm-migrate` module (see
+For repeatable, ordered setup use `Database.migrate(...)` from the `kormium-migrate` module (see
 [Transactions and migrations](transactions-and-migrations.md)).
