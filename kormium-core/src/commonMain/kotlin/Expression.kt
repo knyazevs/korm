@@ -51,7 +51,17 @@ sealed class CompoundBooleanOp(
     private val second: Expression,
 ) : Expression {
     override fun toSql(builder: ParamBuilder): String =
-        "${first.toSql(builder)}$operator${second.toSql(builder)}"
+        "${render(first, builder)}$operator${render(second, builder)}"
+
+    // Kotlin infix calls are all same-precedence and left-associative, so `a or b and c`
+    // builds AndOp(OrOp(a, b), c). SQL gives AND higher precedence than OR, so rendering
+    // operands bare would silently change the query's meaning. Parenthesize any nested
+    // compound op with a different operator; same-operator chains are associative and
+    // stay flat.
+    private fun render(expr: Expression, builder: ParamBuilder): String {
+        val sql = expr.toSql(builder)
+        return if (expr is CompoundBooleanOp && expr.operator != operator) "($sql)" else sql
+    }
 }
 
 class AndOp(first: Expression, second: Expression) : CompoundBooleanOp(" AND ", first, second)
