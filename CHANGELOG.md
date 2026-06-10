@@ -6,6 +6,17 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
+### Performance
+- **PostgreSQL JVM reads are ~1.7-2x faster: parameters now bind as properly-typed JDBC
+  objects** (uuid, numeric, timestamptz, jsonb, date/time, float4/int2) via the new
+  `PostgresJvmTypeMapper`, replacing text binding under `stringtype=unspecified`. An
+  untyped text parameter forced the server to re-infer its type on every execution of a
+  server-prepared statement — an extra protocol round-trip per query (wire-traced; this
+  was the entire read gap to Hibernate). **Raw SQL note:** binding a `String` to a
+  non-text column (uuid, timestamptz, ...) previously worked via server inference and now
+  needs an explicit cast (`WHERE id = :id::uuid`) or a typed value; DSL queries are
+  unaffected. Native (libpq, text + dialect casts) and r2dbc (already typed) are unchanged.
+
 ### Fixed
 - **Mixed `and` / `or` predicates now render with correct precedence.** Kotlin infix calls
   are all same-precedence and left-associative, so `a or b and c` builds `(a OR b) AND c` —
