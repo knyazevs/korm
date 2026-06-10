@@ -5,212 +5,61 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 
+/**
+ * Backend-agnostic view of a query result. A driver wraps its native result set
+ * (JDBC, libpq, sqlite3, r2dbc) in this interface; core reads values through it.
+ *
+ * **Column indexes are 0-based** — the first selected column is 0 (unlike JDBC's
+ * 1-based convention; JDBC-backed wrappers translate internally). Every getter
+ * returns `null` for SQL `NULL`.
+ *
+ * The cursor starts before the first row; call [next] to advance.
+ */
 @Suppress("TooManyFunctions")
 interface ResultSet {
 
+    /** The selected column names, in select-list order. */
     val columns: Array<String>
+
     /**
-     * Moves the cursor forward one row from its current position.
-     * A {@code ResultSet} cursor is initially positioned
-     * before the first row; the first call to the method
-     * {@code next} makes the first row the current row; the
-     * second call makes the second row the current row, and so on.
-     * <p>
-     *
-     * @return {@code true} if the new current row is valid;
-     * {@code false} if there are no more rows
+     * Moves the cursor forward one row. Returns `true` if the new current row is
+     * valid, `false` when there are no more rows.
      */
     fun next(): Boolean
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `String` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [String], or `null` for SQL `NULL`. */
     fun getString(columnIndex: Int): String?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Boolean` in the Kotlin programming language.
-     *
-     * // TODO: currently only checking "t"
-     *
-     * <P>If the designated column has a datatype of CHAR or VARCHAR
-     * and contains a "0" or has a datatype of BIT, TINYINT, SMALLINT, INTEGER or BIGINT
-     * and contains  a 0, a value of `false` is returned.  If the designated column has a datatype
-     * of CHAR or VARCHAR
-     * and contains a "1" or has a datatype of BIT, TINYINT, SMALLINT, INTEGER or BIGINT
-     * and contains  a 1, a value of `true` is returned.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `false`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-    </P> */
-    @Suppress("ForbiddenComment")
+    /** Reads column [columnIndex] (0-based) as a [Boolean], or `null` for SQL `NULL`. */
     fun getBoolean(columnIndex: Int): Boolean?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Short` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `0`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [Short], or `null` for SQL `NULL`. */
     fun getShort(columnIndex: Int): Short?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * an `Int` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `0`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as an [Int], or `null` for SQL `NULL`. */
     fun getInt(columnIndex: Int): Int?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Long` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `0`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [Long], or `null` for SQL `NULL`. */
     fun getLong(columnIndex: Int): Long?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Float` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `0`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [Float], or `null` for SQL `NULL`. */
     fun getFloat(columnIndex: Int): Float?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Double` in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `0`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [Double], or `null` for SQL `NULL`. */
     fun getDouble(columnIndex: Int): Double?
 
-
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Byte` array in the Kotlin programming language.
-     * The bytes represent the raw values returned by the driver.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as the driver's raw bytes, or `null` for SQL `NULL`. */
     fun getBytes(columnIndex: Int): ByteArray?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `LocalDate` object in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [LocalDate], or `null` for SQL `NULL`. */
     fun getDate(columnIndex: Int): LocalDate?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `LocalTime` object in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [LocalTime], or `null` for SQL `NULL`. */
     fun getTime(columnIndex: Int): LocalTime?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Instant` object in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as a [LocalDateTime], or `null` for SQL `NULL`. */
     fun getLocalDateTime(columnIndex: Int): LocalDateTime?
 
-    /**
-     * Retrieves the value of the designated column in the current row
-     * of this `ResultSet` object as
-     * a `Instant` object in the Kotlin programming language.
-     *
-     * @param columnIndex the first column is 1, the second is 2, ...
-     * @return the column value; if the value is SQL `NULL`, the
-     * value returned is `null`
-     * @throws SQLException if the columnIndex is not valid;
-     * if a database access error occurs or this method is
-     * called on a closed result set
-     */
-
+    /** Reads column [columnIndex] (0-based) as an [Instant], or `null` for SQL `NULL`. */
     fun getInstant(columnIndex: Int): Instant?
-
 }
