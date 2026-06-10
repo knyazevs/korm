@@ -19,6 +19,12 @@ All notable changes to Kormium are documented here. The format is based on
 - **The JDBC `:name` parse cache is now bounded.** It is an LRU capped at 1024 entries, and
   SQL longer than 4096 chars (batch INSERTs, large IN-lists — a distinct string per call)
   bypasses it, so long-lived servers no longer accumulate parse entries without limit.
+- **`ResultSet` / `ColumnType` docs now state the real 0-based column indexing.** The KDoc
+  (inherited from JDBC) claimed indexes are 1-based, which would mislead custom
+  `ColumnType` implementations; the convention is and was 0-based.
+- **JDBC `rollback()` now translates `SQLException`** into typed Kormium exceptions, like
+  `commit()` already did.
+- **SQLite (Native/Android): a connection released after `close()` is closed, not leaked.**
 
 ### Changed
 - **`leftJoin` entity pairs are now properly nullable** (breaking). `Table.leftJoin` returns
@@ -27,6 +33,14 @@ All notable changes to Kormium are documented here. The format is based on
   `find()` claimed `Pair<A, B>` and the unmatched right entity threw on first property
   access. The `select(...)` forms, `where`, `groupBy`, `distinct` and three-table chaining
   are unchanged; `innerJoin` is unaffected.
+- **Table metadata is read-only** (breaking): `Column.name` and `Column.nullable` are now
+  `val` (were public mutable `var`), and `getFieldDisplayNames()` returns a read-only
+  `Map` (was the internal `MutableMap`), so table metadata can no longer be corrupted at
+  runtime.
+- **`savepoint { }` outside a transaction fails fast** (breaking): calling it inside
+  `autocommit { }` / `suspendAutocommit { }` now throws `IllegalStateException` with a
+  clear message on every backend. Previously it surfaced as a confusing server error on
+  PostgreSQL while silently opening an implicit transaction on SQLite.
 
 ## [0.4.0] — Rebrand to kormium
 
