@@ -25,5 +25,10 @@ kotlin {
                 implementation("com.zaxxer:HikariCP:6.2.1")
             }
         }
+        val jvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
     }
 }

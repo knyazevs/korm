@@ -19,7 +19,7 @@ class NamedParamStatement(conn: Connection, sql: String) : AutoCloseable {
     init {
         // Parsing (`:name` -> `?` plus the parameter order) depends only on the SQL text,
         // which is identical across repeated calls of the same statement — cache it.
-        val parsed = parseCache.getOrPut(sql) { parse(sql) }
+        val parsed = cachedParse(sql)
         fields = parsed.fields
         preparedStatement = conn.prepareStatement(parsed.sql)
     }
@@ -74,7 +74,32 @@ class NamedParamStatement(conn: Connection, sql: String) : AutoCloseable {
     private class Parsed(val sql: String, val fields: List<String>)
 
     companion object {
-        private val parseCache = java.util.concurrent.ConcurrentHashMap<String, Parsed>()
+        // Reparsing is one cheap pass over the SQL string; the cache only saves it for hot,
+        // repeated statements. Bound it so one-off SQL cannot grow it without limit: an
+        // access-order LRU capped at MAX_CACHE_ENTRIES, and SQL longer than
+        // MAX_CACHEABLE_SQL_LENGTH bypasses the cache entirely — batch INSERTs and large
+        // IN-lists embed a per-call number of placeholders, so each variant is a distinct
+        // key that would only churn the cache.
+        internal const val MAX_CACHE_ENTRIES = 1024
+        internal const val MAX_CACHEABLE_SQL_LENGTH = 4096
+
+        // accessOrder = true mutates the map structurally on reads, so every access —
+        // including lookups — must hold the lock.
+        private val parseCache = object : LinkedHashMap<String, Parsed>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Parsed>): Boolean =
+                size > MAX_CACHE_ENTRIES
+        }
+
+        private fun cachedParse(sql: String): Parsed =
+            if (sql.length > MAX_CACHEABLE_SQL_LENGTH) parse(sql)
+            else synchronized(parseCache) { parseCache.getOrPut(sql) { parse(sql) } }
+
+        internal val parseCacheSize: Int get() = synchronized(parseCache) { parseCache.size }
+
+        // Visible for tests: exercises the cache exactly like the constructor does.
+        internal fun parseCached(sql: String) {
+            cachedParse(sql)
+        }
 
         private fun parse(sql: String): Parsed {
             val out = StringBuilder(sql.length)
