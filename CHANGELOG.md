@@ -4,7 +4,7 @@ All notable changes to Kormium are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] — Review fixes and typed PostgreSQL binding
 
 ### Performance
 - **PostgreSQL JVM reads are ~1.7-2x faster: parameters now bind as properly-typed JDBC
