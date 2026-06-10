@@ -17,6 +17,8 @@ class SuspendScope<G : Catalog> internal constructor(
     internal val config: KormiumConfig = KormiumConfig(),
     /** Tables written during this scope; see [Scope.dirtyTables]. */
     internal val dirtyTables: MutableSet<String> = mutableSetOf(),
+    /** Whether this scope runs inside a transaction (see [savepoint]). */
+    private val transactional: Boolean = true,
 ) {
     private var savepointCounter = 0
 
@@ -181,8 +183,13 @@ class SuspendScope<G : Catalog> internal constructor(
      * Runs [block] inside a SAVEPOINT on the same connection: if it throws, only its
      * work is rolled back (ROLLBACK TO SAVEPOINT) and the exception propagates; the
      * enclosing transaction may continue if the caller catches it.
+     *
+     * Requires a [suspendTransaction] scope — calling it inside [suspendAutocommit] throws
+     * [IllegalStateException] (a savepoint without a surrounding transaction is a server
+     * error on PostgreSQL and backend-dependent elsewhere).
      */
     suspend fun <R> savepoint(block: suspend SuspendScope<G>.() -> R): R {
+        check(transactional) { "savepoint { } requires a transaction; use suspendTransaction { }, not suspendAutocommit { }" }
         val name = "korm_sp_${savepointCounter++}"
         exec.executeUpdate("SAVEPOINT $name")
         return try {
@@ -202,7 +209,7 @@ class SuspendScope<G : Catalog> internal constructor(
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendTransaction(block: suspend SuspendScope<G>.() -> R): R {
     val dirty = mutableSetOf<String>()
-    val result = useConnection(transactional = true) { SuspendScope<G>(it, config, dirty).block() }
+    val result = useConnection(transactional = true) { SuspendScope<G>(it, config, dirty, transactional = true).block() }
     writeListeners.fire(dirty)
     return result
 }
@@ -213,7 +220,7 @@ suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendTransaction(block: suspen
  */
 suspend fun <G : Catalog, R> SuspendDatabase<G>.suspendAutocommit(block: suspend SuspendScope<G>.() -> R): R {
     val dirty = mutableSetOf<String>()
-    val result = useConnection(transactional = false) { SuspendScope<G>(it, config, dirty).block() }
+    val result = useConnection(transactional = false) { SuspendScope<G>(it, config, dirty, transactional = false).block() }
     writeListeners.fire(dirty)
     return result
 }

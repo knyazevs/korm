@@ -537,6 +537,15 @@ class TableTest {
     }
 
     @Test
+    fun testSavepointInAutocommitFailsFast() {
+        // A savepoint without a surrounding transaction is a server error on Postgres and
+        // backend-dependent elsewhere — fail uniformly with a clear message instead.
+        assertFailsWith<IllegalStateException> {
+            db.autocommit { savepoint { } }
+        }
+    }
+
+    @Test
     fun testUpdateWithNoNonNullFieldsFails() {
         assertFailsWith<IllegalArgumentException> {
             db.transaction { TestTable.update(Query(TestTable.id eq Uuid.random()), TestEntity()) }

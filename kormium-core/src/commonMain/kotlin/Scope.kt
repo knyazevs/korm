@@ -20,6 +20,8 @@ class Scope<G : Catalog> internal constructor(
      * a spurious refresh, never a missed one.
      */
     internal val dirtyTables: MutableSet<String> = mutableSetOf(),
+    /** Whether this scope runs inside a transaction (see [savepoint]). */
+    private val transactional: Boolean = true,
 ) {
     private var savepointCounter = 0
 
@@ -202,8 +204,13 @@ class Scope<G : Catalog> internal constructor(
      * Runs [block] inside a SAVEPOINT on the same connection: if it throws, only its
      * work is rolled back (ROLLBACK TO SAVEPOINT) and the exception propagates; the
      * enclosing transaction may continue if the caller catches it.
+     *
+     * Requires a [transaction] scope — calling it inside [autocommit] throws
+     * [IllegalStateException] (a savepoint without a surrounding transaction is a server
+     * error on PostgreSQL and backend-dependent elsewhere).
      */
     fun <R> savepoint(block: Scope<G>.() -> R): R {
+        check(transactional) { "savepoint { } requires a transaction; use transaction { }, not autocommit { }" }
         val name = "korm_sp_${savepointCounter++}"
         exec.executeUpdate("SAVEPOINT $name")
         return try {
@@ -224,7 +231,7 @@ class Scope<G : Catalog> internal constructor(
 fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R {
     // The dirty-table set outlives the block so we can fire it after the commit returns.
     val dirty = mutableSetOf<String>()
-    val result = usePinned(transactional = true) { Scope<G>(it, config, dirty).block() }
+    val result = usePinned(transactional = true) { Scope<G>(it, config, dirty, transactional = true).block() }
     writeListeners.fire(dirty)
     return result
 }
@@ -235,7 +242,7 @@ fun <G : Catalog, R> Database<G>.transaction(block: Scope<G>.() -> R): R {
  */
 fun <G : Catalog, R> Database<G>.autocommit(block: Scope<G>.() -> R): R {
     val dirty = mutableSetOf<String>()
-    val result = usePinned(transactional = false) { Scope<G>(it, config, dirty).block() }
+    val result = usePinned(transactional = false) { Scope<G>(it, config, dirty, transactional = false).block() }
     writeListeners.fire(dirty)
     return result
 }
