@@ -33,8 +33,8 @@ sealed class Column<Z, T: Table<*, N>, N: Entity>(
     /** Key under which the value is stored in [Entity.fields]; follows the Kotlin property name. */
     val fieldKey: String,
     /** Rendered SQL column identifier. Equals [fieldKey] unless a custom name was supplied. */
-    open var name: String,
-    open var nullable: kotlin.Boolean,
+    val name: String,
+    val nullable: kotlin.Boolean,
     val columnType: ColumnType<Z>,
 ) : Expression, Selectable<Z> {
 

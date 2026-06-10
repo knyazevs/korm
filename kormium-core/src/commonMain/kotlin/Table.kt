@@ -23,7 +23,8 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
 
     private val fieldDisplayName: MutableMap<String, Column<*, *, *>> = mutableMapOf()
 
-    fun getFieldDisplayNames() = fieldDisplayName
+    /** The table's columns keyed by entity field name (Kotlin property name), in declaration order. */
+    fun getFieldDisplayNames(): Map<String, Column<*, *, *>> = fieldDisplayName
 
     /**
      * The primary-key column(s): those declared with `primaryKey = true`, or the column
