@@ -5,7 +5,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: korm-r2dbc-postgres
+    container_name: kormium-r2dbc-postgres
     environment:
       POSTGRES_PASSWORD: password
     ports:

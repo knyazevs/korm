@@ -43,9 +43,9 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // SQLite (self-contained, JVM + native) + korm-observe for reactive Flow queries.
-                implementation(project(":korm-sqlite"))
-                implementation(project(":korm-observe"))
+                // SQLite (self-contained, JVM + native) + kormium-observe for reactive Flow queries.
+                implementation(project(":kormium-sqlite"))
+                implementation(project(":kormium-observe"))
             }
         }
         val commonTest by getting {

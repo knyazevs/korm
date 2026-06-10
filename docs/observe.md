@@ -1,12 +1,12 @@
 # Observing Changes
 
-`korm-observe` turns a query into a `Flow` that re-emits whenever the data it reads changes.
+`kormium-observe` turns a query into a `Flow` that re-emits whenever the data it reads changes.
 It is the building block for reactive UIs (Compose Multiplatform, Android) the way Room's
-observable queries are — without Korm adopting an annotation processor or SQL strings.
+observable queries are — without Kormium adopting an annotation processor or SQL strings.
 
 ```kotlin
 dependencies {
-    implementation("io.github.kormium:korm-observe")
+    implementation("io.github.kormium:kormium-observe")
 }
 ```
 
@@ -30,7 +30,7 @@ The query block is the same one used by [`Table.find`](queries.md): predicates, 
 
 ## How Invalidation Works
 
-Korm tracks which tables each `transaction { }` / `autocommit { }` (and their suspend
+Kormium tracks which tables each `transaction { }` / `autocommit { }` (and their suspend
 counterparts) writes, and notifies observers **after the block commits**. A rolled-back
 transaction notifies nothing. Bursts of writes are conflated — a flood of commits collapses
 into a single re-fetch rather than one per commit.
@@ -57,7 +57,7 @@ val dashboard: Flow<Dashboard> = db.observe(setOf("users", "orders")) {
 
 ## Raw SQL
 
-Korm cannot see which tables raw SQL touches, so declare them with `invalidates` so observers
+Kormium cannot see which tables raw SQL touches, so declare them with `invalidates` so observers
 (and any future cache) are notified on commit — the analog of Room's
 `@RawQuery(observedEntities = …)`:
 

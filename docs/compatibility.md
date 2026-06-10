@@ -1,11 +1,11 @@
 # Compatibility Policy
 
-This page defines the compatibility policy Korm should follow. Until 1.0, it is a target
+This page defines the compatibility policy Kormium should follow. Until 1.0, it is a target
 policy rather than a strict guarantee.
 
 ## Current Version Status
 
-Korm is pre-1.0. Public APIs may change between minor versions. The project should still
+Kormium is pre-1.0. Public APIs may change between minor versions. The project should still
 avoid unnecessary churn and document breaking changes in [CHANGELOG.md](../CHANGELOG.md).
 
 ## Supported Runtime Baseline
@@ -36,7 +36,7 @@ When these baselines change, the change should be called out in the changelog.
 
 ## API Stability Levels
 
-Korm should classify APIs before 1.0:
+Kormium should classify APIs before 1.0:
 
 | Level | Meaning |
 | --- | --- |
@@ -89,7 +89,7 @@ After 1.0, the target policy should be:
 
 ## Dependency Compatibility
 
-Korm should document and test dependency ranges for:
+Kormium should document and test dependency ranges for:
 
 - Kotlin Gradle plugin;
 - kotlinx.coroutines;

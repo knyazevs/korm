@@ -17,7 +17,7 @@ class ShardingTest {
     @Test
     fun shardingAndCatalogs() {
         val tag = Random.nextInt(0, Int.MAX_VALUE)
-        val shardPaths = List(2) { Path(SystemTemporaryDirectory, "korm-shard-test-$tag-$it.db") }
+        val shardPaths = List(2) { Path(SystemTemporaryDirectory, "kormium-shard-test-$tag-$it.db") }
         val shards: List<Database<AccountsCatalog>> = shardPaths.map { createSqliteDatabase(it.toString()) }
         val auditDb: Database<AuditCatalog> = createSqliteDatabase()
 

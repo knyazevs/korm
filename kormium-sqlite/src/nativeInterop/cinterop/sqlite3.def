@@ -1,0 +1,12 @@
+headers = sqlite3.h
+headerFilter = sqlite3.h
+package = csqlite
+
+# SQLite is compiled from the vendored amalgamation (sqlite3.c) and embedded as a static
+# library per native target — see kormium-sqlite/build.gradle.kts. We deliberately do NOT
+# link the system libsqlite3: on modern Linux the distro build targets a newer glibc than
+# Kotlin/Native's bundled glibc-2.19 sysroot, so linking it fails (undefined GLIBC_2.3x
+# symbol versions). Static-linking our own build also makes the native artifacts
+# self-contained. Only the platform libs SQLite itself pulls in are linked here; on
+# Apple targets these all live in libSystem and are linked automatically.
+linkerOpts.linux = -ldl -lpthread -lm

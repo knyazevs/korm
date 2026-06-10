@@ -94,6 +94,6 @@ fun main() {
     }
 }
 
-// Schema owned by the app, not Korm. PgProducts is Postgres; CachedProducts is SQLite.
+// Schema owned by the app, not Kormium. PgProducts is Postgres; CachedProducts is SQLite.
 internal val pgProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" integer NOT NULL, "name" text NOT NULL, PRIMARY KEY ("id"))"""
 internal val cachedProductsDdl = """CREATE TABLE IF NOT EXISTS "products" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, PRIMARY KEY ("id"))"""

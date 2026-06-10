@@ -2,7 +2,7 @@
 
 package io.github.kormium.samples.ktordi
 
-import io.github.kormium.KormException
+import io.github.kormium.KormiumException
 import io.github.kormium.Query
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.database.createDatabase
@@ -28,12 +28,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * Wires korm into Ktor through the built-in DI:
+ * Wires Kormium into Ktor through the built-in DI:
  *  - `dependencies { provide<SuspendDatabase<AppCatalog>> { ... } }` registers the database. Ktor DI
  *    keys by the full parameterized type (so catalogs don't collide) and auto-closes it on shutdown
  *    (a [SuspendDatabase] is `AutoCloseable`) — no lifecycle plugin needed.
  *  - routes use the reified `call.transaction<AppCatalog> { }` / `call.autocommit<AppCatalog> { }`
- *    helpers from `korm-ktor-di`, which resolve the database from DI for you.
+ *    helpers from `kormium-ktor-di`, which resolve the database from DI for you.
  */
 fun Application.module() {
     dependencies {
@@ -54,8 +54,8 @@ fun Application.module() {
 fun Application.configure() {
     install(ContentNegotiation) { json() }
     install(StatusPages) {
-        // korm-ktor only supplies the status-code mapping; you own the body format.
-        exception<KormException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
+        // kormium-ktor only supplies the status-code mapping; you own the body format.
+        exception<KormiumException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
     }
 
     routing {

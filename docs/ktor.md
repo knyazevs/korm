@@ -1,13 +1,13 @@
 # Ktor Integration
 
-Korm's Ktor support is split into three artifacts so you can choose how database handles are
+Kormium's Ktor support is split into three artifacts so you can choose how database handles are
 resolved.
 
 ```kotlin
 dependencies {
-    implementation("io.github.kormium:korm-ktor")
-    implementation("io.github.kormium:korm-ktor-di")
-    implementation("io.github.kormium:korm-ktor-koin")
+    implementation("io.github.kormium:kormium-ktor")
+    implementation("io.github.kormium:kormium-ktor-di")
+    implementation("io.github.kormium:kormium-ktor-koin")
 }
 ```
 
@@ -15,18 +15,18 @@ Use only the artifacts you need.
 
 ## DI-Agnostic Helpers
 
-Artifact: `korm-ktor`
+Artifact: `kormium-ktor`
 
 You pass the database explicitly:
 
 ```kotlin
 fun Application.module() {
-    install(Korm) {
+    install(Kormium) {
         manage(database)
     }
 
     install(StatusPages) {
-        exception<KormException> { call, e ->
+        exception<KormiumException> { call, e ->
             call.respond(e.httpStatusCode(), e.message ?: "database error")
         }
     }
@@ -49,12 +49,12 @@ fun Application.module() {
 }
 ```
 
-The `Korm` plugin is optional. Use it when you want Ktor to close database handles on
+The `Kormium` plugin is optional. Use it when you want Ktor to close database handles on
 application stop. Skip it if your DI container owns lifecycle.
 
 ## Ktor Built-In DI
 
-Artifact: `korm-ktor-di`
+Artifact: `kormium-ktor-di`
 
 Register `SuspendDatabase<G>` by its parameterized type:
 
@@ -87,7 +87,7 @@ different dependencies.
 
 ## Koin
 
-Artifact: `korm-ktor-koin`
+Artifact: `kormium-ktor-koin`
 
 ```kotlin
 fun Application.module() {
@@ -135,8 +135,8 @@ The DI artifacts expose equivalent styles:
 ```kotlin
 call.transaction<App, _> { ... }
 call.transaction(App) { ... }
-call.korm<App>().transaction { ... }
+call.kormium<App>().transaction { ... }
 ```
 
 All helpers delegate to `suspendTransaction` and `suspendAutocommit`, so the same routes can
-use the offloaded blocking drivers or `korm-r2dbc`.
+use the offloaded blocking drivers or `kormium-r2dbc`.

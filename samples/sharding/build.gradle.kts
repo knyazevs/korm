@@ -43,7 +43,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(project(":korm-sqlite"))
+                implementation(project(":kormium-sqlite"))
                 // For a temp dir + file cleanup that works on both JVM and native.
                 implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.0")
             }

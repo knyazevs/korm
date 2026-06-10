@@ -1,14 +1,14 @@
 # Sample: ktor-di
 
 Ktor web CRUD over **Postgres**, with the database resolved from Ktor's built-in dependency
-injection — i.e. the `korm-ktor-di` artifact:
+injection — i.e. the `kormium-ktor-di` artifact:
 
 - `dependencies { provide<Database<AppCatalog>> { createDatabase(...) } }` — Ktor DI keys by the
   full parameterized type (so catalogs don't collide) and auto-closes the pool on shutdown
   (a `Database` is `AutoCloseable`), so no lifecycle plugin is needed.
 - routes use `call.transaction<AppCatalog, _> { ... }` / `call.autocommit<AppCatalog, _> { ... }`
   (catalog as a type argument, `_` infers the result).
-- `KormException` is mapped to an HTTP status via `httpStatusCode()` in a `StatusPages` handler.
+- `KormiumException` is mapped to an HTTP status via `httpStatusCode()` in a `StatusPages` handler.
 
 ## Run
 

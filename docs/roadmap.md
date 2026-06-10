@@ -1,6 +1,6 @@
 # Roadmap
 
-Korm is pre-1.0. The roadmap is intentionally explicit about what is shipped, what is
+Kormium is pre-1.0. The roadmap is intentionally explicit about what is shipped, what is
 being hardened and what is still exploratory. Items here are not promises for a specific
 release date; they are the direction of the project.
 
@@ -17,7 +17,7 @@ Shipped today:
 - an open `ColumnType` system (built-ins + `enum`/`json` + custom converters);
 - typed predicates, joins and aggregations;
 - transactions, savepoints, suspend scopes and migrations;
-- reactive `Flow` queries (`korm-observe`) over a `WriteListener` commit hook;
+- reactive `Flow` queries (`kormium-observe`) over a `WriteListener` commit hook;
 - Ktor integration for explicit database passing, Ktor DI and Koin;
 - Maven Central publishing with a BOM.
 
@@ -91,7 +91,7 @@ These are useful but should not distract from core reliability:
 
 ## Non-Goals for Now
 
-- Hiding SQL completely. Korm is an ORM/SQL DSL, not an attempt to make relational storage
+- Hiding SQL completely. Kormium is an ORM/SQL DSL, not an attempt to make relational storage
   invisible.
 - Reimplementing a full SQL parser.
 - Adding every backend before the existing ones are boring.

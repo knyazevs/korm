@@ -5,7 +5,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: korm-ktor-koin-postgres
+    container_name: kormium-ktor-koin-postgres
     environment:
       POSTGRES_PASSWORD: password
     ports:

@@ -63,17 +63,17 @@ allprojects {
 // (mavenCentralUsername/Password) and the GPG key (signingInMemoryKey/Password) are supplied
 // out-of-band — see gradle.properties for the property names.
 val publishableModules = setOf(
-    "korm-core",
-    "korm-postgres",
-    "korm-jdbc",
-    "korm-sqlite",
-    "korm-r2dbc",
-    "korm-observe",
-    "korm-migrate",
-    "korm-ktor",
-    "korm-ktor-di",
-    "korm-ktor-koin",
-    "korm-bom",
+    "kormium-core",
+    "kormium-postgres",
+    "kormium-jdbc",
+    "kormium-sqlite",
+    "kormium-r2dbc",
+    "kormium-observe",
+    "kormium-migrate",
+    "kormium-ktor",
+    "kormium-ktor-di",
+    "kormium-ktor-koin",
+    "kormium-bom",
 )
 
 subprojects {
@@ -87,15 +87,15 @@ subprojects {
         coordinates(group.toString(), name, version.toString())
 
         pom {
-            name.set("korm")
-            description.set("Korm — a simple Kotlin Multiplatform ORM (Postgres + SQLite, JVM + Native).")
+            name.set("kormium")
+            description.set("Kormium — a simple Kotlin Multiplatform ORM (Postgres + SQLite, JVM + Native).")
             inceptionYear.set("2024")
             url.set("https://github.com/kormium/kormium")
             licenses {
                 license {
-                    name.set("MIT")
-                    url.set("https://opensource.org/licenses/MIT")
-                    distribution.set("https://opensource.org/licenses/MIT")
+                    name.set("The Apache License, Version 2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    distribution.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                 }
             }
             developers {

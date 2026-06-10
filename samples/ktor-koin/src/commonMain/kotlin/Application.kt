@@ -2,7 +2,7 @@
 
 package io.github.kormium.samples.ktorkoin
 
-import io.github.kormium.KormException
+import io.github.kormium.KormiumException
 import io.github.kormium.Query
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.database.createDatabase
@@ -29,14 +29,14 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * Wires korm into Ktor through Koin:
+ * Wires Kormium into Ktor through Koin:
  *  - `install(Koin) { modules(...) }` registers the database; `onClose { it?.close() }` closes the
  *    pool when Koin shuts down with the application (Koin does not auto-close like Ktor DI does).
  *  - routes use the reified `call.transaction<AppCatalog> { }` / `call.autocommit<AppCatalog> { }`
- *    helpers from `korm-ktor-koin`, which resolve the database from Koin.
+ *    helpers from `kormium-ktor-koin`, which resolve the database from Koin.
  *
  * Note: Koin keys by `KClass`, so generics are erased. With a single catalog this is fine; for
- * multiple catalogs register and resolve with a `named(...)` qualifier (see korm-ktor-koin docs).
+ * multiple catalogs register and resolve with a `named(...)` qualifier (see kormium-ktor-koin docs).
  */
 fun Application.module() {
     install(Koin) {
@@ -62,7 +62,7 @@ fun Application.module() {
 fun Application.configure() {
     install(ContentNegotiation) { json() }
     install(StatusPages) {
-        exception<KormException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
+        exception<KormiumException> { call, e -> call.respond(e.httpStatusCode(), e.message ?: "database error") }
     }
 
     routing {

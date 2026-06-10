@@ -24,10 +24,10 @@ matching `docker-compose.yml`.
 Useful local checks:
 
 ```bash
-./gradlew :korm-core:jvmTest
-./gradlew :korm-sqlite:jvmTest
-./gradlew :korm-postgres:jvmTest
-./gradlew :korm-r2dbc:jvmTest
+./gradlew :kormium-core:jvmTest
+./gradlew :kormium-sqlite:jvmTest
+./gradlew :kormium-postgres:jvmTest
+./gradlew :kormium-r2dbc:jvmTest
 ```
 
 CI runs a broader matrix:
@@ -44,28 +44,28 @@ not support. Prefer focused tasks unless you are validating the full host-specif
 
 ## Benchmarks
 
-The `benchmarks` module contains JMH benchmarks comparing Korm, Exposed and Hibernate on
+The `benchmarks` module contains JMH benchmarks comparing Kormium, Exposed and Hibernate on
 JVM:
 
 ```bash
 ./gradlew :benchmarks:jmh
 ```
 
-There is also a native Korm benchmark harness. Configure PostgreSQL with environment
+There is also a native Kormium benchmark harness. Configure PostgreSQL with environment
 variables:
 
 ```bash
-export KORM_DB_HOST=localhost
-export KORM_DB_PORT=5432
-export KORM_DB_NAME=postgres
-export KORM_DB_USER=postgres
-export KORM_DB_PASSWORD=password
+export KORMIUM_DB_HOST=localhost
+export KORMIUM_DB_PORT=5432
+export KORMIUM_DB_NAME=postgres
+export KORMIUM_DB_USER=postgres
+export KORMIUM_DB_PASSWORD=password
 ```
 
 Indicative throughput from the current README-era benchmark run, in ops/s with 8
 threads/workers:
 
-| Operation | Korm JVM | Korm Native | Exposed | Hibernate |
+| Operation | Kormium JVM | Kormium Native | Exposed | Hibernate |
 | --- | ---: | ---: | ---: | ---: |
 | `findById` | ~8.2k | ~13.2k | ~8.2k | ~16.0k |
 | `selectWhere` | ~8.2k | ~13.7k | ~7.9k | ~16.3k |

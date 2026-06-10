@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-// ---- schema + entities (owned by the app: raw DDL, not Korm) ----
+// ---- schema + entities (owned by the app: raw DDL, not Kormium) ----
 
 object Shop : Catalog
 
