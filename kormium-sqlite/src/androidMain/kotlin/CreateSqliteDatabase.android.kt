@@ -85,7 +85,12 @@ private class SqliteAndroidDriver(path: String, private val poolSize: Int, overr
         override fun begin() { rawExec(conn, "BEGIN") }
         override fun commit() { rawExec(conn, "COMMIT") }
         override fun rollback() { rawExec(conn, "ROLLBACK") }
-        override fun release() { pool.trySend(conn) }
+
+        // If the pool is already closed (a release racing close()), close the connection
+        // directly instead of silently leaking it.
+        override fun release() {
+            if (pool.trySend(conn).isFailure) conn.close()
+        }
     }
 
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
