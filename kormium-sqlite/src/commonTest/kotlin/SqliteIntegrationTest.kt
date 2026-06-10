@@ -12,7 +12,9 @@ import io.github.kormium.createSqliteDatabase
 import io.github.kormium.database.Database
 import io.github.kormium.eq
 import io.github.kormium.gtEq
+import io.github.kormium.inList
 import io.github.kormium.innerJoin
+import io.github.kormium.leftJoin
 import io.github.kormium.query
 import io.github.kormium.sum
 import io.github.kormium.transaction
@@ -339,6 +341,45 @@ class SqliteIntegrationTest {
         assertEquals(listOf("Ada" to "Notes"), titles)
 
         db.transaction { Books.deleteWhere(Query(Books.id eq bookId)); Authors.deleteWhere(Query(Authors.id eq authorId)) }
+    }
+
+    /** LEFT JOIN find(): a matched right side is an entity, an unmatched one is null. */
+    @Test
+    fun testLeftJoinFindUnmatchedRightIsNull() {
+        val withBook = Uuid.random()
+        val withoutBook = Uuid.random()
+        val bookId = Uuid.random()
+        db.transaction {
+            Authors.execSql(authorsDdl)
+            Books.execSql(booksDdl)
+            Authors.insert(Author().apply { id = withBook; name = "Ada" })
+            Authors.insert(Author().apply { id = withoutBook; name = "Grace" })
+            Books.insert(Book().apply { id = bookId; authorId = withBook; title = "Notes" })
+        }
+
+        val pairs: List<Pair<Author, Book?>> = db.autocommit {
+            (Authors leftJoin Books on (Authors.id eq Books.authorId))
+                .where(Authors.id inList listOf(withBook, withoutBook))
+                .find()
+        }
+        assertEquals(2, pairs.size)
+        val byAuthor = pairs.associateBy { it.first.id }
+        assertEquals("Notes", byAuthor.getValue(withBook).second?.title)
+        assertNull(byAuthor.getValue(withoutBook).second, "an unmatched right side must be null")
+
+        // The select(...) forms still work on a LEFT join.
+        val rows = db.autocommit {
+            (Authors leftJoin Books on (Authors.id eq Books.authorId))
+                .where(Authors.id eq withoutBook)
+                .select()
+        }
+        assertEquals(1, rows.size)
+        assertNull(rows.single().getOrNull(Books.title))
+
+        db.transaction {
+            Books.deleteWhere(Query(Books.id eq bookId))
+            Authors.deleteWhere(Query(Authors.id inList listOf(withBook, withoutBook)))
+        }
     }
 }
 

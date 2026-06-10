@@ -95,6 +95,30 @@ class JoinPair<G : Catalog, A : Entity, B : Entity> internal constructor(
     infix fun leftJoin(other: Table<G, *>): JoinStep<G> = asJoin().leftJoin(other)
 }
 
+/**
+ * A two-table LEFT join that keeps both entity types. Unlike [JoinPair], its `find()` (on
+ * [Scope] / [SuspendScope]) returns `Pair<A, B?>` — the right side is `null` for left rows
+ * with no match. Joining a third table — or grouping — degrades to an (erased) [Join] that
+ * supports only the `select(...)` forms.
+ */
+class LeftJoinPair<G : Catalog, A : Entity, B : Entity> internal constructor(
+    internal val left: Table<G, A>,
+    internal val right: Table<G, B>,
+    private val on: Expression,
+    internal val whereExpr: Expression?,
+) {
+    fun where(condition: Expression): LeftJoinPair<G, A, B> =
+        LeftJoinPair(left, right, on, whereExpr?.let { it and condition } ?: condition)
+
+    internal fun asJoin(): Join<G> = Join(left, listOf(JoinClause(JoinType.LEFT, right, on)), whereExpr)
+
+    fun groupBy(vararg columns: Column<*, *, *>): Join<G> = asJoin().groupBy(*columns)
+    fun distinct(): Join<G> = asJoin().distinct()
+
+    infix fun innerJoin(other: Table<G, *>): JoinStep<G> = asJoin().innerJoin(other)
+    infix fun leftJoin(other: Table<G, *>): JoinStep<G> = asJoin().leftJoin(other)
+}
+
 /** A two-table join awaiting its ON condition, keeping both entity types. */
 class JoinPairStep<G : Catalog, A : Entity, B : Entity> internal constructor(
     private val left: Table<G, A>,
@@ -104,11 +128,19 @@ class JoinPairStep<G : Catalog, A : Entity, B : Entity> internal constructor(
     infix fun on(condition: Expression): JoinPair<G, A, B> = JoinPair(left, right, type, condition, null)
 }
 
+/** A two-table LEFT join awaiting its ON condition, keeping both entity types. */
+class LeftJoinPairStep<G : Catalog, A : Entity, B : Entity> internal constructor(
+    private val left: Table<G, A>,
+    private val right: Table<G, B>,
+) {
+    infix fun on(condition: Expression): LeftJoinPair<G, A, B> = LeftJoinPair(left, right, condition, null)
+}
+
 infix fun <G : Catalog, A : Entity, B : Entity> Table<G, A>.innerJoin(other: Table<G, B>): JoinPairStep<G, A, B> =
     JoinPairStep(this, other, JoinType.INNER)
 
-infix fun <G : Catalog, A : Entity, B : Entity> Table<G, A>.leftJoin(other: Table<G, B>): JoinPairStep<G, A, B> =
-    JoinPairStep(this, other, JoinType.LEFT)
+infix fun <G : Catalog, A : Entity, B : Entity> Table<G, A>.leftJoin(other: Table<G, B>): LeftJoinPairStep<G, A, B> =
+    LeftJoinPairStep(this, other)
 
 /**
  * One row of a query result. Read fields by the [Selectable] you selected:
@@ -166,6 +198,38 @@ private fun buildSelect(
 // Reads each field positionally into a ResultRow.
 private fun mapRow(fields: List<Selectable<*>>, rs: ResultSet, typeMapper: TypeMapper): ResultRow =
     ResultRow(fields.withIndex().associate { (i, f) -> fieldKey(f) to f.read(rs, i, typeMapper) })
+
+// ---- entity-pair hydration (shared by Scope and SuspendScope) ----
+
+// The SELECT list for a two-table entity-pair read: every column of both tables.
+internal fun pairSelectFields(left: Table<*, *>, right: Table<*, *>): List<Selectable<*>> =
+    (left.getFieldDisplayNames().values + right.getFieldDisplayNames().values).toList()
+
+private fun <T : Entity> Table<*, T>.hydrateFrom(row: ResultRow): T =
+    hydrate(getFieldDisplayNames().mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
+
+internal fun <A : Entity, B : Entity> hydrateInnerPairs(
+    left: Table<*, A>,
+    right: Table<*, B>,
+    rows: List<ResultRow>,
+): List<Pair<A, B>> = rows.map { row -> left.hydrateFrom(row) to right.hydrateFrom(row) }
+
+// A LEFT JOIN row with no right-side match reads NULL in the right table's primary key —
+// impossible for a matched row, since primary keys are non-null by construction. For a
+// table without a resolvable primary key, fall back to "every right column is NULL"
+// (only wrong for a matched row consisting entirely of NULLs, which has no identity anyway).
+internal fun <A : Entity, B : Entity> hydrateLeftPairs(
+    left: Table<*, A>,
+    right: Table<*, B>,
+    rows: List<ResultRow>,
+): List<Pair<A, B?>> {
+    val rightKey: List<Column<*, *, *>> =
+        right.primaryKey.ifEmpty { right.getFieldDisplayNames().values.toList() }
+    return rows.map { row ->
+        val missing = rightKey.all { row.getOrNull(it) == null }
+        left.hydrateFrom(row) to if (missing) null else right.hydrateFrom(row)
+    }
+}
 
 internal fun runSelect(exec: SqlExecutor, join: Join<*>, fields: List<Selectable<*>>): List<ResultRow> {
     val (sql, params) = buildSelect(join, fields, exec.dialect, exec.typeMapper)

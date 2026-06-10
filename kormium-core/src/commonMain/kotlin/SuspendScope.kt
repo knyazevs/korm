@@ -124,15 +124,23 @@ class SuspendScope<G : Catalog> internal constructor(
         asJoin().select(*fields, map = map)
 
     /** Runs a two-table join, reconstructing both sides as a `Pair` of entities. */
-    suspend fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> {
-        val aCols = left.getFieldDisplayNames()
-        val bCols = right.getFieldDisplayNames()
-        val rows = runSelect(exec, asJoin(), (aCols.values + bCols.values).toList())
-        return rows.map { row ->
-            left.hydrate(aCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap()) to
-                right.hydrate(bCols.mapValues { (_, c) -> row.getOrNull(c) }.toMutableMap())
-        }
-    }
+    suspend fun <A : Entity, B : Entity> JoinPair<G, A, B>.find(): List<Pair<A, B>> =
+        hydrateInnerPairs(left, right, runSelect(exec, asJoin(), pairSelectFields(left, right)))
+
+    /** Runs a two-table LEFT join, selecting the given fields (or all columns if none are given). */
+    suspend fun <A : Entity, B : Entity> LeftJoinPair<G, A, B>.select(vararg fields: Selectable<*>): List<ResultRow> =
+        asJoin().select(*fields)
+
+    /** Runs a two-table LEFT join, mapping each [ResultRow] with [map]. */
+    suspend fun <A : Entity, B : Entity, R> LeftJoinPair<G, A, B>.select(vararg fields: Selectable<*>, map: (ResultRow) -> R): List<R> =
+        asJoin().select(*fields, map = map)
+
+    /**
+     * Runs a two-table LEFT join, reconstructing both sides as entity pairs. The right side
+     * is `null` for left rows with no match (detected by a NULL right-side primary key).
+     */
+    suspend fun <A : Entity, B : Entity> LeftJoinPair<G, A, B>.find(): List<Pair<A, B?>> =
+        hydrateLeftPairs(left, right, runSelect(exec, asJoin(), pairSelectFields(left, right)))
 
     /**
      * Runs a raw query on the pinned connection, mapping each row with [handler]. Pass any
