@@ -57,7 +57,7 @@ kotlin {
     // Register the same-named "sqlite3" cinterop on every native target so it commonizes
     // into the shared nativeMain source set.
     listOf(
-        linuxX64(), macosX64(), macosArm64(),
+        linuxX64(), macosX64(), macosArm64(), mingwX64(),
         iosX64(), iosArm64(), iosSimulatorArm64(),
     ).forEach { target ->
         val konanName = target.konanTarget.name // e.g. linux_x64, macos_arm64, ios_arm64
@@ -105,8 +105,6 @@ kotlin {
         }
         tasks.named("cinteropSqlite3$capName").configure { dependsOn(archiveSqlite) }
     }
-    // mingwX64() // deferred — see the publishing plan
-
     applyDefaultHierarchyTemplate()
 
     sourceSets {

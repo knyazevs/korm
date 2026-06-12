@@ -59,6 +59,12 @@ jobs:
       - name: Build ktor integration modules
         run: ./gradlew :kormium-ktor:assemble :kormium-ktor-di:assemble :kormium-ktor-koin:assemble --console=plain
 
+      # Cross-compile the experimental Windows (mingwX64) klibs. There is no Windows
+      # runner yet, so nothing executes — this only keeps the target compiling. The libpq
+      # cinterop resolves platform-neutral headers from libpq-dev installed above.
+      - name: Cross-compile Windows (mingwX64) klibs
+        run: ./gradlew :kormium-core:compileKotlinMingwX64 :kormium-postgres:compileTestKotlinMingwX64 :kormium-sqlite:linkDebugTestMingwX64 :kormium-observe:compileKotlinMingwX64 :kormium-migrate:compileKotlinMingwX64 :kormium-ktor:compileKotlinMingwX64 :kormium-ktor-di:compileKotlinMingwX64 :kormium-ktor-koin:compileKotlinMingwX64 --console=plain
+
       # Self-contained SQLite samples — tests run on both JVM and native (no Docker needed).
       # The samples still use a single host-named native target, so their task is `nativeTest`.
       - name: SQLite sample tests (JVM + native)

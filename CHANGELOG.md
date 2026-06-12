@@ -6,6 +6,14 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Experimental Windows Native (mingwX64) target** for all multiplatform modules:
+  `kormium-core`, `kormium-postgres` (libpq), `kormium-sqlite` (vendored amalgamation),
+  `kormium-observe`, `kormium-migrate` and the Ktor integrations. Artifacts cross-compile
+  and publish from any host; CI does not run tests on Windows yet, so the target ships
+  without compatibility guarantees. `benchmarks/run.bat` runs the benchmark matrix
+  (including the native column) on Windows.
+
 ### Performance
 - **PostgreSQL Native: repeated statements skip re-parsing.** The libpq driver now keeps a
   per-connection LRU cache (128 entries) of the `:name` → `$n` parse/substitution result,
