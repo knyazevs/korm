@@ -39,12 +39,17 @@ kotlin {
     val konanDataDir = System.getenv("KONAN_DATA_DIR")?.let(::File)
         ?: File(System.getProperty("user.home"), ".konan")
     val konanVersion = "2.4.0"
-    fun runKonan(): String =
-        (konanDataDir.listFiles { f ->
+    // On Windows the distribution ships run_konan.bat, which has to go through cmd /c.
+    fun runKonan(): List<String> {
+        val dist = (konanDataDir.listFiles { f ->
             f.isDirectory && f.name.startsWith("kotlin-native-prebuilt-") && f.name.endsWith(konanVersion)
-        } ?: emptyArray<File>())
-            .firstOrNull()?.resolve("bin/run_konan")?.absolutePath
+        } ?: emptyArray<File>()).firstOrNull()
             ?: error("Kotlin/Native $konanVersion toolchain not found under $konanDataDir")
+        return if (System.getProperty("os.name").startsWith("Windows"))
+            listOf("cmd", "/c", dist.resolve("bin/run_konan.bat").absolutePath)
+        else
+            listOf(dist.resolve("bin/run_konan").absolutePath)
+    }
     val sqliteDefines = listOf(
         "-O2",
         "-DSQLITE_THREADSAFE=1",
@@ -74,7 +79,7 @@ kotlin {
             doFirst {
                 objFile.get().asFile.parentFile.mkdirs()
                 commandLine(
-                    listOf(runKonan(), "clang", "clang", konanName, "-c")
+                    runKonan() + listOf("clang", "clang", konanName, "-c")
                         + sqliteDefines
                         + listOf(sqliteAmalgamation.absolutePath, "-o", objFile.get().asFile.absolutePath),
                 )
@@ -87,8 +92,10 @@ kotlin {
             outputs.file(staticLib)
             doFirst {
                 commandLine(
-                    runKonan(), "llvm", "llvm-ar", "rcs",
-                    staticLib.get().asFile.absolutePath, objFile.get().asFile.absolutePath,
+                    runKonan() + listOf(
+                        "llvm", "llvm-ar", "rcs",
+                        staticLib.get().asFile.absolutePath, objFile.get().asFile.absolutePath,
+                    ),
                 )
             }
         }
