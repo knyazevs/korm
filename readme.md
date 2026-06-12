@@ -123,7 +123,7 @@ module details.
 | macOS Native | libpq | sqlite3 | Published artifacts for x64 and arm64 |
 | Android | Not shipped | AndroidX SQLite | `kormium-core` and `kormium-sqlite` compile for Android |
 | iOS | Not shipped | sqlite3 | `kormium-core`, `kormium-sqlite` and Ktor integration compile for iOS |
-| Windows Native | libpq (experimental) | sqlite3 (experimental) | mingwX64 artifacts compile and publish; no CI test runs on Windows yet |
+| Windows Native | libpq (experimental) | sqlite3 (experimental) | CI runs JVM + native tests on a Windows runner |
 | Wasm | Research | Planned | No shipped backend yet |
 
 ## Minimal Workflow

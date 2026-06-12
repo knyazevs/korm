@@ -82,7 +82,7 @@ After 1.0 the project should optimize for compatibility and ecosystem fit:
 
 These are useful but should not distract from core reliability:
 
-- Windows Native hardening (mingwX64 ships as experimental; needs CI coverage on a Windows runner);
+- Windows Native hardening (mingwX64 ships as experimental; CI now runs JVM + native tests on a Windows runner — drop the experimental label after a stable release cycle);
 - Wasm and browser-adjacent storage stories;
 - more SQL dialects;
 - richer schema DSL;
