@@ -67,8 +67,8 @@ brew install libpq
 sudo apt-get install libpq-dev
 ```
 
-Windows Native (mingwX64) is experimental: artifacts are published, but CI runs no
-tests on Windows yet. Install a Windows libpq via MSYS2
+Windows Native (mingwX64) is experimental: CI runs the JVM and native test suites on a
+Windows runner. Install a Windows libpq via MSYS2
 (`pacman -S mingw-w64-x86_64-postgresql`) or an EDB PostgreSQL distribution; the cinterop
 searches `C:/msys64/mingw64` and `C:\Program Files\PostgreSQL\15..17`.
 
