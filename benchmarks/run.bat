@@ -98,9 +98,11 @@ if errorlevel 1 (
   echo WARNING: Continuing with the JVM-only matrix. 1>&2
   goto jvm
 )
-set "KEXE=kormium-postgres\build\bin\mingwX64\benchReleaseTest\test.exe"
-if not exist "%KEXE%" (
-  echo WARNING: %KEXE% not found, skipping the native benchmark 1>&2
+rem The binary is named after the "bench" test binary (bench.exe); glob to be safe.
+set "KEXE="
+for %%F in ("kormium-postgres\build\bin\mingwX64\benchReleaseTest\*.exe") do set "KEXE=%%~fF"
+if not defined KEXE (
+  echo WARNING: no .exe in kormium-postgres\build\bin\mingwX64\benchReleaseTest - skipping the native benchmark 1>&2
   goto jvm
 )
 
