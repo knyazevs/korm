@@ -27,6 +27,10 @@ kotlin {
                 defFile(project.file("src/nativeInterop/cinterop/libpq.def"))
             }
         }
+        // Optimized test binary (linkBenchReleaseTest<Target>) for benchmarks/run.sh: the default
+        // debug test kexe is unoptimized K/N code and misrepresents CPU-bound throughput by
+        // 2-3x. Linked only when explicitly requested, so regular test/CI builds don't pay for it.
+        target.binaries.test("bench", listOf(org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.RELEASE))
     }
     // mingwX64() // deferred — see the publishing plan
 
