@@ -18,6 +18,21 @@ kotlin {
         }
     }
 
+    val isWindowsHost = System.getProperty("os.name").startsWith("Windows")
+    // The libpq artifact Windows test binaries link against, preferring the dynamic
+    // library: import lib, then the DLL itself (lld links DLLs directly), then the MSVC
+    // import lib. -Plibpq.lib=<dir> (set by benchmarks/run.bat) takes precedence over
+    // the known MSYS2 / EDB install locations.
+    val windowsLibpqArtifact: String? by lazy {
+        val roots = listOfNotNull((findProperty("libpq.lib") as String?)?.let { file(it).parentFile }) +
+            listOf(file("C:/msys64/mingw64")) +
+            (18 downTo 14).map { file("${System.getenv("ProgramFiles") ?: "C:/Program Files"}/PostgreSQL/$it") }
+        roots.firstNotNullOfOrNull { root ->
+            listOf("lib/libpq.dll.a", "bin/libpq.dll", "lib/libpq.lib")
+                .map(root::resolve).firstOrNull { it.isFile }
+        }?.absolutePath?.replace('\\', '/')
+    }
+
     // The native Postgres driver talks to libpq via cinterop (formerly the :pgkn module,
     // now folded into this module's nativeMain). Register the same-named "libpq" cinterop
     // on every native target so it commonizes into the shared nativeMain source set.
@@ -25,6 +40,26 @@ kotlin {
         target.compilations.getByName("main").cinterops {
             register("libpq") {
                 defFile(project.file("src/nativeInterop/cinterop/libpq.def"))
+                // Non-standard libpq locations (mainly custom Windows installs): pass
+                // -Plibpq.include=<dir> and -Plibpq.lib=<dir>. benchmarks/run.bat fills
+                // these in automatically from pg_config / known install paths.
+                (findProperty("libpq.include") as String?)?.let { compilerOpts("-I$it") }
+            }
+        }
+        // cinterop ignores linker options; libpq is supplied when test binaries link.
+        // On Windows the artifact is chosen explicitly (see windowsLibpqArtifact): a bare
+        // -L/-lpq can pick the static libpq.a, whose bundled pthread shim duplicates
+        // Kotlin/Native's libwinpthread symbols.
+        if (target.name == "mingwX64" && isWindowsHost) {
+            target.binaries.all {
+                windowsLibpqArtifact?.let { linkerOpts(it) } ?: logger.warn(
+                    "kormium-postgres: no Windows libpq found; install MSYS2 " +
+                        "mingw-w64-x86_64-postgresql or pass -Plibpq.lib=<dir>",
+                )
+            }
+        } else {
+            (findProperty("libpq.lib") as String?)?.let { dir ->
+                target.binaries.all { linkerOpts("-L$dir") }
             }
         }
         // Optimized test binary (linkBenchReleaseTest<Target>) for benchmarks/run.sh: the default
