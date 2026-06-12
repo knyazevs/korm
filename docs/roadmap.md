@@ -37,25 +37,27 @@ and a smaller chance that public API has to move later.
 
 ### Query Coverage
 
-- Expand tests for joins with colliding column names.
-- Add more aggregation and `HAVING` coverage.
-- Improve examples for pagination, projections and nullable left joins.
 - Consider richer update/delete result reporting.
-- Document unsupported SQL features explicitly instead of implying full SQL coverage.
+
+(Done: tests for joins with colliding column names; aggregation/`HAVING` coverage; pagination,
+projection and nullable-left-join recipes; an explicit unsupported-SQL section in
+[queries](queries.md).)
 
 ### Schema and Migrations
 
-- Add documented recipes for foreign keys, indexes and custom constraints through raw SQL.
 - Consider first-class index/foreign-key metadata only after the raw SQL workflow is stable.
 - Harden migration tests across PostgreSQL and SQLite.
 - Add guidance for production migration review and rollback strategy.
 
+(Done: documented recipes for foreign keys, indexes and check constraints through raw SQL.)
+
 ### Backend Reliability
 
 - Keep PostgreSQL JVM, PostgreSQL Native and SQLite behavior aligned where practical.
-- Expand SQLSTATE/error mapping tests.
 - Improve Native driver observability and failure messages.
-- Investigate statement caching and prepare/execute paths where benchmarks show real wins.
+- Build on the JVM and Native parse caches: investigate server-side prepare/execute reuse where benchmarks show real wins.
+
+(Done: SQLSTATE/error-mapping tests for unique, not-null and foreign-key violations.)
 
 ### Documentation
 
@@ -65,7 +67,8 @@ and a smaller chance that public API has to move later.
 - Maintain [Production guide](production-guide.md), [Observability](observability.md) and
   [Compatibility policy](compatibility.md) as the production-readiness contract.
 - Add architecture diagrams once the public shape settles.
-- Add a documentation verification task to CI.
+
+(Done: a documentation link/anchor verification task in CI.)
 
 ## After 1.0
 
@@ -82,7 +85,7 @@ After 1.0 the project should optimize for compatibility and ecosystem fit:
 
 These are useful but should not distract from core reliability:
 
-- Windows Native hardening (mingwX64 ships as experimental; CI now runs JVM + native tests on a Windows runner — drop the experimental label after a stable release cycle);
+- Windows Native hardening — drop the experimental label after a stable release cycle;
 - Wasm and browser-adjacent storage stories;
 - more SQL dialects;
 - richer schema DSL;

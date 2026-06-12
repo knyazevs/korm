@@ -1,0 +1,46 @@
+name: Docs
+
+on:
+  push:
+    paths:
+      - "**/*.md"
+      - "lychee.toml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "lychee.toml"
+      - ".github/workflows/docs.yml"
+
+jobs:
+  # Relative file links and #anchors between Markdown files. Runs offline, so it
+  # never touches the network and never flakes — a failure means a genuinely
+  # broken internal link.
+  internal-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check internal links and anchors
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --include-fragments --no-progress "./**/*.md"
+          fail: true
+
+  # External URLs. Non-blocking: link rot and timeouts on third-party sites
+  # should not block a merge. Results are uploaded as an artifact for review.
+  external-links:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check external links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-retries 2
+            --retry-wait-time 5
+            --timeout 20
+            --accept 200,206,429
+            "./**/*.md"
+          fail: false
