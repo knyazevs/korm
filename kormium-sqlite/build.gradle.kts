@@ -39,12 +39,17 @@ kotlin {
     val konanDataDir = System.getenv("KONAN_DATA_DIR")?.let(::File)
         ?: File(System.getProperty("user.home"), ".konan")
     val konanVersion = "2.4.0"
-    fun runKonan(): String =
-        (konanDataDir.listFiles { f ->
+    // On Windows the distribution ships run_konan.bat, which has to go through cmd /c.
+    fun runKonan(): List<String> {
+        val dist = (konanDataDir.listFiles { f ->
             f.isDirectory && f.name.startsWith("kotlin-native-prebuilt-") && f.name.endsWith(konanVersion)
-        } ?: emptyArray<File>())
-            .firstOrNull()?.resolve("bin/run_konan")?.absolutePath
+        } ?: emptyArray<File>()).firstOrNull()
             ?: error("Kotlin/Native $konanVersion toolchain not found under $konanDataDir")
+        return if (System.getProperty("os.name").startsWith("Windows"))
+            listOf("cmd", "/c", dist.resolve("bin/run_konan.bat").absolutePath)
+        else
+            listOf(dist.resolve("bin/run_konan").absolutePath)
+    }
     val sqliteDefines = listOf(
         "-O2",
         "-DSQLITE_THREADSAFE=1",
@@ -73,11 +78,17 @@ kotlin {
             outputs.file(objFile)
             doFirst {
                 objFile.get().asFile.parentFile.mkdirs()
-                commandLine(
-                    listOf(runKonan(), "clang", "clang", konanName, "-c")
-                        + sqliteDefines
-                        + listOf(sqliteAmalgamation.absolutePath, "-o", objFile.get().asFile.absolutePath),
+                // The compiler arguments go through a clang response file: on Windows the
+                // run_konan.bat hop strips `=` from arguments (cmd argument splitting), which
+                // silently destroyed the -DSQLITE_*=1 defines. Forward slashes keep the paths
+                // out of response-file escaping trouble.
+                fun q(f: File) = "\"" + f.absolutePath.replace('\\', '/') + "\""
+                val rsp = objFile.get().asFile.resolveSibling("clang-args.rsp")
+                rsp.writeText(
+                    (sqliteDefines + listOf("-c", q(sqliteAmalgamation), "-o", q(objFile.get().asFile)))
+                        .joinToString("\n"),
                 )
+                commandLine(runKonan() + listOf("clang", "clang", konanName, "@" + rsp.absolutePath))
             }
         }
         val archiveSqlite = tasks.register<Exec>("archiveSqlite3$capName") {
@@ -87,8 +98,10 @@ kotlin {
             outputs.file(staticLib)
             doFirst {
                 commandLine(
-                    runKonan(), "llvm", "llvm-ar", "rcs",
-                    staticLib.get().asFile.absolutePath, objFile.get().asFile.absolutePath,
+                    runKonan() + listOf(
+                        "llvm", "llvm-ar", "rcs",
+                        staticLib.get().asFile.absolutePath, objFile.get().asFile.absolutePath,
+                    ),
                 )
             }
         }

@@ -97,6 +97,70 @@ jobs:
           path: "**/build/reports/tests/**"
           if-no-files-found: ignore
 
+  # Real test execution on Windows for the experimental mingwX64 target: JVM tests plus
+  # native (mingwX64) tests. The PostgreSQL server preinstalled on the runner image backs
+  # the libpq tests (Linux service containers don't work on Windows runners), and MSYS2
+  # (also preinstalled) provides the mingw libpq the test executables link against — the
+  # same route benchmarks/run.bat documents for users.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The Windows K/N toolchain + deps are a multi-hundred-MB download; cache them.
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-windows-kotlin-2.4.0
+
+      - name: Install mingw libpq (MSYS2)
+        run: C:\msys64\usr\bin\pacman.exe -Sy --noconfirm mingw-w64-x86_64-postgresql
+
+      - name: Start the preinstalled PostgreSQL service
+        shell: pwsh
+        run: |
+          $svc = Get-Service postgresql*
+          Set-Service -InputObject $svc -StartupType Manual
+          Start-Service -InputObject $svc
+          & "$env:PGBIN\pg_isready.exe" -h localhost -t 30
+          if ($LASTEXITCODE -ne 0) { throw "PostgreSQL is not accepting connections" }
+
+      - name: JVM tests
+        run: .\gradlew.bat :kormium-core:jvmTest :kormium-sqlite:jvmTest :kormium-migrate:jvmTest --console=plain
+
+      # The runner image's PostgreSQL uses postgres/root credentials (PGUSER/PGPASSWORD).
+      # libpq.dll and its mingw runtime live in C:\msys64\mingw64\bin, so the test
+      # executables need it on PATH.
+      - name: Native (mingwX64) tests
+        shell: pwsh
+        env:
+          KORMIUM_DB_HOST: localhost
+          KORMIUM_DB_PORT: "5432"
+          KORMIUM_DB_NAME: postgres
+          KORMIUM_DB_USER: postgres
+          KORMIUM_DB_PASSWORD: root
+        run: |
+          $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
+          .\gradlew.bat :kormium-core:mingwX64Test :kormium-postgres:mingwX64Test :kormium-sqlite:mingwX64Test :kormium-migrate:mingwX64Test --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-windows
+          path: "**/build/reports/tests/**"
+          if-no-files-found: ignore
+
   # Compose Multiplatform targets (androidTarget + iosX64/iosArm64/iosSimulatorArm64).
   # iOS klibs only compile on a macOS host; the macos-latest runner also ships the Android
   # SDK, so it covers both. The unqualified task names run in every module that declares
