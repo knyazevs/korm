@@ -1,5 +1,8 @@
 package io.github.kormium
 
+import com.ionspin.kotlin.bignum.decimal.BigDecimal
+import io.github.kormium.sql.bigDecimalToParamString
+
 /** Backend-specific conversion of a bound value to the driver's wire form. */
 interface TypeMapper {
     /** Converts [value] to the form bound as a parameter (e.g. UUID/BigDecimal → text). */
@@ -14,6 +17,9 @@ interface TypeMapper {
 object StandardTypeMapper : TypeMapper {
     override fun toParameter(value: Any?): Any? = when (value) {
         null, is Boolean, is Int, is Long, is Double, is String -> value
+        // BigDecimal.toString() runs bignum division per digit — hot on every numeric bind,
+        // so render from the (significand, exponent) pair instead.
+        is BigDecimal -> bigDecimalToParamString(value)
         else -> value.toString()
     }
 }

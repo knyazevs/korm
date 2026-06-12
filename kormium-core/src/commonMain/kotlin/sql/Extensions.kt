@@ -11,7 +11,7 @@ fun ResultSet.getUUID(columnIndex: Int): Uuid? {
 }
 
 fun ResultSet.getBigDecimal(columnIndex: Int): BigDecimal? {
-    return getString(columnIndex)?.let { BigDecimal.parseString(it) }
+    return getString(columnIndex)?.let { parseBigDecimalFast(it) }
 }
 
 // Note: ResultSet already provides getInstant() as a member (with the required

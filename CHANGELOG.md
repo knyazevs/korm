@@ -4,6 +4,31 @@ All notable changes to Kormium are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Performance
+- **PostgreSQL Native: repeated statements skip re-parsing.** The libpq driver now keeps a
+  per-connection LRU cache (128 entries) of the `:name` → `$n` parse/substitution result,
+  mirroring the JVM driver's parse cache. Each parameter is also converted to its text
+  form once instead of twice, and the redundant per-call length/format/type arrays are no
+  longer allocated (libpq ignores lengths for text-format parameters; null types means
+  "infer", exactly as the previous all-zero array did). Statements with positional `?`
+  parameters or Iterable/Array values keep the previous per-call path. Batch inserts gain
+  ~14% on the comparison workload.
+- **`BigDecimal` columns read and bind without bignum string arithmetic.** Plain decimal
+  text of up to 18 digits — everything PostgreSQL emits for typical `numeric` columns —
+  is parsed via a single `Long` accumulation instead of `BigDecimal.parseString`'s
+  per-digit big-integer multiplication (the hottest frames in row-materialization
+  profiles), producing a bit-identical ionspin representation. Binding renders from the
+  (significand, exponent) pair directly. Note: the bound text is now canonical — e.g.
+  `BigDecimal.fromInt(100)` binds as `100` instead of ionspin's `1.0E+2`; the database
+  value is unchanged.
+- **Benchmarks run an optimized Kotlin/Native binary.** `kormium-postgres` now links a
+  release-mode test binary (`linkBenchReleaseTest<Target>`) for the native benchmark
+  harness; the default debug test binary understated CPU-bound throughput (row
+  materialization, batch binding) by 2-3x against the JIT-optimized JVM ORMs. Linked only
+  on demand, so regular test and CI builds are unaffected.
+
 ## [0.5.0] — Review fixes and typed PostgreSQL binding
 
 ### Performance

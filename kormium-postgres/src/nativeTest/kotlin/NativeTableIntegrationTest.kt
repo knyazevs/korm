@@ -185,6 +185,27 @@ class NativeTableIntegrationTest {
         }
     }
 
+    /**
+     * Repeated executions of one statement hit the per-connection parse cache; each call
+     * must still bind its own values. poolSize=1 pins every call to the same connection,
+     * so from the second iteration on the statement comes from the cache.
+     */
+    @Test
+    fun testRepeatedStatementsBindFreshValues() {
+        if (env("KORMIUM_DB_HOST") == null) {
+            println("KORMIUM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        nativeDriver(poolSize = 1).use { driver ->
+            repeat(10) { i ->
+                val got = driver.autocommit {
+                    execute("SELECT :a::int + :b::int", mapOf("a" to i, "b" to 100)) { rs -> rs.getInt(0) }
+                }.single()
+                assertEquals(i + 100, got)
+            }
+        }
+    }
+
     /** Many worker threads hammering a small pool must not corrupt or crash anything. */
     @Test
     fun testConcurrentQueriesArePoolSafe() {

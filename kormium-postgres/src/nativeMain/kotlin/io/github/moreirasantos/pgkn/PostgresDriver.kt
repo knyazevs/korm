@@ -1,6 +1,7 @@
 package io.github.moreirasantos.pgkn
 
 import io.github.moreirasantos.pgkn.exception.ConnectionClosedException
+import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
 import io.github.moreirasantos.pgkn.exception.QueryExecutionException
 import io.github.moreirasantos.pgkn.paramsource.MapSqlParameterSource
 import io.github.moreirasantos.pgkn.sql.buildValueArray
@@ -30,8 +31,6 @@ import io.github.kormium.resultset.ResultSet
 import io.github.kormium.runConnection
 import io.github.kormium.runPinned
 import io.github.kormium.sqlException
-
-private val logger = KLogger("io.github.moreirasantos.pgkn.PostgresDriverKt")
 
 @OptIn(ExperimentalForeignApi::class)
 fun FPostgresDriver(
@@ -80,6 +79,12 @@ private class PostgresDriverImpl(
     private val connections: List<CPointer<PGconn>> = List(poolSize) {
         openConnection(host, port, database, user, password)
     }
+
+    // Parsed-statement cache, one per connection: the pool hands a connection to exactly
+    // one caller at a time, so its cache is only ever touched by the holder — no locking.
+    // (The Channel's send/receive provides the happens-before edge between holders.)
+    private val statementCaches: Map<CPointer<PGconn>, StatementCache> =
+        connections.associateWith { StatementCache() }
 
     private val pool = Channel<CPointer<PGconn>>(poolSize).also { channel ->
         connections.forEach { channel.trySend(it) }
@@ -203,30 +208,81 @@ private class PostgresDriverImpl(
         sql: String,
         paramSource: SqlParameterSource,
     ): CPointer<PGresult> {
+        val prepared = prepareStatement(statementCaches.getValue(connection), sql, paramSource)
+            ?: return doExecuteUncached(connection, sql, paramSource)
+        val values = Array(prepared.parameterNames.size) { i ->
+            val name = prepared.parameterNames[i]
+            try {
+                paramSource.getValue(name)?.toString()
+            } catch (ex: IllegalArgumentException) {
+                throw InvalidDataAccessApiUsageException("No value supplied for the SQL parameter '$name'", ex)
+            }
+        }
+        return execParams(connection, prepared.sql, values)
+    }
+
+    // Parse + substitution is identical across repeated calls of the same statement — cache it
+    // per connection. Returns null when the statement must take the per-call path instead:
+    // '?'-style positional parameters (not bound by name), or Iterable/Array values, whose
+    // placeholder expansion depends on the value's size.
+    private fun prepareStatement(
+        cache: StatementCache,
+        sql: String,
+        paramSource: SqlParameterSource,
+    ): PreparedSql? {
+        cache.get(sql)?.let { hit ->
+            return if (hit.parameterNames.any { isExpandable(paramSource, it) }) null else hit
+        }
+        val parsedSql = parseSql(sql)
+        if (parsedSql.unnamedParameterCount > 0) return null
+        if (parsedSql.parameterNames.any { isExpandable(paramSource, it) }) return null
+        val prepared = PreparedSql(substituteNamedParameters(parsedSql, null), parsedSql.parameterNames.toList())
+        cache.put(sql, prepared)
+        return prepared
+    }
+
+    private fun isExpandable(paramSource: SqlParameterSource, name: String): Boolean {
+        if (!paramSource.hasValue(name)) return false
+        val value = paramSource.getValue(name)
+        return value is Iterable<*> || value is Array<*>
+    }
+
+    // The pre-cache execution path, kept for statements prepareStatement can't handle:
+    // expansion and substitution are recomputed against the actual values on every call.
+    private fun doExecuteUncached(
+        connection: CPointer<PGconn>,
+        sql: String,
+        paramSource: SqlParameterSource,
+    ): CPointer<PGresult> {
         val parsedSql = parseSql(sql)
         val sqlToUse: String = substituteNamedParameters(parsedSql, paramSource)
         val params: Array<Any?> = buildValueArray(parsedSql, paramSource)
-
-        return memScoped {
-            PQexecParams(
-                connection,
-                command = sqlToUse,
-                nParams = params.size,
-                paramValues = createValues(params.size) {
-                    logger.trace { "param[$it]: ${params[it]}" }
-                    value = params[it]?.toString()?.cstr?.getPointer(this@memScoped)
-                },
-                paramLengths = params.map { it?.toString()?.length ?: 0 }.toIntArray().refTo(0),
-                paramFormats = IntArray(params.size) { TEXT_RESULT_FORMAT }.refTo(0),
-                // Bind every parameter as unspecified type (oid 0) so the server infers
-                // each type from its column context. Values are sent as text, so declaring
-                // text(25) for a numeric/timestamp column fails; 0u lets Postgres cast.
-                // Mirrors the JVM driver's stringtype=unspecified.
-                paramTypes = UIntArray(params.size) { 0u }.refTo(0),
-                resultFormat = TEXT_RESULT_FORMAT
-            )
-        }.check(connection)
+        return execParams(connection, sqlToUse, Array(params.size) { params[it]?.toString() })
     }
+
+    private fun execParams(
+        connection: CPointer<PGconn>,
+        sql: String,
+        values: Array<String?>,
+    ): CPointer<PGresult> = memScoped {
+        PQexecParams(
+            connection,
+            command = sql,
+            nParams = values.size,
+            paramValues = createValues(values.size) {
+                value = values[it]?.cstr?.getPointer(this@memScoped)
+            },
+            // Text-format parameters are null-terminated, so lengths are ignored; null
+            // formats means "all text". Null types binds every parameter as unspecified
+            // (oid 0) so the server infers each type from its column context — declaring
+            // text(25) for a numeric/timestamp column would fail, oid 0 lets Postgres
+            // cast. Mirrors the JVM driver's stringtype=unspecified.
+            paramLengths = null,
+            paramFormats = null,
+            paramTypes = null,
+            resultFormat = TEXT_RESULT_FORMAT
+        )
+    }.check(connection)
 
     private fun doExecute(connection: CPointer<PGconn>, sql: String) = memScoped {
         PQexecParams(
@@ -283,6 +339,31 @@ private fun openConnection(
         throw QueryExecutionException(message.ifEmpty { "Failed to connect to Postgres" })
     }
     return connection
+}
+
+// A statement ready for PQexecParams: the `$n`-substituted SQL and the named-parameter
+// occurrence order used to build the positional value array.
+private class PreparedSql(val sql: String, val parameterNames: List<String>)
+
+/**
+ * A small LRU of [PreparedSql] keyed by the original SQL text. LinkedHashMap keeps
+ * insertion order, so a hit re-inserts the entry to move it to the tail and eviction
+ * drops the head — the least recently used statement. Bounded so one-off SQL (large
+ * IN-lists, ad-hoc queries) cannot grow it without limit.
+ */
+private class StatementCache(private val maxEntries: Int = 128) {
+    private val map = LinkedHashMap<String, PreparedSql>()
+
+    fun get(sql: String): PreparedSql? {
+        val hit = map.remove(sql) ?: return null
+        map[sql] = hit
+        return hit
+    }
+
+    fun put(sql: String, prepared: PreparedSql) {
+        if (map.size >= maxEntries) map.remove(map.keys.first())
+        map[sql] = prepared
+    }
 }
 
 private const val TEXT_RESULT_FORMAT = 0
