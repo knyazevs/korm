@@ -151,7 +151,7 @@ class TableTest {
         assertTrue(blockSql.contains("""ORDERBY"position"DESC"""), blockSql)
         assertTrue(blockSql.contains("LIMIT50"), blockSql)
         assertTrue(blockSql.contains("OFFSET10"), blockSql)
-        assertEquals(mapOf("p0" to price.toString(), "p1" to 1), blockParams)
+        assertEquals(mapOf("p0" to "100", "p1" to 1), blockParams)
     }
 
     @Test
@@ -367,7 +367,7 @@ class TableTest {
         assertEquals(
             mapOf(
                 "p0" to uuid.toString(),
-                "p1" to price.toString(),
+                "p1" to "100",
                 "p2" to position,
                 "p3" to text,
                 "p4" to null,
@@ -421,7 +421,7 @@ class TableTest {
         assertEquals(
             mapOf(
                 "p0" to uuid.toString(),
-                "p1" to price.toString(),
+                "p1" to "100",
                 "p2" to position,
                 "p3" to text,
                 "p4" to null,
@@ -469,7 +469,7 @@ class TableTest {
             )
         }
         assertEquals(remoteNewLinesAndSpaces(expectedResult), remoteNewLinesAndSpaces(databaseMockObj.internalSql))
-        assertEquals(mapOf("p0" to price.toString()), databaseMockObj.internalParams)
+        assertEquals(mapOf("p0" to "100"), databaseMockObj.internalParams)
     }
 
     @Test
@@ -669,7 +669,7 @@ class TableTest {
         assertTrue(sql.contains("""SELECT"products"."position",COUNT(*),SUM("products"."price")"""), sql)
         assertTrue(sql.contains("""GROUPBY"products"."position""""), sql)
         assertTrue(sql.contains("""HAVINGSUM("products"."price")>:p0"""), sql)
-        assertEquals(mapOf("p0" to BigDecimal.fromInt(100).toString()), databaseMockObj.internalParams)
+        assertEquals(mapOf("p0" to "100"), databaseMockObj.internalParams)
     }
 
     @Test
