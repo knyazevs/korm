@@ -44,32 +44,30 @@ not support. Prefer focused tasks unless you are validating the full host-specif
 
 ## Benchmarks
 
-The `benchmarks` module contains JMH benchmarks comparing Kormium, Exposed and Hibernate on
-JVM:
+The `benchmarks` module measures the full matrix — Kormium JVM, Kormium Native (libpq),
+Exposed and Hibernate — over six operations (`findById`, `selectWhere`, `selectMany`,
+`insert`, `batchInsert`, `updateById`) against one shared PostgreSQL:
 
 ```bash
-./gradlew :benchmarks:jmh
+./benchmarks/run.sh            # full matrix, prints a merged summary table
+./gradlew :benchmarks:jmh      # JVM ORMs only
 ```
 
-There is also a native Kormium benchmark harness. Configure PostgreSQL with environment
-variables:
+See [benchmarks/README.md](../benchmarks/README.md) for flags, output files, what each
+operation does and the methodology (durability-off PostgreSQL on tmpfs, per-iteration
+reseeding, JMH forks).
 
-```bash
-export KORMIUM_DB_HOST=localhost
-export KORMIUM_DB_PORT=5432
-export KORMIUM_DB_NAME=postgres
-export KORMIUM_DB_USER=postgres
-export KORMIUM_DB_PASSWORD=password
-```
-
-Indicative throughput from the current README-era benchmark run, in ops/s with 8
-threads/workers:
+Indicative throughput from a `run.sh` pass on a dev machine, in ops/s with 8
+threads/workers (the native column comes from a simpler non-JMH harness):
 
 | Operation | Kormium JVM | Kormium Native | Exposed | Hibernate |
 | --- | ---: | ---: | ---: | ---: |
-| `findById` | ~8.2k | ~13.2k | ~8.2k | ~16.0k |
-| `selectWhere` | ~8.2k | ~13.7k | ~7.9k | ~16.3k |
-| `insert` | ~8.0k | ~5.0k | ~7.9k | ~8.3k |
+| `findById` | ~26.1k | ~30.6k | ~11.2k | ~26.3k |
+| `selectWhere` | ~26.4k | ~29.7k | ~10.7k | ~23.9k |
+| `selectMany` | ~19.9k | ~17.3k | ~9.8k | ~13.7k |
+| `insert` | ~12.2k | ~11.3k | ~11.8k | ~12.4k |
+| `batchInsert` | ~4.7k | ~5.4k | ~4.9k | ~4.2k |
+| `updateById` | ~11.6k | ~11.3k | ~11.1k | ~10.7k |
 
 Treat benchmark numbers as relative. Run them on your own machine and database before making
 architecture decisions.

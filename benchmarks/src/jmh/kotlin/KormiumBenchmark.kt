@@ -14,6 +14,7 @@ import io.github.kormium.transaction
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
+import org.openjdk.jmh.annotations.Level
 import org.openjdk.jmh.annotations.Measurement
 import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
@@ -21,6 +22,7 @@ import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
+import org.openjdk.jmh.annotations.Threads
 import org.openjdk.jmh.annotations.Warmup
 import org.testcontainers.containers.PostgreSQLContainer
 import java.util.concurrent.TimeUnit
@@ -45,9 +47,10 @@ object BenchTable : Table<Bench, BenchRow>("bench", ::BenchRow) {
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Warmup(iterations = 3, time = 2)
+@Warmup(iterations = 5, time = 2)
 @Measurement(iterations = 5, time = 2)
-@Fork(1)
+@Fork(value = 2, jvmArgsAppend = ["-Xms2g", "-Xmx2g"])
+@Threads(8)
 open class KormiumBenchmark {
 
     private lateinit var container: PostgreSQLContainer<*>
@@ -56,7 +59,16 @@ open class KormiumBenchmark {
 
     @Setup
     fun setup() {
-        container = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+        // See ComparisonBenchmark.setup: the fat jar has duplicate java.sql.Driver service
+        // entries, so register the PostgreSQL driver explicitly.
+        Class.forName("org.postgresql.Driver")
+        // Same stability setup as ComparisonBenchmark: tmpfs data dir and durability off, so
+        // we measure ORM/driver overhead rather than disk fsync latency.
+        container = PostgreSQLContainer("postgres:16-alpine").apply {
+            withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
+            withCommand("postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off")
+            start()
+        }
         db = createDatabase(
             host = container.host,
             port = container.firstMappedPort,
@@ -67,6 +79,16 @@ open class KormiumBenchmark {
         )
         db.transaction {
             BenchTable.execSql(benchDdl)
+            executeUpdate("""CREATE INDEX IF NOT EXISTS bench_name_idx ON "public"."bench" ("name")""")
+        }
+    }
+
+    // Keep table size constant across iterations: the insert benchmark grows the table and
+    // its indexes, which would slowly drag every later iteration.
+    @Setup(Level.Iteration)
+    fun resetTable() {
+        db.transaction {
+            executeUpdate("""TRUNCATE "public"."bench"""")
             BenchTable.insert(BenchRow().apply { id = seededId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
     }
