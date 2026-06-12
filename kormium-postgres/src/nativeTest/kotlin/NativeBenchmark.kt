@@ -13,6 +13,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlin.native.concurrent.TransferMode
 import kotlin.native.concurrent.Worker
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.time.TimeSource
 import kotlin.uuid.Uuid
@@ -46,24 +47,41 @@ object BenchTable : Table<BenchCatalog, BenchRow>("cmp_bench", ::BenchRow) {
     init { id; name; amount }
 }
 
-private val benchSeedId = Uuid.random()
+// Workload shape — keep in sync with the JVM ComparisonBenchmark in `benchmarks`.
+private const val BULK_ROWS = 100
+private const val BATCH_SIZE = 50
+private const val UPDATE_ROWS = 1024
 
-private enum class Op { FIND_BY_ID, SELECT_WHERE, INSERT }
+private val benchSeedId = Uuid.random()
+private val updateIds = List(UPDATE_ROWS) { Uuid.random() }
+
+private enum class Op { FIND_BY_ID, SELECT_WHERE, SELECT_MANY, INSERT, BATCH_INSERT, UPDATE_BY_ID }
+
+private fun newRow(rowName: String) =
+    BenchRow().apply { id = Uuid.random(); name = rowName; amount = BigDecimal.fromInt(1) }
 
 private fun runOp(db: Database<BenchCatalog>, op: Op) {
     when (op) {
         Op.FIND_BY_ID -> db.autocommit { BenchTable.findById(benchSeedId) }
         Op.SELECT_WHERE -> db.autocommit { BenchTable.find(Query(BenchTable.name eq "seed")) }
-        Op.INSERT -> db.transaction {
-            BenchTable.insert(BenchRow().apply { id = Uuid.random(); name = "x"; amount = BigDecimal.fromInt(1) })
+        Op.SELECT_MANY -> db.autocommit { BenchTable.find(Query(BenchTable.name eq "bulk")) }
+        Op.INSERT -> db.transaction { BenchTable.insert(newRow("x")) }
+        Op.BATCH_INSERT -> db.transaction { BenchTable.insertAll(List(BATCH_SIZE) { newRow("x") }) }
+        Op.UPDATE_BY_ID -> db.transaction {
+            BenchTable.update(
+                Query(BenchTable.id eq updateIds[Random.nextInt(UPDATE_ROWS)]),
+                BenchRow().apply { amount = BigDecimal.fromInt(2) },
+            )
         }
     }
 }
 
 /**
- * Native counterpart to the JVM JMH ComparisonBenchmark: same three operations, 8 worker
- * threads, against the Postgres given by KORMIUM_DB_* env vars. Opt-in via KORM_BENCH so it
- * never runs in the normal test suite. Prints ops/s lines the runner script parses.
+ * Native counterpart to the JVM JMH ComparisonBenchmark: same six operations and seeding,
+ * 8 worker threads, against the Postgres given by KORMIUM_DB_* env vars. Opt-in via
+ * KORM_BENCH so it never runs in the normal test suite. KORM_BENCH_OPS overrides the
+ * per-thread op count (default 5000) for quick smoke runs. Prints one machine-readable
+ * `KORM_NATIVE_RESULT op=ops_per_sec ...` line that benchmarks/run.sh parses.
  */
 class NativeBenchmark {
 
@@ -74,28 +92,36 @@ class NativeBenchmark {
             return
         }
         val driver = benchDriver(poolSize = 8)
-        // Fresh table + an index on `name` so selectWhere is an index lookup (matches the JVM
-        // harness) rather than a sequential scan that degrades as inserts bloat the table.
         driver.transaction {
             BenchTable.execSql("DROP TABLE IF EXISTS \"cmp_bench\"")
             BenchTable.execSql(benchDdl)
             executeUpdate("""CREATE INDEX IF NOT EXISTS cmp_bench_name_idx ON "public"."cmp_bench" ("name")""")
-            BenchTable.insert(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
         }
 
         val threads = 8
-        val ops = 5_000
-        val findById = bench(driver, threads, ops, Op.FIND_BY_ID)
-        val selectWhere = bench(driver, threads, ops, Op.SELECT_WHERE)
-        val insert = bench(driver, threads, ops, Op.INSERT)
+        val ops = benchEnv("KORM_BENCH_OPS")?.toInt() ?: 5_000
+        val results = listOf(
+            "findById" to Op.FIND_BY_ID,
+            "selectWhere" to Op.SELECT_WHERE,
+            "selectMany" to Op.SELECT_MANY,
+            "insert" to Op.INSERT,
+            // Batches are ~50x slower per op; scale the count down to keep the run short.
+            "batchInsert" to Op.BATCH_INSERT,
+            "updateById" to Op.UPDATE_BY_ID,
+        ).map { (name, op) ->
+            val perThread = if (op == Op.BATCH_INSERT) (ops / 25).coerceAtLeast(10) else ops
+            name to bench(driver, threads, perThread, op)
+        }
 
-        println("KORM_NATIVE_RESULT findById=${findById.toInt()} selectWhere=${selectWhere.toInt()} insert=${insert.toInt()}")
+        println("KORM_NATIVE_RESULT " + results.joinToString(" ") { (name, opsSec) -> "$name=${opsSec.toInt()}" })
         driver.close()
     }
 
-    /** Runs [opsPerThread] ops of [op] on each of [threads] workers; returns ops/second. */
+    /** Resets the table, warms up, then runs [opsPerThread] ops on [threads] workers; returns ops/s. */
     private fun bench(driver: Database<BenchCatalog>, threads: Int, opsPerThread: Int, op: Op): Double {
-        repeat(2_000) { runOp(driver, op) } // warm up
+        reset(driver)
+        repeat(minOf(2_000, opsPerThread * 2)) { runOp(driver, op) } // warm up
+        reset(driver)
         val mark = TimeSource.Monotonic.markNow()
         val workers = List(threads) { Worker.start() }
         val futures = workers.map { worker ->
@@ -107,6 +133,18 @@ class NativeBenchmark {
         val elapsedMs = mark.elapsedNow().inWholeMilliseconds.coerceAtLeast(1)
         workers.forEach { it.requestTermination().result }
         return threads.toLong() * opsPerThread * 1000.0 / elapsedMs
+    }
+
+    /** Same per-iteration state as the JVM harness: seed row, bulk rows, update targets. */
+    private fun reset(driver: Database<BenchCatalog>) {
+        driver.transaction {
+            executeUpdate("""TRUNCATE "public"."cmp_bench"""")
+            BenchTable.insert(BenchRow().apply { id = benchSeedId; name = "seed"; amount = BigDecimal.fromInt(1) })
+            BenchTable.insertAll(List(BULK_ROWS) { newRow("bulk") })
+            BenchTable.insertAll(updateIds.map { rowId ->
+                BenchRow().apply { id = rowId; name = "upd"; amount = BigDecimal.fromInt(1) }
+            })
+        }
     }
 }
 
