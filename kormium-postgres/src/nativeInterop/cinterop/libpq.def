@@ -14,9 +14,11 @@ linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -L/usr/lib/postgresql/13/lib -L/h
 # PostgreSQL install. The unix paths at the end let the klib cross-compile from
 # macOS/Linux CI hosts — libpq-fe.h is platform-neutral, and only the final link of a
 # Windows executable needs the real Windows libpq.
+#
+# Deliberately no linkerOpts.mingw: a bare -lpq can resolve to the *static* libpq.a,
+# whose bundled win32 pthread shim collides with Kotlin/Native's libwinpthread at link
+# time (duplicate pthread_* symbols). kormium-postgres/build.gradle.kts picks the
+# dynamic artifact (libpq.dll.a / libpq.dll / libpq.lib) explicitly on Windows hosts.
 compilerOpts.mingw = -IC:/msys64/mingw64/include \
-    -I"C:\Program Files\PostgreSQL\17\include" -I"C:\Program Files\PostgreSQL\16\include" -I"C:\Program Files\PostgreSQL\15\include" \
+    -I"C:\Program Files\PostgreSQL\18\include" -I"C:\Program Files\PostgreSQL\17\include" -I"C:\Program Files\PostgreSQL\16\include" -I"C:\Program Files\PostgreSQL\15\include" \
     -I/opt/homebrew/opt/libpq/include -I/usr/local/opt/libpq/include -I/usr/include/postgresql/
-linkerOpts.mingw = -LC:/msys64/mingw64/lib \
-    -L"C:\Program Files\PostgreSQL\17\lib" -L"C:\Program Files\PostgreSQL\16\lib" -L"C:\Program Files\PostgreSQL\15\lib" \
-    -lpq
