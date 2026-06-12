@@ -16,10 +16,10 @@ JVM JMH benchmarks, and prints a merged summary (~20 minutes):
 ```
 Benchmark summary — ops/s, higher is better
 ═══════════════════════════════════════════
-Operation    Kormium  Kormium Native  Exposed  Hibernate
---------------------------------------------------------
-findById      16,253          22,988    7,688     15,535
-selectWhere   16,022          24,096    7,637     15,873
+Operation    Kormium JVM  Kormium Native  Exposed  Hibernate
+------------------------------------------------------------
+findById          16,253          22,988    7,688     15,535
+selectWhere       16,022          24,096    7,637     15,873
 ...
 ```
 
