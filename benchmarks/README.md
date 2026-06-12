@@ -52,8 +52,12 @@ benchmarks\run.bat [--quick] [--skip-native] [--skip-jvm]
 ```
 
 The native column is built for the experimental mingwX64 target and needs a Windows
-libpq — MSYS2 (`pacman -S mingw-w64-x86_64-postgresql`) or an EDB PostgreSQL install.
-If the native binary cannot be linked, the script warns and runs the JVM matrix only.
+libpq. The easiest route is MSYS2 (`winget install MSYS2.MSYS2`, then
+`C:\msys64\usr\bin\pacman -S mingw-w64-x86_64-postgresql`); an EDB PostgreSQL install
+or anything exposing `pg_config` on PATH also works — the script auto-detects all three
+and passes the paths to Gradle (`-Plibpq.include` / `-Plibpq.lib`, settable manually for
+unusual layouts). Without a libpq the script explains what to install and runs the JVM
+matrix only.
 
 ## JVM-only runs via Gradle
 

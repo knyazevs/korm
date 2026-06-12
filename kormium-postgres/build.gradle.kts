@@ -25,7 +25,15 @@ kotlin {
         target.compilations.getByName("main").cinterops {
             register("libpq") {
                 defFile(project.file("src/nativeInterop/cinterop/libpq.def"))
+                // Non-standard libpq locations (mainly custom Windows installs): pass
+                // -Plibpq.include=<dir> and -Plibpq.lib=<dir>. benchmarks/run.bat fills
+                // these in automatically from pg_config / known install paths.
+                (findProperty("libpq.include") as String?)?.let { compilerOpts("-I$it") }
             }
+        }
+        // cinterop ignores linker options; the lib dir applies when test binaries link.
+        (findProperty("libpq.lib") as String?)?.let { dir ->
+            target.binaries.all { linkerOpts("-L$dir") }
         }
         // Optimized test binary (linkBenchReleaseTest<Target>) for benchmarks/run.sh: the default
         // debug test kexe is unoptimized K/N code and misrepresents CPU-bound throughput by

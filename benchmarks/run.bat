@@ -2,9 +2,11 @@
 rem Windows counterpart of run.sh: the full benchmark matrix — Kormium Native (mingwX64),
 rem Kormium JVM, Exposed and Hibernate — against one tuned PostgreSQL container.
 rem
-rem Prerequisites: Docker Desktop; for the native column, a Windows libpq
-rem (MSYS2: pacman -S mingw-w64-x86_64-postgresql, or an EDB PostgreSQL install —
-rem see kormium-postgres/src/nativeInterop/cinterop/libpq.def for the searched paths).
+rem Prerequisites: Docker Desktop; for the native column, a Windows libpq.
+rem The easiest route is MSYS2:
+rem     winget install MSYS2.MSYS2
+rem     C:\msys64\usr\bin\pacman -S --noconfirm mingw-w64-x86_64-postgresql
+rem An EDB PostgreSQL install or anything exposing pg_config on PATH also works.
 rem
 rem Usage: benchmarks\run.bat [--quick] [--skip-native] [--skip-jvm]
 rem   --quick        fast indicative run — for checking the setup, not for quoting
@@ -56,10 +58,44 @@ set "KORMIUM_DB_PASSWORD=password"
 
 if defined SKIP_NATIVE goto jvm
 
+rem --- Locate a Windows libpq: headers for the cinterop, import lib for linking, dll
+rem --- for runtime. Checked in order: MSYS2, EDB installs, pg_config on PATH.
+set "LIBPQ_INCLUDE="
+set "LIBPQ_LIB="
+set "LIBPQ_BIN="
+if exist "C:\msys64\mingw64\include\libpq-fe.h" (
+  set "LIBPQ_BIN=C:\msys64\mingw64\bin"
+  goto libpq_found
+)
+for %%V in (18 17 16 15 14) do (
+  if not defined LIBPQ_INCLUDE if exist "%ProgramFiles%\PostgreSQL\%%V\include\libpq-fe.h" (
+    set "LIBPQ_INCLUDE=%ProgramFiles%\PostgreSQL\%%V\include"
+    set "LIBPQ_LIB=%ProgramFiles%\PostgreSQL\%%V\lib"
+    set "LIBPQ_BIN=%ProgramFiles%\PostgreSQL\%%V\bin"
+  )
+)
+if defined LIBPQ_INCLUDE goto libpq_found
+for /f "delims=" %%I in ('pg_config --includedir 2^>nul') do set "LIBPQ_INCLUDE=%%I"
+for /f "delims=" %%I in ('pg_config --libdir 2^>nul') do set "LIBPQ_LIB=%%I"
+for /f "delims=" %%I in ('pg_config --bindir 2^>nul') do set "LIBPQ_BIN=%%I"
+if defined LIBPQ_INCLUDE goto libpq_found
+
+echo WARNING: no Windows libpq found - skipping the native benchmark. 1>&2
+echo WARNING: install it via MSYS2: 1>&2
+echo WARNING:     winget install MSYS2.MSYS2 1>&2
+echo WARNING:     C:\msys64\usr\bin\pacman -S --noconfirm mingw-w64-x86_64-postgresql 1>&2
+echo WARNING: or install PostgreSQL (EDB) so that "%%ProgramFiles%%\PostgreSQL\NN" exists. 1>&2
+goto jvm
+
+:libpq_found
+set "LIBPQ_PROPS="
+if defined LIBPQ_INCLUDE set LIBPQ_PROPS="-Plibpq.include=%LIBPQ_INCLUDE%" "-Plibpq.lib=%LIBPQ_LIB%"
+
 echo ==^> Building native benchmark binary (mingwX64, release)
-call gradlew.bat -q :kormium-postgres:linkBenchReleaseTestMingwX64
+call gradlew.bat -q :kormium-postgres:linkBenchReleaseTestMingwX64 %LIBPQ_PROPS%
 if errorlevel 1 (
-  echo WARNING: native binary failed to link - is a Windows libpq installed? Continuing JVM-only. 1>&2
+  echo WARNING: native binary failed to build/link - see the Gradle output above. 1>&2
+  echo WARNING: Continuing with the JVM-only matrix. 1>&2
   goto jvm
 )
 set "KEXE=kormium-postgres\build\bin\mingwX64\benchReleaseTest\test.exe"
@@ -69,9 +105,8 @@ if not exist "%KEXE%" (
 )
 
 echo ==^> Running native benchmark
-rem The exe loads libpq.dll at runtime; put the usual install locations on PATH
-rem (linking found the import lib, but the loader searches PATH, not linker paths).
-set "PATH=C:\msys64\mingw64\bin;%ProgramFiles%\PostgreSQL\17\bin;%ProgramFiles%\PostgreSQL\16\bin;%ProgramFiles%\PostgreSQL\15\bin;%PATH%"
+rem The exe loads libpq.dll at runtime; the loader searches PATH, not linker paths.
+if defined LIBPQ_BIN set "PATH=%LIBPQ_BIN%;%PATH%"
 set "KORM_BENCH=1"
 if defined QUICK (set "KORM_BENCH_OPS=500") else (set "KORM_BENCH_OPS=")
 set "NATIVE_LOG=%TEMP%\kormium-native-bench.log"
@@ -82,8 +117,7 @@ set "KORM_BENCH="
 if not "%KEXE_EXIT%"=="0" (
   echo.
   echo WARNING: native benchmark exited with code %KEXE_EXIT%. 1>&2
-  echo WARNING: if the log above is empty, libpq.dll was not found - install MSYS2 libpq 1>&2
-  echo WARNING: ^(pacman -S mingw-w64-x86_64-postgresql^) or add your PostgreSQL bin dir to PATH. 1>&2
+  echo WARNING: if the log above is empty, libpq.dll was not loadable from %LIBPQ_BIN%. 1>&2
 )
 
 rem "KORM_NATIVE_RESULT findById=123 ..." -> {"findById": 123, ...}
