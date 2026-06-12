@@ -21,7 +21,7 @@ kotlin {
     // The native Postgres driver talks to libpq via cinterop (formerly the :pgkn module,
     // now folded into this module's nativeMain). Register the same-named "libpq" cinterop
     // on every native target so it commonizes into the shared nativeMain source set.
-    listOf(linuxX64(), macosX64(), macosArm64()).forEach { target ->
+    listOf(linuxX64(), macosX64(), macosArm64(), mingwX64()).forEach { target ->
         target.compilations.getByName("main").cinterops {
             register("libpq") {
                 defFile(project.file("src/nativeInterop/cinterop/libpq.def"))
@@ -32,8 +32,6 @@ kotlin {
         // 2-3x. Linked only when explicitly requested, so regular test/CI builds don't pay for it.
         target.binaries.test("bench", listOf(org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.RELEASE))
     }
-    // mingwX64() // deferred — see the publishing plan
-
     applyDefaultHierarchyTemplate()
 
     sourceSets {

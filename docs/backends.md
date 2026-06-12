@@ -119,7 +119,7 @@ The public API presents Kotlin values consistently even when storage differs.
 | macOS Native | libpq | sqlite3 |
 | Android | Not shipped | AndroidX SQLite |
 | iOS | Not shipped | sqlite3 |
-| Windows Native | Planned | Planned |
+| Windows Native | libpq (experimental) | sqlite3 (experimental) |
 | Wasm | Research | Planned |
 
 See [Installation](installation.md#platform-matrix) for module-level details.

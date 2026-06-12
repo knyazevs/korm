@@ -33,7 +33,7 @@ kotlin {
     linuxX64()
     macosX64()
     macosArm64()
-    // mingwX64() // deferred — see the publishing plan
+    mingwX64()
 
     applyDefaultHierarchyTemplate()
 

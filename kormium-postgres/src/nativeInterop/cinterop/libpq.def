@@ -10,5 +10,13 @@ linkerOpts.osx = -L/opt/homebrew/opt/libpq/lib -L/usr/local/opt/libpq/lib -lpq
 compilerOpts.linux = -I/usr/include/postgresql/ -I/home/linuxbrew/.linuxbrew/opt/libpq/include -I/opt/homebrew/opt/libpq/include -I/usr/local/opt/libpq/include -lpq
 linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -L/usr/lib/postgresql/13/lib -L/home/linuxbrew/.linuxbrew/opt/libpq/libpkg-config -L/opt/homebrew/opt/libpq/lib -L/usr/local/opt/libpq/lib -lpq
 
-compilerOpts.mingw = -I"C:\Program Files\PostgreSQL\15\include"
-linkerOpts.mingw = -L"%ProgramFiles%/PostgreSQL/15/lib"
+# Windows: MSYS2 mingw64 libpq (pacman -S mingw-w64-x86_64-postgresql) or an EDB
+# PostgreSQL install. The unix paths at the end let the klib cross-compile from
+# macOS/Linux CI hosts — libpq-fe.h is platform-neutral, and only the final link of a
+# Windows executable needs the real Windows libpq.
+compilerOpts.mingw = -IC:/msys64/mingw64/include \
+    -I"C:\Program Files\PostgreSQL\17\include" -I"C:\Program Files\PostgreSQL\16\include" -I"C:\Program Files\PostgreSQL\15\include" \
+    -I/opt/homebrew/opt/libpq/include -I/usr/local/opt/libpq/include -I/usr/include/postgresql/
+linkerOpts.mingw = -LC:/msys64/mingw64/lib \
+    -L"C:\Program Files\PostgreSQL\17\lib" -L"C:\Program Files\PostgreSQL\16\lib" -L"C:\Program Files\PostgreSQL\15\lib" \
+    -lpq

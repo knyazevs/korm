@@ -31,7 +31,7 @@ When these baselines change, the change should be called out in the changelog.
 | macOS Native | Published for x64 and arm64; compile and smoke coverage should be kept |
 | Android | Supported for core and SQLite compilation/runtime path |
 | iOS | Supported for core/SQLite compilation; production backend story is SQLite only |
-| Windows Native | Planned, no compatibility guarantee yet |
+| Windows Native | Experimental (mingwX64): artifacts compile and publish, but CI runs no tests on Windows yet — no compatibility guarantee |
 | Wasm | Research, no compatibility guarantee yet |
 
 ## API Stability Levels

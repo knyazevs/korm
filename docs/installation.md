@@ -67,7 +67,10 @@ brew install libpq
 sudo apt-get install libpq-dev
 ```
 
-Windows Native is planned but not shipped yet.
+Windows Native (mingwX64) is experimental: artifacts are published, but CI runs no
+tests on Windows yet. Install a Windows libpq via MSYS2
+(`pacman -S mingw-w64-x86_64-postgresql`) or an EDB PostgreSQL distribution; the cinterop
+searches `C:/msys64/mingw64` and `C:\Program Files\PostgreSQL\15..17`.
 
 ### SQLite Native
 
@@ -87,7 +90,7 @@ sudo apt-get install libsqlite3-dev
 | macOS Native | Yes | libpq | sqlite3 | No | Yes |
 | Android | Yes | No | AndroidX SQLite | No | Compiles |
 | iOS | Yes | No | sqlite3 | No | Compiles |
-| Windows Native | Planned | Planned | Planned | No | Planned |
+| Windows Native | Experimental | libpq (experimental) | sqlite3 (experimental) | No | Experimental |
 | Wasm | Research | No | Planned | No | No |
 
 The CI workflow builds JVM/Linux Native tests on Ubuntu and Android/iOS compilation on

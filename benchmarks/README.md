@@ -43,6 +43,18 @@ To re-print the table from the last run without re-running anything:
 ./gradlew :benchmarks:benchmarkSummary
 ```
 
+## Windows
+
+Use the batch counterpart (requires Docker Desktop):
+
+```bat
+benchmarks\run.bat [--quick] [--skip-native] [--skip-jvm]
+```
+
+The native column is built for the experimental mingwX64 target and needs a Windows
+libpq — MSYS2 (`pacman -S mingw-w64-x86_64-postgresql`) or an EDB PostgreSQL install.
+If the native binary cannot be linked, the script warns and runs the JVM matrix only.
+
 ## JVM-only runs via Gradle
 
 `./gradlew :benchmarks:jmh` runs the JVM matrix on its own throwaway Testcontainers
