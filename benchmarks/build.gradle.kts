@@ -108,7 +108,7 @@ val benchmarkSummary = tasks.register("benchmarkSummary") {
         for ((op, score) in native) cells[op to "native"] = fmt((score as Number).toDouble())
 
         val columns = buildList {
-            add("kormium" to "Kormium")
+            add("kormium" to "Kormium JVM")
             if (native.isNotEmpty()) add("native" to "Kormium Native")
             add("exposed" to "Exposed")
             add("hibernate" to "Hibernate")

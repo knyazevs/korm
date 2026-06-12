@@ -69,12 +69,22 @@ if not exist "%KEXE%" (
 )
 
 echo ==^> Running native benchmark
+rem The exe loads libpq.dll at runtime; put the usual install locations on PATH
+rem (linking found the import lib, but the loader searches PATH, not linker paths).
+set "PATH=C:\msys64\mingw64\bin;%ProgramFiles%\PostgreSQL\17\bin;%ProgramFiles%\PostgreSQL\16\bin;%ProgramFiles%\PostgreSQL\15\bin;%PATH%"
 set "KORM_BENCH=1"
 if defined QUICK (set "KORM_BENCH_OPS=500") else (set "KORM_BENCH_OPS=")
 set "NATIVE_LOG=%TEMP%\kormium-native-bench.log"
 "%KEXE%" --ktest_filter=NativeBenchmark.* > "%NATIVE_LOG%" 2>&1
+set "KEXE_EXIT=%ERRORLEVEL%"
 type "%NATIVE_LOG%"
 set "KORM_BENCH="
+if not "%KEXE_EXIT%"=="0" (
+  echo.
+  echo WARNING: native benchmark exited with code %KEXE_EXIT%. 1>&2
+  echo WARNING: if the log above is empty, libpq.dll was not found - install MSYS2 libpq 1>&2
+  echo WARNING: ^(pacman -S mingw-w64-x86_64-postgresql^) or add your PostgreSQL bin dir to PATH. 1>&2
+)
 
 rem "KORM_NATIVE_RESULT findById=123 ..." -> {"findById": 123, ...}
 powershell -NoProfile -Command ^
@@ -84,7 +94,8 @@ powershell -NoProfile -Command ^
   "foreach ($p in (($m.Line -replace '.*KORM_NATIVE_RESULT\s*', '') -split '\s+')) { $kv = $p -split '='; if ($kv.Length -eq 2) { $h[$kv[0]] = [long]$kv[1] } };" ^
   "$h | ConvertTo-Json -Compress | Set-Content -Encoding ascii '%RESULTS_DIR%\native.json'"
 if errorlevel 1 (
-  echo WARNING: native benchmark produced no KORM_NATIVE_RESULT line 1>&2
+  echo WARNING: native benchmark produced no KORM_NATIVE_RESULT line - the summary 1>&2
+  echo WARNING: will have no "Kormium Native" column; full log: %NATIVE_LOG% 1>&2
 ) else (
   echo ==^> Native results written to %RESULTS_DIR%\native.json
 )
