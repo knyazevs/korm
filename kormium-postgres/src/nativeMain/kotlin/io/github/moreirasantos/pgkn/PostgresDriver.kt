@@ -286,18 +286,12 @@ private class PostgresDriverImpl(
         )
     }.check(connection)
 
-    private fun doExecute(connection: CPointer<PGconn>, sql: String) = memScoped {
-        PQexecParams(
-            connection,
-            command = sql,
-            nParams = 0,
-            paramValues = createValues(0) {},
-            paramLengths = createValues(0) {},
-            paramFormats = createValues(0) {},
-            paramTypes = createValues(0) {},
-            resultFormat = TEXT_RESULT_FORMAT
-        )
-    }.check(connection)
+    // Parameter-less statements (BEGIN/COMMIT/ROLLBACK around every transaction, DDL, SET,
+    // bare SELECTs) go through the simple query protocol via PQexec: a single Query message
+    // instead of PQexecParams' Parse/Bind/Describe/Execute/Sync exchange, and no memScoped /
+    // createValues allocation. Same one round trip, less protocol and server-side overhead.
+    private fun doExecute(connection: CPointer<PGconn>, sql: String) =
+        PQexec(connection, sql).check(connection)
 
     // Validates a statement result. On failure it frees the failed result and raises
     // an exception WITHOUT closing the connection: an ordinary query error (e.g. a
