@@ -188,7 +188,9 @@ private class PostgresDriverImpl(
     private fun <T> CPointer<PGresult>.handleResults(handler: (ResultSet) -> T): List<T> {
         val rs = PostgresResultSet(this)
 
-        val list: MutableList<T> = mutableListOf()
+        // Presize to the row count so a multi-row read doesn't repeatedly grow + copy the
+        // backing array (libpq already has the full result buffered, so the count is known).
+        val list: MutableList<T> = ArrayList(rs.rowCount)
         while (rs.next()) {
             list.add(handler(rs))
         }
