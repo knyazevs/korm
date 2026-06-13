@@ -84,4 +84,4 @@ internal class UnixSocketReactor : SocketReactorBase() {
     }
 }
 
-internal actual fun createSocketReactor(): SocketReactorBase = UnixSocketReactor().apply { start() }
+internal actual fun createSocketReactor(): SocketReactorBase? = UnixSocketReactor().apply { start() }

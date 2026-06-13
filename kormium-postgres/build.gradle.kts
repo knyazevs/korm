@@ -45,14 +45,6 @@ kotlin {
                 // these in automatically from pg_config / known install paths.
                 (findProperty("libpq.include") as String?)?.let { compilerOpts("-I$it") }
             }
-            // Winsock2 for the Windows async reactor (WSAPoll): Kotlin/Native's platform.windows
-            // does not expose it. Only the mingw target needs it; the WindowsSocketReactor actual
-            // lives in mingwX64Main.
-            if (target.name == "mingwX64") {
-                register("winsock") {
-                    defFile(project.file("src/nativeInterop/cinterop/winsock.def"))
-                }
-            }
         }
         // cinterop ignores linker options; libpq is supplied when test binaries link.
         // On Windows the artifact is chosen explicitly (see windowsLibpqArtifact): a bare

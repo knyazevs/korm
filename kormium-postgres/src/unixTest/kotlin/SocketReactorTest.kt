@@ -49,7 +49,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = createSocketReactor()
+        val reactor = createSocketReactor()!!
         val conn = openNonBlocking()
         try {
             val result = runBlocking {
@@ -66,7 +66,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = createSocketReactor()
+        val reactor = createSocketReactor()!!
         val conns = List(8) { openNonBlocking() }
         try {
             val results = runBlocking {
@@ -90,7 +90,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = createSocketReactor()
+        val reactor = createSocketReactor()!!
         val conns = List(8) { openNonBlocking() }
         val client = newSingleThreadContext("reactor-test-client")
         try {

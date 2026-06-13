@@ -3,6 +3,7 @@ package io.github.moreirasantos.pgkn
 import io.github.moreirasantos.pgkn.exception.ConnectionClosedException
 import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
 import io.github.moreirasantos.pgkn.exception.QueryExecutionException
+import io.github.moreirasantos.pgkn.async.SocketReactorBase
 import io.github.moreirasantos.pgkn.async.asyncExecParams
 import io.github.moreirasantos.pgkn.async.asyncExecSimple
 import io.github.moreirasantos.pgkn.async.createSocketReactor
@@ -33,6 +34,7 @@ import io.github.kormium.SuspendSqlExecutor
 import io.github.kormium.TypeMapper
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.resultset.ResultSet
+import io.github.kormium.runConnection
 import io.github.kormium.runPinned
 import io.github.kormium.sqlException
 
@@ -150,20 +152,21 @@ private class PostgresDriverImpl(
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
         connectionPool.runPinned(transactional, block)
 
-    // True-async useConnection (overrides the core offload default): the connection is borrowed
-    // by suspending on the pool Channel, every statement runs through the reactor (the coroutine
-    // thread is freed during each network wait), and BEGIN/COMMIT/ROLLBACK are async too. Cleanup
-    // runs under NonCancellable so a cancelled block still rolls back and releases.
+    // useConnection: when a reactor exists (Unix), run truly async — borrow by suspending on the
+    // pool Channel, drive every statement and BEGIN/COMMIT/ROLLBACK through the reactor (the
+    // coroutine thread is freed during each network wait), cleaning up under NonCancellable.
+    // When there is no reactor (Windows), fall back to the core blocking offload.
     override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R {
+        val activeReactor = reactor ?: return connectionPool.runConnection(transactional, block)
         val conn = acquireConnectionSuspending()
         try {
-            val exec = NativeSuspendExecutor(conn)
+            val exec = NativeSuspendExecutor(conn, activeReactor)
             if (!transactional) return block(exec)
-            asyncCommand(conn, "BEGIN")
+            asyncCommand(conn, "BEGIN", activeReactor)
             return try {
-                block(exec).also { asyncCommand(conn, "COMMIT") }
+                block(exec).also { asyncCommand(conn, "COMMIT", activeReactor) }
             } catch (e: Throwable) {
-                withContext(NonCancellable) { runCatching { asyncCommand(conn, "ROLLBACK") } }
+                withContext(NonCancellable) { runCatching { asyncCommand(conn, "ROLLBACK", activeReactor) } }
                 throw e
             }
         } finally {
@@ -181,7 +184,7 @@ private class PostgresDriverImpl(
         return conn
     }
 
-    private suspend fun asyncCommand(conn: CPointer<PGconn>, sql: String) {
+    private suspend fun asyncCommand(conn: CPointer<PGconn>, sql: String, reactor: SocketReactorBase) {
         PQclear(asyncExecSimple(conn, sql, reactor).checkResult(conn))
     }
 
@@ -189,14 +192,16 @@ private class PostgresDriverImpl(
         connection: CPointer<PGconn>,
         sql: String,
         namedParameters: Map<String, Any?>,
+        reactor: SocketReactorBase,
     ): CPointer<PGresult> =
         if (namedParameters.isEmpty()) asyncExecSimple(connection, sql, reactor).checkResult(connection)
-        else asyncDoExecute(connection, sql, MapSqlParameterSource(namedParameters))
+        else asyncDoExecute(connection, sql, MapSqlParameterSource(namedParameters), reactor)
 
     private suspend fun asyncDoExecute(
         connection: CPointer<PGconn>,
         sql: String,
         paramSource: SqlParameterSource,
+        reactor: SocketReactorBase,
     ): CPointer<PGresult> {
         val (sqlToUse, values) = resolveParams(connection, sql, paramSource)
         return asyncExecParams(connection, sqlToUse, values, reactor).checkResult(connection)
@@ -204,24 +209,27 @@ private class PostgresDriverImpl(
 
     // A SuspendSqlExecutor bound to one borrowed connection; mirrors NativeExecutor but every
     // statement is driven asynchronously through the reactor.
-    private inner class NativeSuspendExecutor(private val conn: CPointer<PGconn>) : SuspendSqlExecutor {
+    private inner class NativeSuspendExecutor(
+        private val conn: CPointer<PGconn>,
+        private val reactor: SocketReactorBase,
+    ) : SuspendSqlExecutor {
         override val dialect = PostgresDialect
         override val typeMapper = StandardTypeMapper
 
         override suspend fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T) =
-            asyncRunQuery(conn, sql, namedParameters).handleResults(handler)
+            asyncRunQuery(conn, sql, namedParameters, reactor).handleResults(handler)
 
         override suspend fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T) =
-            asyncDoExecute(conn, sql, paramSource).handleResults(handler)
+            asyncDoExecute(conn, sql, paramSource, reactor).handleResults(handler)
 
         override suspend fun execute(sql: String, namedParameters: Map<String, Any?>) =
-            asyncRunQuery(conn, sql, namedParameters).returnCount()
+            asyncRunQuery(conn, sql, namedParameters, reactor).returnCount()
 
         override suspend fun execute(sql: String, paramSource: SqlParameterSource) =
-            asyncDoExecute(conn, sql, paramSource).returnCount()
+            asyncDoExecute(conn, sql, paramSource, reactor).returnCount()
 
         override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
-            asyncRunQuery(conn, sql, namedParameters).returnCount()
+            asyncRunQuery(conn, sql, namedParameters, reactor).returnCount()
     }
 
     // An SqlExecutor bound to the pinned connection for the duration of usePinned.
@@ -254,7 +262,7 @@ private class PostgresDriverImpl(
         // another thread is still using.
         runBlocking { repeat(poolSize) { PQfinish(pool.receive()) } }
         pool.close()
-        reactor.close()
+        reactor?.close()
     }
 
     private fun runQuery(
