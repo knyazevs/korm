@@ -3,16 +3,21 @@ package io.github.moreirasantos.pgkn
 import io.github.moreirasantos.pgkn.exception.ConnectionClosedException
 import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
 import io.github.moreirasantos.pgkn.exception.QueryExecutionException
+import io.github.moreirasantos.pgkn.async.SocketReactor
+import io.github.moreirasantos.pgkn.async.asyncExecParams
+import io.github.moreirasantos.pgkn.async.asyncExecSimple
 import io.github.moreirasantos.pgkn.paramsource.MapSqlParameterSource
 import io.github.moreirasantos.pgkn.sql.buildValueArray
 import io.github.moreirasantos.pgkn.sql.parseSql
 import io.github.moreirasantos.pgkn.sql.substituteNamedParameters
 import io.github.moreirasantos.pgkn.resultset.PostgresResultSet
 import kotlinx.cinterop.*
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import libpq.*
 import io.github.kormium.ConnectionPool
 import io.github.kormium.Dialect
@@ -28,7 +33,6 @@ import io.github.kormium.SuspendSqlExecutor
 import io.github.kormium.TypeMapper
 import io.github.kormium.database.SuspendDatabase
 import io.github.kormium.resultset.ResultSet
-import io.github.kormium.runConnection
 import io.github.kormium.runPinned
 import io.github.kormium.sqlException
 
@@ -93,6 +97,10 @@ private class PostgresDriverImpl(
     // Held terminally by the first close() caller so the pool is torn down once.
     private val closeLock = Mutex()
 
+    // One I/O reactor shared by every connection's async (useConnection) path: it polls all
+    // in-flight sockets on a single thread so a suspended read holds no coroutine thread.
+    private val reactor = SocketReactor()
+
     // libpq marks a connection CONNECTION_BAD once it dies (e.g. the server restarts or
     // the network drops). Reset it before reuse so a transient outage doesn't permanently
     // poison the pooled connection. PQstatus is local (no round-trip); PQreset reconnects.
@@ -142,8 +150,79 @@ private class PostgresDriverImpl(
     override fun <R> usePinned(transactional: Boolean, block: (SqlExecutor) -> R): R =
         connectionPool.runPinned(transactional, block)
 
-    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R =
-        connectionPool.runConnection(transactional, block)
+    // True-async useConnection (overrides the core offload default): the connection is borrowed
+    // by suspending on the pool Channel, every statement runs through the reactor (the coroutine
+    // thread is freed during each network wait), and BEGIN/COMMIT/ROLLBACK are async too. Cleanup
+    // runs under NonCancellable so a cancelled block still rolls back and releases.
+    override suspend fun <R> useConnection(transactional: Boolean, block: suspend (SuspendSqlExecutor) -> R): R {
+        val conn = acquireConnectionSuspending()
+        try {
+            val exec = NativeSuspendExecutor(conn)
+            if (!transactional) return block(exec)
+            asyncCommand(conn, "BEGIN")
+            return try {
+                block(exec).also { asyncCommand(conn, "COMMIT") }
+            } catch (e: Throwable) {
+                withContext(NonCancellable) { runCatching { asyncCommand(conn, "ROLLBACK") } }
+                throw e
+            }
+        } finally {
+            pool.trySend(conn)
+        }
+    }
+
+    private suspend fun acquireConnectionSuspending(): CPointer<PGconn> {
+        val conn = pool.tryReceive().getOrNull() ?: try {
+            pool.receive()
+        } catch (_: ClosedReceiveChannelException) {
+            throw ConnectionClosedException()
+        }
+        ensureAlive(conn)
+        return conn
+    }
+
+    private suspend fun asyncCommand(conn: CPointer<PGconn>, sql: String) {
+        PQclear(asyncExecSimple(conn, sql, reactor).checkResult(conn))
+    }
+
+    private suspend fun asyncRunQuery(
+        connection: CPointer<PGconn>,
+        sql: String,
+        namedParameters: Map<String, Any?>,
+    ): CPointer<PGresult> =
+        if (namedParameters.isEmpty()) asyncExecSimple(connection, sql, reactor).checkResult(connection)
+        else asyncDoExecute(connection, sql, MapSqlParameterSource(namedParameters))
+
+    private suspend fun asyncDoExecute(
+        connection: CPointer<PGconn>,
+        sql: String,
+        paramSource: SqlParameterSource,
+    ): CPointer<PGresult> {
+        val (sqlToUse, values) = resolveParams(connection, sql, paramSource)
+        return asyncExecParams(connection, sqlToUse, values, reactor).checkResult(connection)
+    }
+
+    // A SuspendSqlExecutor bound to one borrowed connection; mirrors NativeExecutor but every
+    // statement is driven asynchronously through the reactor.
+    private inner class NativeSuspendExecutor(private val conn: CPointer<PGconn>) : SuspendSqlExecutor {
+        override val dialect = PostgresDialect
+        override val typeMapper = StandardTypeMapper
+
+        override suspend fun <T> execute(sql: String, namedParameters: Map<String, Any?>, handler: (ResultSet) -> T) =
+            asyncRunQuery(conn, sql, namedParameters).handleResults(handler)
+
+        override suspend fun <T> execute(sql: String, paramSource: SqlParameterSource, handler: (ResultSet) -> T) =
+            asyncDoExecute(conn, sql, paramSource).handleResults(handler)
+
+        override suspend fun execute(sql: String, namedParameters: Map<String, Any?>) =
+            asyncRunQuery(conn, sql, namedParameters).returnCount()
+
+        override suspend fun execute(sql: String, paramSource: SqlParameterSource) =
+            asyncDoExecute(conn, sql, paramSource).returnCount()
+
+        override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
+            asyncRunQuery(conn, sql, namedParameters).returnCount()
+    }
 
     // An SqlExecutor bound to the pinned connection for the duration of usePinned.
     private inner class NativeExecutor(private val conn: CPointer<PGconn>) : SqlExecutor {
@@ -175,6 +254,7 @@ private class PostgresDriverImpl(
         // another thread is still using.
         runBlocking { repeat(poolSize) { PQfinish(pool.receive()) } }
         pool.close()
+        reactor.close()
     }
 
     private fun runQuery(
@@ -210,17 +290,34 @@ private class PostgresDriverImpl(
         sql: String,
         paramSource: SqlParameterSource,
     ): CPointer<PGresult> {
+        val (sqlToUse, values) = resolveParams(connection, sql, paramSource)
+        return execParams(connection, sqlToUse, values)
+    }
+
+    // Resolves a named-parameter statement to ($n-substituted SQL, positional text values),
+    // shared by the blocking and async execution paths. Uses the per-connection parse cache
+    // where possible, falling back to per-call expansion for ?-style or Iterable/Array params.
+    private fun resolveParams(
+        connection: CPointer<PGconn>,
+        sql: String,
+        paramSource: SqlParameterSource,
+    ): Pair<String, Array<String?>> {
         val prepared = prepareStatement(statementCaches.getValue(connection), sql, paramSource)
-            ?: return doExecuteUncached(connection, sql, paramSource)
-        val values = Array(prepared.parameterNames.size) { i ->
-            val name = prepared.parameterNames[i]
-            try {
-                paramSource.getValue(name)?.toString()
-            } catch (ex: IllegalArgumentException) {
-                throw InvalidDataAccessApiUsageException("No value supplied for the SQL parameter '$name'", ex)
+        if (prepared != null) {
+            val values = Array(prepared.parameterNames.size) { i ->
+                val name = prepared.parameterNames[i]
+                try {
+                    paramSource.getValue(name)?.toString()
+                } catch (ex: IllegalArgumentException) {
+                    throw InvalidDataAccessApiUsageException("No value supplied for the SQL parameter '$name'", ex)
+                }
             }
+            return prepared.sql to values
         }
-        return execParams(connection, prepared.sql, values)
+        val parsedSql = parseSql(sql)
+        val sqlToUse = substituteNamedParameters(parsedSql, paramSource)
+        val params = buildValueArray(parsedSql, paramSource)
+        return sqlToUse to Array(params.size) { params[it]?.toString() }
     }
 
     // Parse + substitution is identical across repeated calls of the same statement — cache it
@@ -249,19 +346,6 @@ private class PostgresDriverImpl(
         return value is Iterable<*> || value is Array<*>
     }
 
-    // The pre-cache execution path, kept for statements prepareStatement can't handle:
-    // expansion and substitution are recomputed against the actual values on every call.
-    private fun doExecuteUncached(
-        connection: CPointer<PGconn>,
-        sql: String,
-        paramSource: SqlParameterSource,
-    ): CPointer<PGresult> {
-        val parsedSql = parseSql(sql)
-        val sqlToUse: String = substituteNamedParameters(parsedSql, paramSource)
-        val params: Array<Any?> = buildValueArray(parsedSql, paramSource)
-        return execParams(connection, sqlToUse, Array(params.size) { params[it]?.toString() })
-    }
-
     private fun execParams(
         connection: CPointer<PGconn>,
         sql: String,
@@ -284,31 +368,32 @@ private class PostgresDriverImpl(
             paramTypes = null,
             resultFormat = TEXT_RESULT_FORMAT
         )
-    }.check(connection)
+    }.checkResult(connection)
 
     // Parameter-less statements (BEGIN/COMMIT/ROLLBACK around every transaction, DDL, SET,
     // bare SELECTs) go through the simple query protocol via PQexec: a single Query message
     // instead of PQexecParams' Parse/Bind/Describe/Execute/Sync exchange, and no memScoped /
     // createValues allocation. Same one round trip, less protocol and server-side overhead.
     private fun doExecute(connection: CPointer<PGconn>, sql: String) =
-        PQexec(connection, sql).check(connection)
+        PQexec(connection, sql).checkResult(connection)
+}
 
-    // Validates a statement result. On failure it frees the failed result and raises
-    // an exception WITHOUT closing the connection: an ordinary query error (e.g. a
-    // constraint violation) must leave the connection usable for the next caller.
-    // Previously the error path called PQfinish, so a single bad statement
-    // permanently broke the connection (and, being pooled/shared, every later call).
-    private fun CPointer<PGresult>?.check(connection: CPointer<PGconn>): CPointer<PGresult> {
-        val status = PQresultStatus(this)
-        if (status != PGRES_TUPLES_OK && status != PGRES_COMMAND_OK && status != PGRES_COPY_IN) {
-            // PG_DIAG_SQLSTATE is 'C'; map the SQLSTATE to a typed core exception.
-            val sqlState = PQresultErrorField(this, 'C'.code)?.toKString()
-            val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
-            PQclear(this)
-            throw sqlException(message.ifEmpty { "Postgres query failed" }, sqlState)
-        }
-        return this!!
+// Validates a statement result. On failure it frees the failed result and raises an exception
+// WITHOUT closing the connection: an ordinary query error (e.g. a constraint violation) must
+// leave the connection usable for the next caller. Previously the error path called PQfinish,
+// so a single bad statement permanently broke the connection (and, being pooled/shared, every
+// later call). Shared by the blocking (PQexec/PQexecParams) and async (PQsend*) paths.
+@OptIn(ExperimentalForeignApi::class)
+internal fun CPointer<PGresult>?.checkResult(connection: CPointer<PGconn>): CPointer<PGresult> {
+    val status = PQresultStatus(this)
+    if (status != PGRES_TUPLES_OK && status != PGRES_COMMAND_OK && status != PGRES_COPY_IN) {
+        // PG_DIAG_SQLSTATE is 'C'; map the SQLSTATE to a typed core exception.
+        val sqlState = PQresultErrorField(this, 'C'.code)?.toKString()
+        val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
+        PQclear(this)
+        throw sqlException(message.ifEmpty { "Postgres query failed" }, sqlState)
     }
+    return this!!
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -342,6 +427,9 @@ private fun openConnection(
         PQfinish(connection)
         throw QueryExecutionException(message.ifEmpty { "Failed to connect to Postgres" })
     }
+    // Non-blocking mode is required by the async (useConnection) path's PQsendQuery/PQflush;
+    // the blocking PQexec/PQexecParams calls used by usePinned work regardless of this flag.
+    PQsetnonblocking(connection, 1)
     connection
 }
 

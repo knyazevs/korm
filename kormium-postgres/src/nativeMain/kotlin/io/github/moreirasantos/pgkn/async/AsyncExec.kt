@@ -1,11 +1,9 @@
 package io.github.moreirasantos.pgkn.async
 
-import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.toKString
+import kotlinx.cinterop.*
 import libpq.PGconn
-import libpq.PGRES_COMMAND_OK
-import libpq.PGRES_TUPLES_OK
+import libpq.PGresult
+import libpq.PQclear
 import libpq.PQconsumeInput
 import libpq.PQerrorMessage
 import libpq.PQflush
@@ -13,28 +11,65 @@ import libpq.PQgetResult
 import libpq.PQgetvalue
 import libpq.PQisBusy
 import libpq.PQntuples
-import libpq.PQresultStatus
 import libpq.PQsendQuery
+import libpq.PQsendQueryParams
 import libpq.PQsocket
-import libpq.PQclear
 
 /**
- * Runs [sql] on [conn] through libpq's asynchronous API, suspending on [reactor] (never
- * blocking the calling thread) while waiting for the socket. The connection must be in
- * non-blocking mode (`PQsetnonblocking`). Drains every result and returns the rows of the
- * last one as the text values of column 0 — enough for the M2 concurrency proof; the full
- * driver integration (M3) maps rows through the existing ResultSet path instead.
+ * Asynchronous execution over libpq: the query is sent, then the coroutine suspends on the
+ * [SocketReactor] (never blocking its thread) until the socket drains the outgoing buffer and
+ * delivers the result. The connection must be non-blocking (`PQsetnonblocking`). These mirror
+ * the blocking `PQexec`/`PQexecParams` paths and return the raw `PGresult` for the caller to
+ * validate and map — exactly as the blocking path feeds it to the shared ResultSet code.
  */
+
+private const val TEXT_RESULT_FORMAT = 0
+
+/** Async equivalent of the parameter-less `PQexec` path (BEGIN/COMMIT/ROLLBACK, DDL, SET). */
 @OptIn(ExperimentalForeignApi::class)
-internal suspend fun asyncQueryFirstColumn(
+internal suspend fun asyncExecSimple(
     conn: CPointer<PGconn>,
     sql: String,
     reactor: SocketReactor,
-): List<String?> {
-    val sock = PQsocket(conn)
+): CPointer<PGresult>? {
     check(PQsendQuery(conn, sql) == 1) { "send failed: " + PQerrorMessage(conn)?.toKString() }
+    return drainResult(conn, reactor)
+}
 
-    // Flush the outgoing buffer; 1 = bytes remain (wait until writable), 0 = done, -1 = error.
+/** Async equivalent of the `PQexecParams` path: text parameters, server-inferred types (oid 0). */
+@OptIn(ExperimentalForeignApi::class)
+internal suspend fun asyncExecParams(
+    conn: CPointer<PGconn>,
+    sql: String,
+    values: Array<String?>,
+    reactor: SocketReactor,
+): CPointer<PGresult>? {
+    memScoped {
+        val sent = PQsendQueryParams(
+            conn,
+            command = sql,
+            nParams = values.size,
+            paramTypes = null,
+            paramValues = createValues(values.size) {
+                value = values[it]?.cstr?.getPointer(this@memScoped)
+            },
+            paramLengths = null,
+            paramFormats = null,
+            resultFormat = TEXT_RESULT_FORMAT,
+        )
+        check(sent == 1) { "send failed: " + PQerrorMessage(conn)?.toKString() }
+    }
+    return drainResult(conn, reactor)
+}
+
+/**
+ * Flushes the send buffer and collects results, suspending on the reactor at every wait. Returns
+ * the first result (the data/command result for a single statement) and clears any extras so the
+ * connection is left clean for the next statement.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun drainResult(conn: CPointer<PGconn>, reactor: SocketReactor): CPointer<PGresult>? {
+    val sock = PQsocket(conn)
     while (true) {
         when (PQflush(conn)) {
             0 -> break
@@ -42,24 +77,27 @@ internal suspend fun asyncQueryFirstColumn(
             else -> reactor.awaitWritable(sock)
         }
     }
-
-    var rows: List<String?> = emptyList()
+    var first: CPointer<PGresult>? = null
     while (true) {
-        // Wait until a full result is buffered so PQgetResult never blocks.
         while (PQisBusy(conn) == 1) {
             reactor.awaitReadable(sock)
             check(PQconsumeInput(conn) == 1) { "consume failed: " + PQerrorMessage(conn)?.toKString() }
         }
         val res = PQgetResult(conn) ?: break
-        val status = PQresultStatus(res)
-        check(status == PGRES_TUPLES_OK || status == PGRES_COMMAND_OK) {
-            val msg = PQerrorMessage(conn)?.toKString().orEmpty()
-            PQclear(res)
-            msg
-        }
-        val n = PQntuples(res)
-        rows = (0 until n).map { PQgetvalue(res, it, 0)?.toKString() }
-        PQclear(res)
+        if (first == null) first = res else PQclear(res)
     }
+    return first
+}
+
+/** Test helper: runs [sql] async and returns column 0 of the result as text. */
+@OptIn(ExperimentalForeignApi::class)
+internal suspend fun asyncQueryFirstColumn(
+    conn: CPointer<PGconn>,
+    sql: String,
+    reactor: SocketReactor,
+): List<String?> {
+    val res = asyncExecSimple(conn, sql, reactor) ?: return emptyList()
+    val rows = (0 until PQntuples(res)).map { PQgetvalue(res, it, 0)?.toKString() }
+    PQclear(res)
     return rows
 }
