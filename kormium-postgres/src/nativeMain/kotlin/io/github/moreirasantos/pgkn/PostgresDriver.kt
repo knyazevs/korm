@@ -3,9 +3,9 @@ package io.github.moreirasantos.pgkn
 import io.github.moreirasantos.pgkn.exception.ConnectionClosedException
 import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
 import io.github.moreirasantos.pgkn.exception.QueryExecutionException
-import io.github.moreirasantos.pgkn.async.SocketReactor
 import io.github.moreirasantos.pgkn.async.asyncExecParams
 import io.github.moreirasantos.pgkn.async.asyncExecSimple
+import io.github.moreirasantos.pgkn.async.createSocketReactor
 import io.github.moreirasantos.pgkn.paramsource.MapSqlParameterSource
 import io.github.moreirasantos.pgkn.sql.buildValueArray
 import io.github.moreirasantos.pgkn.sql.parseSql
@@ -99,7 +99,7 @@ private class PostgresDriverImpl(
 
     // One I/O reactor shared by every connection's async (useConnection) path: it polls all
     // in-flight sockets on a single thread so a suspended read holds no coroutine thread.
-    private val reactor = SocketReactor()
+    private val reactor = createSocketReactor()
 
     // libpq marks a connection CONNECTION_BAD once it dies (e.g. the server restarts or
     // the network drops). Reset it before reuse so a transient outage doesn't permanently

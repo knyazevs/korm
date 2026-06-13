@@ -1,0 +1,5 @@
+headers = winsock2.h
+package = winsock
+headerFilter = *
+compilerOpts = -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0600
+linkerOpts.mingw = -lws2_32

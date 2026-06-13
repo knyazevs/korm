@@ -30,7 +30,7 @@ private const val TEXT_RESULT_FORMAT = 0
 internal suspend fun asyncExecSimple(
     conn: CPointer<PGconn>,
     sql: String,
-    reactor: SocketReactor,
+    reactor: SocketReactorBase,
 ): CPointer<PGresult>? {
     check(PQsendQuery(conn, sql) == 1) { "send failed: " + PQerrorMessage(conn)?.toKString() }
     return drainResult(conn, reactor)
@@ -42,7 +42,7 @@ internal suspend fun asyncExecParams(
     conn: CPointer<PGconn>,
     sql: String,
     values: Array<String?>,
-    reactor: SocketReactor,
+    reactor: SocketReactorBase,
 ): CPointer<PGresult>? {
     memScoped {
         val sent = PQsendQueryParams(
@@ -68,7 +68,7 @@ internal suspend fun asyncExecParams(
  * connection is left clean for the next statement.
  */
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun drainResult(conn: CPointer<PGconn>, reactor: SocketReactor): CPointer<PGresult>? {
+private suspend fun drainResult(conn: CPointer<PGconn>, reactor: SocketReactorBase): CPointer<PGresult>? {
     val sock = PQsocket(conn)
     while (true) {
         when (PQflush(conn)) {
@@ -94,7 +94,7 @@ private suspend fun drainResult(conn: CPointer<PGconn>, reactor: SocketReactor):
 internal suspend fun asyncQueryFirstColumn(
     conn: CPointer<PGconn>,
     sql: String,
-    reactor: SocketReactor,
+    reactor: SocketReactorBase,
 ): List<String?> {
     val res = asyncExecSimple(conn, sql, reactor) ?: return emptyList()
     val rows = (0 until PQntuples(res)).map { PQgetvalue(res, it, 0)?.toKString() }

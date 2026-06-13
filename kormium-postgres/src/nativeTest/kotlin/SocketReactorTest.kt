@@ -1,5 +1,5 @@
-import io.github.moreirasantos.pgkn.async.SocketReactor
 import io.github.moreirasantos.pgkn.async.asyncQueryFirstColumn
+import io.github.moreirasantos.pgkn.async.createSocketReactor
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
@@ -49,7 +49,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = SocketReactor()
+        val reactor = createSocketReactor()
         val conn = openNonBlocking()
         try {
             val result = runBlocking {
@@ -66,7 +66,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = SocketReactor()
+        val reactor = createSocketReactor()
         val conns = List(8) { openNonBlocking() }
         try {
             val results = runBlocking {
@@ -90,7 +90,7 @@ class SocketReactorTest {
         if (env("KORMIUM_DB_HOST") == null) {
             println("KORMIUM_DB_HOST not set — skipping reactor test"); return
         }
-        val reactor = SocketReactor()
+        val reactor = createSocketReactor()
         val conns = List(8) { openNonBlocking() }
         val client = newSingleThreadContext("reactor-test-client")
         try {

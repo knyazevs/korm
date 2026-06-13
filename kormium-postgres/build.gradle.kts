@@ -45,6 +45,14 @@ kotlin {
                 // these in automatically from pg_config / known install paths.
                 (findProperty("libpq.include") as String?)?.let { compilerOpts("-I$it") }
             }
+            // Winsock2 for the Windows async reactor (WSAPoll): Kotlin/Native's platform.windows
+            // does not expose it. Only the mingw target needs it; the WindowsSocketReactor actual
+            // lives in mingwX64Main.
+            if (target.name == "mingwX64") {
+                register("winsock") {
+                    defFile(project.file("src/nativeInterop/cinterop/winsock.def"))
+                }
+            }
         }
         // cinterop ignores linker options; libpq is supplied when test binaries link.
         // On Windows the artifact is chosen explicitly (see windowsLibpqArtifact): a bare
@@ -118,6 +126,16 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
+        }
+        // The async socket reactor's syscalls differ by OS (poll/pipe/fcntl on Unix,
+        // WSAPoll/socketpair/ioctlsocket on Windows), so its platform actuals live in
+        // unixMain (linux + macos) and mingwX64Main; the shared logic stays in nativeMain.
+        val nativeTest by getting
+        val unixMain by creating { dependsOn(nativeMain) }
+        val unixTest by creating { dependsOn(nativeTest) }
+        listOf("linuxX64", "macosX64", "macosArm64").forEach { target ->
+            getByName("${target}Main").dependsOn(unixMain)
+            getByName("${target}Test").dependsOn(unixTest)
         }
     }
 }
