@@ -188,7 +188,9 @@ private class PostgresDriverImpl(
     private fun <T> CPointer<PGresult>.handleResults(handler: (ResultSet) -> T): List<T> {
         val rs = PostgresResultSet(this)
 
-        val list: MutableList<T> = mutableListOf()
+        // Presize to the row count so a multi-row read doesn't repeatedly grow + copy the
+        // backing array (libpq already has the full result buffered, so the count is known).
+        val list: MutableList<T> = ArrayList(rs.rowCount)
         while (rs.next()) {
             list.add(handler(rs))
         }
@@ -284,18 +286,12 @@ private class PostgresDriverImpl(
         )
     }.check(connection)
 
-    private fun doExecute(connection: CPointer<PGconn>, sql: String) = memScoped {
-        PQexecParams(
-            connection,
-            command = sql,
-            nParams = 0,
-            paramValues = createValues(0) {},
-            paramLengths = createValues(0) {},
-            paramFormats = createValues(0) {},
-            paramTypes = createValues(0) {},
-            resultFormat = TEXT_RESULT_FORMAT
-        )
-    }.check(connection)
+    // Parameter-less statements (BEGIN/COMMIT/ROLLBACK around every transaction, DDL, SET,
+    // bare SELECTs) go through the simple query protocol via PQexec: a single Query message
+    // instead of PQexecParams' Parse/Bind/Describe/Execute/Sync exchange, and no memScoped /
+    // createValues allocation. Same one round trip, less protocol and server-side overhead.
+    private fun doExecute(connection: CPointer<PGconn>, sql: String) =
+        PQexec(connection, sql).check(connection)
 
     // Validates a statement result. On failure it frees the failed result and raises
     // an exception WITHOUT closing the connection: an ordinary query error (e.g. a
@@ -322,23 +318,31 @@ private fun openConnection(
     database: String,
     user: String,
     password: String,
-): CPointer<PGconn> {
-    val connection = PQsetdbLogin(
-        pghost = host,
-        pgport = port.toString(),
-        dbName = database,
-        login = user,
-        pwd = password,
-        pgoptions = null,
-        pgtty = null,
+): CPointer<PGconn> = memScoped {
+    // PQconnectdbParams (over the older PQsetdbLogin) lets us set production-grade
+    // connection defaults: connect_timeout bounds a dead host instead of hanging
+    // indefinitely, keepalives detect a silently dropped TCP connection, and
+    // application_name labels the backend in pg_stat_activity. Both arrays must be
+    // NULL-terminated, hence the trailing null entry.
+    val keywords = listOf(
+        "host", "port", "dbname", "user", "password",
+        "connect_timeout", "keepalives", "application_name",
     )
+    val values = listOf(
+        host, port.toString(), database, user, password,
+        "10", "1", "kormium",
+    )
+    val keywordsArray = allocArrayOf(keywords.map { it.cstr.getPointer(this) } + listOf<CPointer<ByteVar>?>(null))
+    val valuesArray = allocArrayOf(values.map { it.cstr.getPointer(this) } + listOf<CPointer<ByteVar>?>(null))
+
+    val connection = PQconnectdbParams(keywordsArray, valuesArray, 0)
     requireNotNull(connection) { "Failed to allocate a Postgres connection" }
     if (ConnStatusType.CONNECTION_OK != PQstatus(connection)) {
         val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
         PQfinish(connection)
         throw QueryExecutionException(message.ifEmpty { "Failed to connect to Postgres" })
     }
-    return connection
+    connection
 }
 
 // A statement ready for PQexecParams: the `$n`-substituted SQL and the named-parameter

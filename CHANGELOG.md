@@ -6,6 +6,24 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.6.0] — Native driver hardening
+
+### Fixed
+- **PostgreSQL Native: `timestamptz`/`timestamp` reads no longer throw on UTC values.**
+  `getInstant` parsed Postgres' text output with a fixed `replaceRange(10, 11, "T")` and
+  `Instant.parse`, which rejects the common hours-only offset form `2024-01-15 13:45:30+00`
+  (kotlinx-datetime wants a full `±HH:MM`). Reads now normalise the date/time separator and
+  every offset form Postgres emits (`+00`, `+05:30`, `-08`, with seconds and fractional
+  seconds) before parsing. Covers `getInstant` and `getLocalDateTime`.
+
+### Changed
+- **PostgreSQL Native: production connection defaults.** Connections now open via
+  `PQconnectdbParams` with `connect_timeout=10` (a dead host fails fast instead of hanging),
+  TCP `keepalives` (detect a silently dropped connection) and `application_name=kormium`
+  (labels the backend in `pg_stat_activity`). No public API change. Parameter-less statements
+  (transaction `BEGIN`/`COMMIT`, DDL, `SET`) now use the simple query protocol (`PQexec`),
+  which also accepts multiple `;`-separated statements in a single raw-SQL call.
+
 ### Added
 - **Experimental Windows Native (mingwX64) target** for all multiplatform modules:
   `kormium-core`, `kormium-postgres` (libpq), `kormium-sqlite` (vendored amalgamation),
@@ -37,6 +55,13 @@ All notable changes to Kormium are documented here. The format is based on
   harness; the default debug test binary understated CPU-bound throughput (row
   materialization, batch binding) by 2-3x against the JIT-optimized JVM ORMs. Linked only
   on demand, so regular test and CI builds are unaffected.
+- **PostgreSQL Native: fewer per-row allocations on reads.** `getString` no longer allocates
+  a logging closure for every cell (the logger's `trace` is not inlined, so the lambda was
+  built even when tracing is off), integer columns parse straight from libpq's C string
+  instead of materialising an intermediate Kotlin `String`, and the result list is presized
+  to the row count instead of growing and recopying. ~10% on the multi-row read benchmark
+  (`selectMany`, 30.2k → 33.3k ops/s); single-row reads are unchanged, as the savings scale
+  with row count.
 
 ## [0.5.0] — Review fixes and typed PostgreSQL binding
 

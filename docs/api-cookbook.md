@@ -36,6 +36,28 @@ db.transaction {
 }
 ```
 
+## Foreign Keys and Check Constraints
+
+Kormium does not model foreign keys, composite/partial indexes or check constraints in the
+table DSL — declare them in the same raw SQL that creates the table (or in a migration).
+
+```kotlin
+db.transaction {
+    executeUpdate(
+        """CREATE TABLE IF NOT EXISTS "orders" (
+             "id" uuid NOT NULL,
+             "userId" uuid NOT NULL REFERENCES "users" ("id"),
+             "total" integer NOT NULL CHECK ("total" >= 0),
+             PRIMARY KEY ("id")
+           )""",
+    )
+    executeUpdate("""CREATE INDEX IF NOT EXISTS orders_user_idx ON "orders" ("userId")""")
+}
+```
+
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction, so it does not belong in a
+migration batch (migrations run in one transaction) — issue it on its own connection.
+
 ## Insert a Row
 
 ```kotlin
@@ -107,18 +129,29 @@ val page = db.autocommit {
 }
 ```
 
-Offset pagination is simple and portable. For high-volume feeds, prefer keyset pagination:
+Offset pagination is simple and portable. For high-volume feeds, prefer keyset (seek)
+pagination: order by a key, then page forward by passing the last row of the previous page as
+the cursor. The first page passes `null`. Add a unique tie-breaker (here `id`) so rows that
+share the ordering key are neither skipped nor repeated.
 
 ```kotlin
-val page = db.autocommit {
+fun usersAfter(cursor: User?): List<User> = db.autocommit {
     Users.find {
-        where { Users.email gt lastSeenEmail }
         where { Users.deletedAt eq null }
+        if (cursor != null) {
+            where {
+                (Users.email gt cursor.email) or
+                    ((Users.email eq cursor.email) and (Users.id gt cursor.id))
+            }
+        }
         orderBy ASC Users.email
+        orderBy ASC Users.id
         limit = 50
     }
 }
 ```
+
+Each `where { }` is ANDed with the others; multiple `orderBy` calls keep their order.
 
 ## Count Rows
 
@@ -159,6 +192,24 @@ val pairs: List<Pair<User, Order?>> = db.autocommit {
     (Users leftJoin Orders on (Users.id eq Orders.userId)).find()
 }
 ```
+
+## Project Into a Data Class
+
+To read a subset of columns instead of full entities, start from `Table.query()`, `select`
+the columns you need, and map each `ResultRow` to your own type. Read columns with `row[field]`
+(throws on SQL `NULL`) or `row.getOrNull(field)`.
+
+```kotlin
+data class UserCard(val email: String, val name: String)
+
+val cards: List<UserCard> = db.autocommit {
+    Users.query()
+        .select(Users.email, Users.name)
+        .map { row -> UserCard(row[Users.email], row[Users.name]) }
+}
+```
+
+The same `select(...)` works on a join, so a projection can span tables.
 
 ## Aggregate and Read the Result
 

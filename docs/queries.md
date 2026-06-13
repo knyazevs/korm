@@ -214,6 +214,44 @@ Use raw SQL only when the SQL text is fully controlled by your application:
 Users.find(Query(RawExpression("""lower("name") = 'ada'""")))
 ```
 
+## Unsupported / Out-of-Scope SQL
+
+Kormium covers a deliberate slice of SQL: typed `SELECT`/`WHERE`/`ORDER BY`/`LIMIT`/`OFFSET`,
+`INNER`/`LEFT` joins, `GROUP BY` / `HAVING` / `DISTINCT`, the aggregates listed above, and the
+predicate vocabulary below. The DSL does not try to model all of SQL. Anything outside that
+slice runs through raw SQL — either a `RawExpression` inside the DSL or `execute(...)` /
+`executeUpdate(...)` on a scope (see [Raw Expressions](#raw-expressions) and the
+[API cookbook](api-cookbook.md)).
+
+Not modeled by the typed DSL today:
+
+- **Subqueries.** No subqueries in any position (`SELECT`, `FROM`, `WHERE`, `IN (SELECT ...)`,
+  scalar or correlated). `inList` takes an in-memory `List`, not a query.
+- **`UNION` / `INTERSECT` / `EXCEPT`.** No set-operation combinators.
+- **CTEs and recursive queries.** No `WITH` / `WITH RECURSIVE`.
+- **Window functions.** No `OVER (...)`, `PARTITION BY`, or ranking functions. Aggregates are
+  `GROUP BY`-only.
+- **`RIGHT` / `FULL OUTER` / `CROSS` joins and self-joins.** Only `innerJoin` and `leftJoin`
+  are available, and a table cannot be aliased to join it to itself.
+- **`DISTINCT ON`.** Only plain `DISTINCT` is supported.
+- **`EXISTS` / `NOT EXISTS`.**
+- **`BETWEEN`.** Express it as two comparisons (`col gtEq lo` and `col lessEq hi`).
+- **Pattern-match variants.** `like` only; no `ILIKE`, `SIMILAR TO`, or regex operators.
+- **Computed expressions.** No arithmetic (`+`, `-`, `*`, `/`), string concatenation, `CASE`,
+  `COALESCE`, casts, or scalar functions in `SELECT`/`WHERE`/`HAVING`.
+- **Expression / aggregate ordering and null placement.** `ORDER BY` takes plain columns with
+  `ASC` / `DESC` only — no ordering by an aggregate or expression, and no `NULLS FIRST` /
+  `NULLS LAST`.
+- **Grouping in the `find { }` block.** `groupBy` / `having` / `distinct` live on the join /
+  `Table.query()` path, not the entity-returning `find { }` builder.
+- **Statement-level extras.** No `ORDER BY` / `LIMIT` on `UPDATE` / `DELETE`, no `RETURNING`
+  on `UPDATE` / `DELETE`, no `LOCK` / `FOR UPDATE` clauses, and no DDL through the query DSL.
+  (`INSERT ... ON CONFLICT` *is* available — see `upsert` and `insertOrIgnore`.)
+
+The supported `WHERE` / `HAVING` predicates are exactly: `eq`, `neq`, `less`, `lessEq`, `gt`,
+`gtEq`, `like`, `inList`, `eq null` / `neq null` (rendered as `IS [NOT] NULL`), and the
+`and` / `or` / `not(...)` combinators.
+
 ## Observing Changes
 
 To re-run a query automatically whenever its data changes, use `kormium-observe`:

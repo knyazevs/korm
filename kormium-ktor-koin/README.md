@@ -3,7 +3,7 @@
 [Ktor](https://ktor.io) integration for [Kormium](../readme.md) that resolves the database from
 **[Koin](https://insert-koin.io)** — no explicit `db` argument in your routes.
 
-Builds on [`korm-ktor`](../korm-ktor/README.md), adding reified `ApplicationCall` helpers that
+Builds on [`korm-ktor`](../kormium-ktor/README.md), adding reified `ApplicationCall` helpers that
 resolve `SuspendDatabase<G>` from Koin.
 
 > Koin keys by `KClass`, so the generic catalog tag is erased. If you use more than one

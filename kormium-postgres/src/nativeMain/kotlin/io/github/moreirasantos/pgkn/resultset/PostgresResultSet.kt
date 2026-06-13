@@ -5,19 +5,13 @@ import io.github.moreirasantos.pgkn.exception.GetColumnValueException
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.get
 import kotlinx.cinterop.toKString
 import kotlinx.datetime.*
 import libpq.*
 import io.github.kormium.resultset.ResultSet
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.resultset.PostgresResultSetKt")
-
-/**
- * To Fix ISO 8601, as postgres default is space not "T"
- * https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-DATETIME-OUTPUT
- */
-@Suppress("MagicNumber")
-private fun String.fixIso8601() = replaceRange(10, 11, "T")
 
 @Suppress("TooManyFunctions")
 @ExperimentalForeignApi
@@ -32,7 +26,8 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
         }.toTypedArray()
     }
 
-    private val rowCount: Int = PQntuples(internal)
+    /** Number of rows in the result; lets callers presize the row list they build. */
+    val rowCount: Int = PQntuples(internal)
 
     @Suppress("UnusedPrivateProperty")
     private val columnCount: Int = PQnfields(internal)
@@ -60,22 +55,27 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
     /**
      * Are all non-binary columns returned as text?
      * https://www.postgresql.org/docs/9.5/libpq-exec.html#LIBPQ-EXEC-SELECT-INFO
+     *
+     * No trace logging here: it sits on the per-cell hot path and the lambda would be
+     * allocated on every call (the logger's trace() is not inlined), even when disabled.
      */
     override fun getString(columnIndex: Int): String? = getPointer(columnIndex)?.toKString()
-        .also {
-            logger.trace { "Value of column $columnIndex: $it" }
-        }
 
-    override fun getBoolean(columnIndex: Int): Boolean? = getString(columnIndex)?.equals("t")
+    // bool/integers parse straight from libpq's null-terminated C string, skipping the
+    // intermediate Kotlin String that getString()?.toX() would allocate for every cell.
+    // Floats keep the String path: a correct float parser (exponents, Infinity/NaN,
+    // rounding) is not worth hand-rolling, and float columns are comparatively rare.
+    override fun getBoolean(columnIndex: Int): Boolean? =
+        getPointer(columnIndex)?.let { it[0].toInt() == 't'.code }
 
-    override fun getShort(columnIndex: Int): Short? = getString(columnIndex)?.toShort()
+    override fun getShort(columnIndex: Int): Short? =
+        getPointer(columnIndex)?.let { parsePgLong(it).toShort() }
 
+    override fun getInt(columnIndex: Int): Int? =
+        getPointer(columnIndex)?.let { parsePgLong(it).toInt() }
 
-    override fun getInt(columnIndex: Int): Int? = getString(columnIndex)?.toInt()
-
-
-    override fun getLong(columnIndex: Int): Long? = getString(columnIndex)?.toLong()
-
+    override fun getLong(columnIndex: Int): Long? =
+        getPointer(columnIndex)?.let { parsePgLong(it) }
 
     override fun getFloat(columnIndex: Int): Float? = getString(columnIndex)?.toFloat()
 
@@ -86,11 +86,33 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
     override fun getDate(columnIndex: Int): LocalDate? = getString(columnIndex)?.let { LocalDate.parse(it) }
 
     override fun getTime(columnIndex: Int): LocalTime? = getString(columnIndex)?.let { LocalTime.parse(it) }
-    override fun getLocalDateTime(columnIndex: Int): LocalDateTime? = getString(columnIndex)
-        ?.fixIso8601()
-        ?.let { LocalDateTime.parse(it) }
+    override fun getLocalDateTime(columnIndex: Int): LocalDateTime? =
+        getString(columnIndex)?.let { parsePgLocalDateTime(it) }
 
-    override fun getInstant(columnIndex: Int): Instant? = getString(columnIndex)
-        ?.fixIso8601()
-        ?.let { Instant.parse(it) }
+    override fun getInstant(columnIndex: Int): Instant? =
+        getString(columnIndex)?.let { parsePgInstant(it) }
+}
+
+/**
+ * Parses a base-10 integer directly from a libpq null-terminated C string, allocating no
+ * Kotlin String. Digits are accumulated as a negative number so that Long.MIN_VALUE — whose
+ * magnitude cannot be represented as a positive Long — parses correctly. Postgres only feeds
+ * this well-formed integer text (optional sign followed by digits).
+ */
+@ExperimentalForeignApi
+internal fun parsePgLong(p: CPointer<ByteVar>): Long {
+    var i = 0
+    val negative = when (p[0].toInt()) {
+        '-'.code -> { i = 1; true }
+        '+'.code -> { i = 1; false }
+        else -> false
+    }
+    var acc = 0L
+    while (true) {
+        val c = p[i].toInt()
+        if (c == 0) break
+        acc = acc * 10 - (c - '0'.code)
+        i++
+    }
+    return if (negative) acc else -acc
 }

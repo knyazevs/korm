@@ -1,0 +1,20 @@
+# Configuration for the lychee link checker (see .github/workflows/docs.yml).
+# Internal links (relative file paths + #anchors) are gated in CI; external URLs
+# are checked non-blocking.
+
+# Directories that are not part of the published docs: build outputs and the
+# transient git worktrees Claude Code creates under .claude/.
+exclude_path = [
+    "build",
+    ".claude",
+]
+
+# Placeholder / non-resolvable hosts used in examples.
+exclude = [
+    "^https?://localhost",
+    "^https?://127\\.0\\.0\\.1",
+    "^https?://example\\.com",
+]
+
+# Don't try to open mailto: links.
+include_mail = false

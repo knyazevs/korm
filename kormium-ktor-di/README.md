@@ -3,7 +3,7 @@
 [Ktor](https://ktor.io) integration for [Kormium](../readme.md) that resolves the database from
 **Ktor's built-in DI** container — no explicit `db` argument in your routes.
 
-Builds on [`korm-ktor`](../korm-ktor/README.md), adding reified `ApplicationCall` helpers that
+Builds on [`korm-ktor`](../kormium-ktor/README.md), adding reified `ApplicationCall` helpers that
 look up `SuspendDatabase<G>` by its parameterized type. Ktor DI keys by full type, so
 `SuspendDatabase<App>` and `SuspendDatabase<Cache>` are distinct dependencies — catalog safety
 carries through to resolution.

@@ -6,7 +6,7 @@ The PostgreSQL backend for [Kormium](../readme.md). Provides `createDatabase(...
 - **JVM** — JDBC via pgjdbc, pooled with HikariCP.
 - **Native** (Linux/macOS) — libpq through cinterop, no JVM required.
 
-For non-blocking PostgreSQL on the JVM, see [`korm-r2dbc`](../korm-r2dbc/README.md).
+For non-blocking PostgreSQL on the JVM, see [`kormium-r2dbc`](../kormium-r2dbc/README.md).
 
 ## Install
 
