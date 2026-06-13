@@ -119,5 +119,15 @@ kotlin {
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
         }
+        // The async socket reactor's syscalls differ by OS (poll/pipe/fcntl on Unix,
+        // WSAPoll/socketpair/ioctlsocket on Windows), so its platform actuals live in
+        // unixMain (linux + macos) and mingwX64Main; the shared logic stays in nativeMain.
+        val nativeTest by getting
+        val unixMain by creating { dependsOn(nativeMain) }
+        val unixTest by creating { dependsOn(nativeTest) }
+        listOf("linuxX64", "macosX64", "macosArm64").forEach { target ->
+            getByName("${target}Main").dependsOn(unixMain)
+            getByName("${target}Test").dependsOn(unixTest)
+        }
     }
 }
