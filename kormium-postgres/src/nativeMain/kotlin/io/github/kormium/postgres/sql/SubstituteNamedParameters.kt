@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.sql
+package io.github.kormium.postgres.sql
 
 import io.github.kormium.SqlParameterSource
 

@@ -1,6 +1,6 @@
-package io.github.moreirasantos.pgkn.paramsource
+package io.github.kormium.postgres.paramsource
 
-import io.github.moreirasantos.pgkn.exception.AnonymousClassException
+import io.github.kormium.postgres.exception.AnonymousClassException
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime

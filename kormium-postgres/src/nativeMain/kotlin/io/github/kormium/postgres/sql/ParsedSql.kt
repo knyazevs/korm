@@ -1,6 +1,6 @@
-package io.github.moreirasantos.pgkn.sql
+package io.github.kormium.postgres.sql
 
-import io.github.moreirasantos.pgkn.exception.InvalidDataAccessApiUsageException
+import io.github.kormium.postgres.exception.InvalidDataAccessApiUsageException
 
 
 /**

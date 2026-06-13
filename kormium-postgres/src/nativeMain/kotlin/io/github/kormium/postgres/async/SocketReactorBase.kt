@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.async
+package io.github.kormium.postgres.async
 
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope

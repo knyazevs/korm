@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn
+package io.github.kormium.postgres
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.oshai.kotlinlogging.Marker

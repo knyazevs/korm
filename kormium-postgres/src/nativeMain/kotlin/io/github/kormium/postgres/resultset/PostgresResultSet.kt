@@ -1,7 +1,7 @@
-package io.github.moreirasantos.pgkn.resultset
+package io.github.kormium.postgres.resultset
 
-import io.github.moreirasantos.pgkn.KLogger
-import io.github.moreirasantos.pgkn.exception.GetColumnValueException
+import io.github.kormium.postgres.KLogger
+import io.github.kormium.postgres.exception.GetColumnValueException
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -11,7 +11,7 @@ import kotlinx.datetime.*
 import libpq.*
 import io.github.kormium.resultset.ResultSet
 
-private val logger = KLogger("io.github.moreirasantos.pgkn.resultset.PostgresResultSetKt")
+private val logger = KLogger("io.github.kormium.postgres.resultset.PostgresResultSetKt")
 
 @Suppress("TooManyFunctions")
 @ExperimentalForeignApi

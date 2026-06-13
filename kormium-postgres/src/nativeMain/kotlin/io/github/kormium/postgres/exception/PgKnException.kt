@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.exception
+package io.github.kormium.postgres.exception
 
 sealed class SQLException(message: String? = null, cause: Throwable? = null) : Exception(message, cause)
 
@@ -11,5 +11,5 @@ class GetColumnValueException(columnIndex: Int) : SQLException("Error getting co
 /** Raised when a statement (or the initial connection) fails on the server. */
 class QueryExecutionException(message: String, cause: Throwable? = null) : SQLException(message, cause)
 
-/** Raised when the driver is used after [io.github.moreirasantos.pgkn.PostgresDriver] was closed. */
+/** Raised when the driver is used after [io.github.kormium.postgres.PostgresDriver] was closed. */
 class ConnectionClosedException : SQLException("PostgresDriver is closed", null)

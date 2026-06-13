@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.paramsource
+package io.github.kormium.postgres.paramsource
 
 
 /**

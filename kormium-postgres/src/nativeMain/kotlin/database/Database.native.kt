@@ -10,4 +10,4 @@ actual fun createDatabase(
     password: String,
     poolSize: Int,
     config: KormiumConfig,
-) = io.github.moreirasantos.pgkn.FPostgresDriver(host, port, database, user, password, poolSize, config)
+) = io.github.kormium.postgres.FPostgresDriver(host, port, database, user, password, poolSize, config)

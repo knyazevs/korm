@@ -1,5 +1,5 @@
-import io.github.moreirasantos.pgkn.async.asyncQueryFirstColumn
-import io.github.moreirasantos.pgkn.async.createSocketReactor
+import io.github.kormium.postgres.async.asyncQueryFirstColumn
+import io.github.kormium.postgres.async.createSocketReactor
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString

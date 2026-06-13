@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.resultset
+package io.github.kormium.postgres.resultset
 
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime

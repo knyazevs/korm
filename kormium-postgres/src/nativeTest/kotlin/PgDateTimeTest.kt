@@ -1,5 +1,5 @@
-import io.github.moreirasantos.pgkn.resultset.parsePgInstant
-import io.github.moreirasantos.pgkn.resultset.parsePgLocalDateTime
+import io.github.kormium.postgres.resultset.parsePgInstant
+import io.github.kormium.postgres.resultset.parsePgLocalDateTime
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test

@@ -1,4 +1,4 @@
-import io.github.moreirasantos.pgkn.FPostgresDriver
+import io.github.kormium.postgres.FPostgresDriver
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlinx.coroutines.DelicateCoroutinesApi

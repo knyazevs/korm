@@ -1,4 +1,4 @@
-package io.github.moreirasantos.pgkn.async
+package io.github.kormium.postgres.async
 
 /**
  * Windows has no socket reactor yet (Kotlin/Native does not expose WSAPoll and a winsock2

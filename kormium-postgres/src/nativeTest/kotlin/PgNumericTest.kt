@@ -1,4 +1,4 @@
-import io.github.moreirasantos.pgkn.resultset.parsePgLong
+import io.github.kormium.postgres.resultset.parsePgLong
 import kotlinx.cinterop.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
