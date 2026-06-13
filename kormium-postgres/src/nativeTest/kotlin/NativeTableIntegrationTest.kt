@@ -14,6 +14,10 @@ import io.github.kormium.resultset.ResultSet
 import io.github.kormium.transaction
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlin.native.concurrent.TransferMode
 import kotlin.native.concurrent.Worker
 import kotlin.uuid.Uuid
@@ -158,6 +162,39 @@ class NativeTableIntegrationTest {
             }
         }
         NativeDatabase.transaction { NativeProducts.deleteWhere(Query(NativeProducts.id eq id)) }
+    }
+
+    /**
+     * End-to-end date/time reads against real Postgres text output. timestamptz is rendered
+     * with an hours-only `+00` offset under UTC, which the old fixed-index parser could not
+     * handle — getInstant would throw. Reads the four temporal getters from one row.
+     */
+    @Test
+    fun testDateTimeRoundTrip() {
+        if (env("KORMIUM_DB_HOST") == null) {
+            println("KORMIUM_DB_HOST not set — skipping native integration test")
+            return
+        }
+        nativeDriver(poolSize = 1).use { driver ->
+            driver.transaction {
+                // Pin the session zone so timestamptz prints the bare "+00" form.
+                execute("SET TIME ZONE 'UTC'")
+                val rows = execute(
+                    """
+                    SELECT '2024-01-15 13:45:30.123456+00'::timestamptz,
+                           '2024-01-15 13:45:30'::timestamp,
+                           '2024-01-15'::date,
+                           '13:45:30'::time
+                    """.trimIndent()
+                ) { rs ->
+                    assertEquals(Instant.parse("2024-01-15T13:45:30.123456Z"), rs.getInstant(0))
+                    assertEquals(LocalDateTime.parse("2024-01-15T13:45:30"), rs.getLocalDateTime(1))
+                    assertEquals(LocalDate.parse("2024-01-15"), rs.getDate(2))
+                    assertEquals(LocalTime.parse("13:45:30"), rs.getTime(3))
+                }
+                assertEquals(1, rows.size)
+            }
+        }
     }
 
     /**

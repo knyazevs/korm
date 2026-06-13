@@ -12,13 +12,6 @@ import io.github.kormium.resultset.ResultSet
 
 private val logger = KLogger("io.github.moreirasantos.pgkn.resultset.PostgresResultSetKt")
 
-/**
- * To Fix ISO 8601, as postgres default is space not "T"
- * https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-DATETIME-OUTPUT
- */
-@Suppress("MagicNumber")
-private fun String.fixIso8601() = replaceRange(10, 11, "T")
-
 @Suppress("TooManyFunctions")
 @ExperimentalForeignApi
 internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
@@ -86,11 +79,9 @@ internal class PostgresResultSet(val internal: CPointer<PGresult>) : ResultSet {
     override fun getDate(columnIndex: Int): LocalDate? = getString(columnIndex)?.let { LocalDate.parse(it) }
 
     override fun getTime(columnIndex: Int): LocalTime? = getString(columnIndex)?.let { LocalTime.parse(it) }
-    override fun getLocalDateTime(columnIndex: Int): LocalDateTime? = getString(columnIndex)
-        ?.fixIso8601()
-        ?.let { LocalDateTime.parse(it) }
+    override fun getLocalDateTime(columnIndex: Int): LocalDateTime? =
+        getString(columnIndex)?.let { parsePgLocalDateTime(it) }
 
-    override fun getInstant(columnIndex: Int): Instant? = getString(columnIndex)
-        ?.fixIso8601()
-        ?.let { Instant.parse(it) }
+    override fun getInstant(columnIndex: Int): Instant? =
+        getString(columnIndex)?.let { parsePgInstant(it) }
 }

@@ -322,23 +322,31 @@ private fun openConnection(
     database: String,
     user: String,
     password: String,
-): CPointer<PGconn> {
-    val connection = PQsetdbLogin(
-        pghost = host,
-        pgport = port.toString(),
-        dbName = database,
-        login = user,
-        pwd = password,
-        pgoptions = null,
-        pgtty = null,
+): CPointer<PGconn> = memScoped {
+    // PQconnectdbParams (over the older PQsetdbLogin) lets us set production-grade
+    // connection defaults: connect_timeout bounds a dead host instead of hanging
+    // indefinitely, keepalives detect a silently dropped TCP connection, and
+    // application_name labels the backend in pg_stat_activity. Both arrays must be
+    // NULL-terminated, hence the trailing null entry.
+    val keywords = listOf(
+        "host", "port", "dbname", "user", "password",
+        "connect_timeout", "keepalives", "application_name",
     )
+    val values = listOf(
+        host, port.toString(), database, user, password,
+        "10", "1", "kormium",
+    )
+    val keywordsArray = allocArrayOf(keywords.map { it.cstr.getPointer(this) } + listOf<CPointer<ByteVar>?>(null))
+    val valuesArray = allocArrayOf(values.map { it.cstr.getPointer(this) } + listOf<CPointer<ByteVar>?>(null))
+
+    val connection = PQconnectdbParams(keywordsArray, valuesArray, 0)
     requireNotNull(connection) { "Failed to allocate a Postgres connection" }
     if (ConnStatusType.CONNECTION_OK != PQstatus(connection)) {
         val message = PQerrorMessage(connection)?.toKString()?.trim().orEmpty()
         PQfinish(connection)
         throw QueryExecutionException(message.ifEmpty { "Failed to connect to Postgres" })
     }
-    return connection
+    connection
 }
 
 // A statement ready for PQexecParams: the `$n`-substituted SQL and the named-parameter
