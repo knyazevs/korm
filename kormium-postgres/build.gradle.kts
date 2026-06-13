@@ -119,15 +119,16 @@ kotlin {
                 implementation("io.github.oshai:kotlin-logging:7.0.3")
             }
         }
-        // The async socket reactor's syscalls differ by OS (poll/pipe/fcntl on Unix,
-        // WSAPoll/socketpair/ioctlsocket on Windows), so its platform actuals live in
-        // unixMain (linux + macos) and mingwX64Main; the shared logic stays in nativeMain.
-        val nativeTest by getting
-        val unixMain by creating { dependsOn(nativeMain) }
-        val unixTest by creating { dependsOn(nativeTest) }
+        // The async socket reactor's syscalls differ by OS: poll/pipe/fcntl on Unix
+        // (UnixSocketReactor), WSAPoll on Windows (mingwX64Main), shared logic in nativeMain.
+        // The Unix actual is shared across the three unix leaf targets via a srcDir rather than
+        // a common (commonized) intermediate source set: posix types like nfds_t differ in bit
+        // width between linux and macos, which the K/N commonizer rejects in shared metadata.
+        // Compiling the file in each leaf against its own posix sidesteps that — one file on disk,
+        // no metadata compilation of platform code.
         listOf("linuxX64", "macosX64", "macosArm64").forEach { target ->
-            getByName("${target}Main").dependsOn(unixMain)
-            getByName("${target}Test").dependsOn(unixTest)
+            getByName("${target}Main").kotlin.srcDir("src/unixShared/kotlin")
+            getByName("${target}Test").kotlin.srcDir("src/unixSharedTest/kotlin")
         }
     }
 }
