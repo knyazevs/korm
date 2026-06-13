@@ -38,11 +38,11 @@ val adults = db.suspendAutocommit {
 
 `createR2dbcDatabase` returns a `SuspendDatabase`, so use the suspend API
 (`suspendTransaction { }` / `suspendAutocommit { }`). The Ktor helpers
-([`korm-ktor`](../korm-ktor/README.md) and friends) work with it unchanged.
+([`korm-ktor`](../kormium-ktor/README.md) and friends) work with it unchanged.
 
 ## Platforms
 
-JVM only. For PostgreSQL on Native use [`korm-postgres`](../korm-postgres/README.md).
+JVM only. For PostgreSQL on Native use [`korm-postgres`](../kormium-postgres/README.md).
 
 ## Documentation
 

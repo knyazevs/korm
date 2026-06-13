@@ -14,8 +14,8 @@ It provides:
   stop.
 
 For automatic database resolution by catalog type, add
-[`korm-ktor-di`](../korm-ktor-di/README.md) (Ktor's built-in DI) or
-[`korm-ktor-koin`](../korm-ktor-koin/README.md) (Koin).
+[`korm-ktor-di`](../kormium-ktor-di/README.md) (Ktor's built-in DI) or
+[`korm-ktor-koin`](../kormium-ktor-koin/README.md) (Koin).
 
 ## Install
 
