@@ -6,7 +6,7 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
-## [0.6.0] — Native driver hardening
+## [0.6.0] — Native driver hardening and true-async reads
 
 ### Fixed
 - **PostgreSQL Native: `timestamptz`/`timestamp` reads no longer throw on UTC values.**
@@ -25,6 +25,15 @@ All notable changes to Kormium are documented here. The format is based on
   which also accepts multiple `;`-separated statements in a single raw-SQL call.
 
 ### Added
+- **PostgreSQL Native: true-async reads (Linux/macOS).** `useConnection` (and the
+  `suspendTransaction` / `suspendAutocommit` built on it) now drive libpq asynchronously
+  through a single-threaded socket reactor (`PQsendQuery*`/`PQflush`/`PQconsumeInput` + `poll`),
+  so a suspended statement no longer holds a coroutine thread — many concurrent queries
+  multiplex over a few threads instead of one-thread-per-in-flight-query (verified: 8 sleeping
+  transactions on one thread overlap instead of serialising). Previously the suspend path
+  offloaded blocking calls to `Dispatchers.Default`. The blocking `usePinned` path is unchanged.
+  Windows keeps the blocking offload (Kotlin/Native exposes no `WSAPoll`); its behaviour is
+  unchanged — true-async there is a follow-up.
 - **Experimental Windows Native (mingwX64) target** for all multiplatform modules:
   `kormium-core`, `kormium-postgres` (libpq), `kormium-sqlite` (vendored amalgamation),
   `kormium-observe`, `kormium-migrate` and the Ktor integrations. Artifacts cross-compile
