@@ -30,6 +30,11 @@ class R2dbcDatabase internal constructor(
     private val pool: ConnectionPool,
     private val dialect: Dialect,
     private val typeMapper: TypeMapper,
+    // The driver's positional bind marker ($N for postgres, ? for mysql). Defaults to postgres so
+    // existing call sites are unchanged.
+    private val marker: ParamMarker = PostgresParamMarker,
+    // Backend-specific exception translation; defaults to the SQLSTATE mapping (Postgres).
+    private val translate: R2dbcExceptionTranslator = StandardR2dbcExceptionTranslator,
     override val config: KormiumConfig = KormiumConfig(),
 ) : SuspendDatabase<Nothing> {
 
@@ -40,7 +45,7 @@ class R2dbcDatabase internal constructor(
         val connection = pool.create().awaitSingle()
         try {
             if (transactional) connection.beginTransaction().awaitFirstOrNull()
-            val exec = R2dbcExecutor(connection, dialect, typeMapper)
+            val exec = R2dbcExecutor(connection, dialect, typeMapper, marker, translate)
             return try {
                 block(exec).also { if (transactional) connection.commitTransaction().awaitFirstOrNull() }
             } catch (e: Throwable) {
@@ -84,5 +89,12 @@ fun createR2dbcDatabase(
     val poolConfiguration = ConnectionPoolConfiguration.builder(connectionFactory)
         .maxSize(poolSize)
         .build()
-    return R2dbcDatabase(ConnectionPool(poolConfiguration), PostgresDialect, StandardTypeMapper, config)
+    return R2dbcDatabase(
+        ConnectionPool(poolConfiguration),
+        PostgresDialect,
+        StandardTypeMapper,
+        PostgresParamMarker,
+        StandardR2dbcExceptionTranslator,
+        config,
+    )
 }

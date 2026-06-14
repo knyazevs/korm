@@ -31,8 +31,8 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Install libpq (for the Kotlin/Native libpq cinterop)
-        run: brew install libpq
+      - name: Install libpq + mariadb-connector-c (for the Kotlin/Native cinterops)
+        run: brew install libpq mariadb-connector-c
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

@@ -41,6 +41,46 @@ PostgreSQL notes:
 - On Kotlin/Native, libpq sends parameters as text and the dialect adds the needed
   `::type` casts.
 
+## MySQL / MariaDB
+
+Artifact:
+
+```kotlin
+implementation("io.github.kormium:kormium-mysql")
+```
+
+Factory:
+
+```kotlin
+val db: Database<App> = createDatabase(
+    host = "localhost",
+    port = 3306,
+    database = "app",
+    user = "root",
+    password = "password",
+    poolSize = 10,
+)
+```
+
+Implementations:
+
+- JVM: `mysql-connector-j` plus HikariCP through `kormium-jdbc`.
+- Kotlin/Native (Linux/macOS): MariaDB Connector/C (`libmariadb`) cinterop using prepared
+  statements. Windows is served by the JVM driver.
+- Async on JVM: `createMySqlR2dbcDatabase(...)` in `kormium-r2dbc` over `io.asyncer:r2dbc-mysql`.
+
+Native builds need `libmariadb` headers/libraries on the build machine
+(`brew install mariadb-connector-c` / `apt-get install libmariadb-dev`).
+
+MySQL notes:
+
+- UUID is stored as `CHAR(36)`; JSON uses the native `JSON` type. The session is pinned to UTC so
+  `Instant`/`TIMESTAMP` round-trips unchanged.
+- Integrity violations are mapped to typed exceptions by vendor code (1062 unique, 1452 foreign
+  key, 1048 NOT NULL, 3819 check) since MySQL reports them all under SQLSTATE 23000.
+- No transaction-scoped advisory lock (MySQL `GET_LOCK` is session-scoped), so `kormium-migrate`
+  runs without one — prefer migrating from a single instance.
+
 ## SQLite
 
 Artifact:

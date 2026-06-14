@@ -19,14 +19,27 @@ import kotlinx.coroutines.reactive.asFlow
  * conversion ([TypeMapper]) are reused verbatim from kormium-postgres; only the bind step
  * differs — `:name` is rewritten to `$N` and bound by index.
  */
+/**
+ * Translates a driver [R2dbcException] into a core exception. Backends differ in how they report
+ * constraint violations (Postgres via SQLSTATE, MySQL via vendor code under SQLSTATE 23000), so each
+ * supplies its own; [StandardR2dbcExceptionTranslator] maps the standard SQLSTATE.
+ */
+internal typealias R2dbcExceptionTranslator = (R2dbcException) -> Throwable
+
+/** The default translator: maps the SQLSTATE to a typed core exception (the Postgres path). */
+internal val StandardR2dbcExceptionTranslator: R2dbcExceptionTranslator =
+    { e -> sqlException(e.message ?: "SQL error", e.sqlState, e) }
+
 internal class R2dbcExecutor(
     private val connection: Connection,
     override val dialect: Dialect,
     override val typeMapper: TypeMapper,
+    private val marker: ParamMarker,
+    private val translate: R2dbcExceptionTranslator,
 ) : SuspendSqlExecutor {
 
     private fun prepare(sql: String, namedParameters: Map<String, Any?>): Statement {
-        val parsed = parseNamedParams(sql)
+        val parsed = parseNamedParams(sql, marker)
         val statement = connection.createStatement(parsed.sql)
         parsed.names.forEachIndexed { index, name ->
             // A missing key is a typo, not an explicit null: reject it so raw SQL fails fast
@@ -71,13 +84,13 @@ internal class R2dbcExecutor(
     override suspend fun executeUpdate(sql: String, namedParameters: Map<String, Any?>): Long =
         execute(sql, namedParameters)
 
-    // Map r2dbc's exceptions to korm's typed ones via the same SQLSTATE helper the JDBC
-    // backend uses (UniqueViolation 23505, ForeignKey 23503, ...).
+    // Map r2dbc's exceptions to korm's typed ones via the backend-supplied translator (SQLSTATE
+    // for Postgres, vendor code for MySQL).
     private suspend fun <T> translating(block: suspend () -> T): T =
         try {
             block()
         } catch (e: R2dbcException) {
-            throw sqlException(e.message ?: "SQL error", e.sqlState, e)
+            throw translate(e)
         }
 }
 

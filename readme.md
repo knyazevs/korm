@@ -8,8 +8,8 @@ Type-safe ORM and SQL DSL for Kotlin Multiplatform.
 
 Kormium gives you an Exposed-like Kotlin API for tables, entities, typed predicates,
 transactions, migrations, joins and aggregations, while keeping the core portable across
-JVM and Kotlin/Native. It ships PostgreSQL, SQLite, async r2dbc PostgreSQL and Ktor
-integration modules.
+JVM and Kotlin/Native. It ships PostgreSQL, MySQL/MariaDB, SQLite, async r2dbc
+(PostgreSQL and MySQL) and Ktor integration modules.
 
 ```kotlin
 object App : Catalog
@@ -79,8 +79,9 @@ dependencies {
     implementation(platform("io.github.kormium:kormium-bom:<version>"))
 
     implementation("io.github.kormium:kormium-postgres") // PostgreSQL, JVM + Native
+    // implementation("io.github.kormium:kormium-mysql")    // MySQL / MariaDB, JVM + Native
     // implementation("io.github.kormium:kormium-sqlite")   // SQLite, JVM + Native + Android
-    // implementation("io.github.kormium:kormium-r2dbc")    // async PostgreSQL, JVM only
+    // implementation("io.github.kormium:kormium-r2dbc")    // async PostgreSQL + MySQL, JVM only
 
     // implementation("io.github.kormium:kormium-observe")  // reactive Flow queries
     // implementation("io.github.kormium:kormium-migrate")  // SQL migration runner

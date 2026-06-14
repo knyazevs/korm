@@ -82,6 +82,26 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         return sql.trimIndent() to builder.params
     }
 
+    // Re-selects a just-written row by its primary key, for backends without RETURNING (MySQL):
+    // the insert/upsert runs first, then this reads the stored row back (DB defaults applied).
+    private fun selectByPkSql(entity: T, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
+        val pk = primaryKey
+        check(pk.isNotEmpty()) {
+            "returning=true on $tableName needs a primary key: this backend has no RETURNING, " +
+                "so the written row is re-selected by primary key"
+        }
+        val builder = paramBuilder(dialect, typeMapper)
+        val where = pk.joinToString(" AND ") { col ->
+            require(entity.fields.containsKey(col.fieldKey)) {
+                "returning=true on $tableName needs the primary-key column \"${col.name}\" set on the " +
+                    "entity (this backend re-selects the written row by primary key; it has no RETURNING)"
+            }
+            "${dialect.quoteIdentifier(col.name)} = ${builder.bind(col.bindParam(entity.fields[col.fieldKey]))}"
+        }
+        val sql = "SELECT ${getColumnNames(dialect).joinToString(", ")} FROM ${qualifiedTableName(dialect)} WHERE $where"
+        return sql.trimIndent() to builder.params
+    }
+
     private fun selectSql(query: Query, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
         val builder = paramBuilder(dialect, typeMapper)
         val queryStr = query.toSql(builder)
@@ -98,7 +118,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         // database can apply its default / generated value), an explicit null is bound as NULL.
         val presentFields = generatePresentFields(entity)
         val base = if (presentFields.isEmpty()) {
-            "INSERT INTO ${qualifiedTableName(dialect)} DEFAULT VALUES"
+            dialect.renderInsertDefaultValues(qualifiedTableName(dialect))
         } else {
             val columns = presentFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
             val values = presentFields.joinToString(", ") { builder.bind(it.second) }
@@ -156,7 +176,7 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
                 // No assigned fields: a multi-row DEFAULT VALUES isn't valid, so emit one per row.
                 for (idx in group.entityIndices) {
                     statements += BatchStatement(
-                        "INSERT INTO ${qualifiedTableName(dialect)} DEFAULT VALUES$returningSuffix",
+                        dialect.renderInsertDefaultValues(qualifiedTableName(dialect)) + returningSuffix,
                         emptyMap(),
                         listOf(idx),
                     )
@@ -192,12 +212,12 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         require(insertFields.isNotEmpty()) { "upsert() needs at least one field set on the insert entity" }
         val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
         val values = insertFields.joinToString(", ") { builder.bind(it.second) }
-        val conflictCols = conflict.joinToString(", ") { dialect.quoteIdentifier(it.name) }
+        val conflictCols = conflict.map { dialect.quoteIdentifier(it.name) }
         val updateFields = generatePresentFields(update)
         require(updateFields.isNotEmpty()) { "upsert() needs at least one field set on the update entity" }
         val setClause = updateFields.joinToString(", ") { "${dialect.quoteIdentifier(it.first)} = ${builder.bind(it.second)}" }
         val base = "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values) " +
-            "ON CONFLICT ($conflictCols) DO UPDATE SET $setClause"
+            dialect.renderUpsertSuffix(conflictCols, setClause)
         val sql = if (returning) "$base RETURNING ${getColumnNames(dialect).joinToString(", ")}" else base
         return sql to builder.params
     }
@@ -214,9 +234,9 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         require(insertFields.isNotEmpty()) { "insertOrIgnore() needs at least one field set on the entity" }
         val columns = insertFields.joinToString(", ") { dialect.quoteIdentifier(it.first) }
         val values = insertFields.joinToString(", ") { builder.bind(it.second) }
-        val conflictCols = conflict.joinToString(", ") { dialect.quoteIdentifier(it.name) }
+        val conflictCols = conflict.map { dialect.quoteIdentifier(it.name) }
         return "INSERT INTO ${qualifiedTableName(dialect)} ($columns) VALUES ($values) " +
-            "ON CONFLICT ($conflictCols) DO NOTHING" to builder.params
+            dialect.renderInsertOrIgnoreSuffix(conflictCols) to builder.params
     }
 
     private fun countSql(query: Query, dialect: Dialect, typeMapper: TypeMapper): Pair<String, Map<String, Any?>> {
@@ -274,37 +294,55 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         exec.execute(selectAllSql(exec.dialect)) { rs -> mapToDao(rs, exec.typeMapper) }
 
     internal fun insert(entity: T, exec: SqlExecutor, returning: Boolean): T? {
-        val (sql, params) = insertSql(entity, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
-            return entity
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val (sql, params) = insertSql(entity, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+        exec.executeUpdate(sql = sql, namedParameters = params)
+        if (!returning) return entity
+        // No RETURNING (MySQL): re-select the stored row by primary key.
+        val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+        return exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
     internal fun insertAll(entities: List<T>, exec: SqlExecutor, returning: Boolean, mode: BatchInsertMode): List<T> {
         if (entities.isEmpty()) return emptyList()
-        val statements = buildBatchStatements(entities, mode, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
-            return entities
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val statements = buildBatchStatements(entities, mode, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            val out = arrayOfNulls<Entity>(entities.size)
+            for (s in statements) {
+                val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
+                rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+            }
+            @Suppress("UNCHECKED_CAST")
+            return out.toList() as List<T>
         }
-        val out = arrayOfNulls<Entity>(entities.size)
-        for (s in statements) {
-            val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
-            rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+        for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
+        if (!returning) return entities
+        // No RETURNING (MySQL): re-select every row by primary key, in input order.
+        return entities.map { entity ->
+            val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+            exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+                ?: error("inserted row not found re-selecting by primary key in $tableName")
         }
-        @Suppress("UNCHECKED_CAST")
-        return out.toList() as List<T>
     }
 
     internal fun upsert(entity: T, conflict: List<Column<*, *, *>>, update: T, exec: SqlExecutor, returning: Boolean): T? {
-        val (sql, params) = upsertSql(entity, conflict, update, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
-            return entity
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val (sql, params) = upsertSql(entity, conflict, update, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+        exec.executeUpdate(sql = sql, namedParameters = params)
+        if (!returning) return entity
+        // No RETURNING (MySQL): re-select the upserted row by primary key.
+        val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+        return exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
     internal fun insertOrIgnore(entity: T, conflict: List<Column<*, *, *>>, exec: SqlExecutor): Long {
@@ -347,37 +385,52 @@ abstract class Table<G: Catalog, T: Entity>(val tableName: String, val factory: 
         exec.execute(selectAllSql(exec.dialect)) { rs -> mapToDao(rs, exec.typeMapper) }
 
     internal suspend fun insert(entity: T, exec: SuspendSqlExecutor, returning: Boolean): T? {
-        val (sql, params) = insertSql(entity, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
-            return entity
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val (sql, params) = insertSql(entity, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+        exec.executeUpdate(sql = sql, namedParameters = params)
+        if (!returning) return entity
+        val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+        return exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
     internal suspend fun insertAll(entities: List<T>, exec: SuspendSqlExecutor, returning: Boolean, mode: BatchInsertMode): List<T> {
         if (entities.isEmpty()) return emptyList()
-        val statements = buildBatchStatements(entities, mode, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
-            return entities
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val statements = buildBatchStatements(entities, mode, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            val out = arrayOfNulls<Entity>(entities.size)
+            for (s in statements) {
+                val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
+                rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+            }
+            @Suppress("UNCHECKED_CAST")
+            return out.toList() as List<T>
         }
-        val out = arrayOfNulls<Entity>(entities.size)
-        for (s in statements) {
-            val rows = exec.execute(s.sql, s.params) { rs -> mapToDao(rs, exec.typeMapper) }
-            rows.forEachIndexed { k, row -> out[s.indices[k]] = row }
+        for (s in statements) exec.executeUpdate(sql = s.sql, namedParameters = s.params)
+        if (!returning) return entities
+        return entities.map { entity ->
+            val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+            exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+                ?: error("inserted row not found re-selecting by primary key in $tableName")
         }
-        @Suppress("UNCHECKED_CAST")
-        return out.toList() as List<T>
     }
 
     internal suspend fun upsert(entity: T, conflict: List<Column<*, *, *>>, update: T, exec: SuspendSqlExecutor, returning: Boolean): T? {
-        val (sql, params) = upsertSql(entity, conflict, update, exec.dialect, exec.typeMapper, returning)
-        if (!returning) {
-            exec.executeUpdate(sql = sql, namedParameters = params)
-            return entity
+        val dialect = exec.dialect
+        val emitReturning = returning && dialect.supportsReturning
+        val (sql, params) = upsertSql(entity, conflict, update, dialect, exec.typeMapper, emitReturning)
+        if (returning && emitReturning) {
+            return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
         }
-        return exec.execute(sql, params) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
+        exec.executeUpdate(sql = sql, namedParameters = params)
+        if (!returning) return entity
+        val (selSql, selParams) = selectByPkSql(entity, dialect, exec.typeMapper)
+        return exec.execute(selSql, selParams) { rs -> mapToDao(rs, exec.typeMapper) }.firstOrNull()
     }
 
     internal suspend fun insertOrIgnore(entity: T, conflict: List<Column<*, *, *>>, exec: SuspendSqlExecutor): Long {

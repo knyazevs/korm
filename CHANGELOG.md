@@ -6,6 +6,35 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **New engine: MySQL / MariaDB (`kormium-mysql`).** A second full database engine, mirroring
+  `kormium-postgres`, with `MySqlDialect` (backtick identifiers, MySQL `LIMIT`/`OFFSET`), the
+  `MySqlDriver` interface and a `createDatabase(...)` factory across three backends:
+  - **JVM (JDBC)** over `mysql-connector-j` — typed parameter binding, vendor-code exception
+    mapping (1062 → `UniqueViolationException`, 1452 → `ForeignKeyViolationException`, …), and a
+    UTC-pinned session so `Instant` round-trips through `TIMESTAMP`.
+  - **Native (Linux/macOS)** over the MariaDB Connector/C (`libmariadb`, API-compatible with
+    `libmysqlclient`) using prepared statements (`mysql_stmt_*`). The suspend path offloads to the
+    IO dispatcher (libmysql has no portable non-blocking API), as PostgreSQL Native does on Windows.
+    Windows native is not built (served by the JVM driver).
+  - **R2DBC** via `createMySqlR2dbcDatabase(...)` in `kormium-r2dbc` (now multi-backend), over
+    `io.asyncer:r2dbc-mysql`.
+
+  UUIDs are stored as `CHAR(36)` text and JSON as MySQL's native `JSON`. There is no
+  transaction-scoped advisory lock (MySQL `GET_LOCK` is session-scoped), so `kormium-migrate` runs
+  without one on MySQL (as on SQLite).
+
+### Changed
+- **Core: `Dialect` gained write-path rendering hooks** so the INSERT family is no longer
+  hardcoded to Postgres/SQLite syntax: `renderLimitOffset(limit, offset)` (a bare `OFFSET` without
+  `LIMIT` is a MySQL syntax error), `supportsReturning`, `renderInsertDefaultValues`,
+  `renderUpsertSuffix` and `renderInsertOrIgnoreSuffix`. All have defaults equal to the previous
+  behaviour, so Standard / Postgres / SQLite output is unchanged. `MySqlDialect` overrides them
+  (`() VALUES ()`, `ON DUPLICATE KEY UPDATE`, and — since MySQL has no `RETURNING` —
+  `insert/upsert(returning = true)` re-selects the row by primary key).
+- **`kormium-migrate`: journal `id` column is now `varchar(255)`** (was `text`). MySQL forbids a
+  `TEXT` primary key without a prefix length; `varchar(255)` is equally valid on Postgres and SQLite.
+
 ## [0.6.0] — Native driver hardening and true-async reads
 
 ### Fixed
