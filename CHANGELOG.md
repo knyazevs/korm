@@ -6,6 +6,8 @@ All notable changes to Kormium are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.7.0] — MySQL / MariaDB engine
+
 ### Added
 - **New engine: MySQL / MariaDB (`kormium-mysql`).** A second full database engine, mirroring
   `kormium-postgres`, with `MySqlDialect` (backtick identifiers, MySQL `LIMIT`/`OFFSET`), the
