@@ -31,6 +31,16 @@ class Migration<G : Catalog> private constructor(
     internal val statements: List<String>,
     internal val checksum: String,
 ) {
+    // The journal records the id as varchar(MAX_ID_LENGTH) (see [migrate]); reject an over-long id
+    // here, at construction, rather than letting it fail later on INSERT into the journal.
+    init {
+        require(id.length <= MAX_ID_LENGTH) {
+            "Migration id must be at most $MAX_ID_LENGTH characters " +
+                "(it is stored in the kormium_migrations.id varchar($MAX_ID_LENGTH) column), " +
+                "was ${id.length}: \"$id\""
+        }
+    }
+
     /** A migration written as one SQL string; statements are separated by top-level `;`. */
     constructor(id: String, sql: String) : this(id, splitStatements(sql), crc32(normalize(sql)))
 
@@ -38,6 +48,13 @@ class Migration<G : Catalog> private constructor(
     constructor(id: String, statements: List<String>) :
         this(id, statements, crc32(statements.joinToString("\n;\n") { normalize(it) }))
 }
+
+/**
+ * Maximum length of a [Migration.id]. It must fit the journal's `id varchar(MAX_ID_LENGTH)` primary
+ * key — a value MySQL accepts as a key (a `TEXT` PK needs a prefix length) and that is equally valid
+ * on Postgres and SQLite. 255 is comfortably longer than any sensible migration id.
+ */
+private const val MAX_ID_LENGTH = 255
 
 /** Thrown when an already-applied migration's SQL no longer matches the recorded checksum. */
 class MigrationChecksumException(
@@ -89,9 +106,11 @@ fun <G : Catalog> Database<G>.migrate(migrations: List<Migration<G>>) {
     usePinned(transactional = true) { exec ->
         exec.dialect.advisoryLockSql(migrationLockKey)?.let { exec.execute(it) }
 
+        // id is varchar(255), not text: MySQL forbids a TEXT/BLOB column as a PRIMARY KEY without a
+        // prefix length (error 1170), and varchar(255) is equally valid on Postgres and SQLite.
         exec.execute(
             "CREATE TABLE IF NOT EXISTS $JOURNAL " +
-                "(id text NOT NULL PRIMARY KEY, checksum text NOT NULL, applied_at text NOT NULL, idx integer NOT NULL)",
+                "(id varchar($MAX_ID_LENGTH) NOT NULL PRIMARY KEY, checksum text NOT NULL, applied_at text NOT NULL, idx integer NOT NULL)",
         )
 
         val applied: Map<String, String> = exec

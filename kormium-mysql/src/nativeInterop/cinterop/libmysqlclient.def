@@ -1,0 +1,31 @@
+headers = mysql.h
+# Broad filter (like libpq.def): mysql.h pulls in mariadb_stmt.h / mariadb_com.h etc., and the
+# prepared-statement functions (mysql_stmt_errno/error/...) live in those, not mysql.h itself.
+headerFilter = *
+package = mysql
+
+# The native MySQL driver links against a MySQL C client library. We target the MariaDB
+# Connector/C (libmariadb), which is API-compatible with libmysqlclient and ships the same
+# mysql.h, and is far easier to install in CI (brew mariadb-connector-c / apt libmariadb-dev)
+# than Oracle's libmysqlclient. The Oracle client also works if its headers/lib are on the paths.
+#
+# Non-standard locations: pass -Pmysql.include=<dir> and -Pmysql.lib=<dir> (see build.gradle.kts).
+
+compilerOpts.osx = -I/opt/homebrew/opt/mariadb-connector-c/include/mariadb \
+    -I/usr/local/opt/mariadb-connector-c/include/mariadb \
+    -I/opt/homebrew/opt/mysql-client/include/mysql \
+    -I/usr/local/opt/mysql-client/include/mysql
+linkerOpts.osx = -L/opt/homebrew/opt/mariadb-connector-c/lib -L/usr/local/opt/mariadb-connector-c/lib \
+    -L/opt/homebrew/opt/mysql-client/lib -L/usr/local/opt/mysql-client/lib -lmariadb
+
+# The trailing macOS brew paths let the linuxX64 klib cross-compile from a macOS publish host
+# (mysql.h is platform-neutral; only the final link of a Linux executable needs the real lib).
+compilerOpts.linux = -I/usr/include/mariadb -I/usr/include/mysql \
+    -I/opt/homebrew/opt/mariadb-connector-c/include/mariadb -I/usr/local/opt/mariadb-connector-c/include/mariadb
+linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -lmariadb
+
+# Windows: MariaDB Connector/C install. The unix include paths at the end let the klib
+# cross-compile from macOS/Linux CI hosts — mysql.h is platform-neutral, and only the final
+# link of a Windows executable needs the real Windows import library.
+compilerOpts.mingw = -IC:/msys64/mingw64/include/mariadb -IC:/msys64/mingw64/include/mysql \
+    -I/opt/homebrew/opt/mariadb-connector-c/include/mariadb -I/usr/include/mariadb

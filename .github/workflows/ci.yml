@@ -21,6 +21,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Backs the native (libmariadb) MySQL tests. MariaDB uses mysql_native_password, so the
+      # native client connects over plaintext without the caching_sha2 public-key dance.
+      mysql:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: password
+          MARIADB_DATABASE: kormium_test
+          MARIADB_USER: kormium
+          MARIADB_PASSWORD: kormium
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +47,8 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Install libpq + libsqlite3 (for the Kotlin/Native cinterops)
-        run: sudo apt-get update && sudo apt-get install -y libpq-dev libsqlite3-dev
+      - name: Install libpq + libsqlite3 + libmariadb (for the Kotlin/Native cinterops)
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev libsqlite3-dev libmariadb-dev
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -52,7 +68,13 @@ jobs:
           KORMIUM_DB_NAME: postgres
           KORMIUM_DB_USER: postgres
           KORMIUM_DB_PASSWORD: password
-        run: ./gradlew :kormium-core:linuxX64Test :kormium-postgres:linuxX64Test :kormium-sqlite:linuxX64Test :kormium-migrate:linuxX64Test --console=plain
+          # kormium-mysql's native tests read MYSQL_* and run against the MariaDB service above.
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3306"
+          MYSQL_DB: kormium_test
+          MYSQL_USER: kormium
+          MYSQL_PASSWORD: kormium
+        run: ./gradlew :kormium-core:linuxX64Test :kormium-postgres:linuxX64Test :kormium-sqlite:linuxX64Test :kormium-migrate:linuxX64Test :kormium-mysql:linuxX64Test --console=plain
 
       # The ktor integration libraries are libraries (no native exe link), so assemble
       # builds their JVM + native artifacts to verify they compile on every target.
@@ -79,6 +101,10 @@ jobs:
       # Testcontainers.
       - name: r2dbc tests (Testcontainers, JVM)
         run: ./gradlew :kormium-r2dbc:jvmTest --console=plain
+
+      # MySQL JVM (JDBC) end-to-end tests spin up their own MySQL via Testcontainers.
+      - name: MySQL JVM tests (Testcontainers, JVM)
+        run: ./gradlew :kormium-mysql:jvmTest --console=plain
 
       # Postgres samples — JVM end-to-end tests spin up their own Postgres via Testcontainers.
       # samples:r2dbc is the async variant of ktor-di.

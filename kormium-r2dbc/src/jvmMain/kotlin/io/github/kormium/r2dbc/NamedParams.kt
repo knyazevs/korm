@@ -1,15 +1,27 @@
 package io.github.kormium.r2dbc
 
-/** A SQL string with its `:name` placeholders rewritten to Postgres `$N`, plus the names in order. */
+/** A SQL string with its `:name` placeholders rewritten to the driver's marker, plus the names in order. */
 internal class ParsedSql(val sql: String, val names: List<String>)
 
 /**
- * Rewrites korm's Spring-style `:name` placeholders to r2dbc-postgresql's positional
- * `$1, $2, ...` and records the names in occurrence order so values can be bound by
- * index. `::` casts (Postgres) and quoted string literals are left untouched. This is
- * the same parse as the JDBC NamedParamStatement, differing only in the emitted marker.
+ * Renders the positional bind marker for the 0-based parameter [index]. The placeholder syntax is
+ * driver-specific: r2dbc-postgresql wants `$1, $2, …`, r2dbc-mysql wants a bare `?`.
  */
-internal fun parseNamedParams(sql: String): ParsedSql {
+internal typealias ParamMarker = (index: Int) -> String
+
+/** r2dbc-postgresql positional markers: `$1, $2, …` (1-based in the SQL, bound by 0-based index). */
+internal val PostgresParamMarker: ParamMarker = { i -> "\$${i + 1}" }
+
+/** r2dbc-mysql positional markers: a bare `?` for every parameter, bound by 0-based index. */
+internal val QuestionMarkParamMarker: ParamMarker = { "?" }
+
+/**
+ * Rewrites korm's Spring-style `:name` placeholders to the driver's positional marker (via
+ * [marker]) and records the names in occurrence order so values can be bound by index. `::` casts
+ * (Postgres) and quoted string literals are left untouched. This is the same parse as the JDBC
+ * NamedParamStatement, differing only in the emitted marker.
+ */
+internal fun parseNamedParams(sql: String, marker: ParamMarker): ParsedSql {
     val out = StringBuilder(sql.length)
     val names = ArrayList<String>()
     var i = 0
@@ -59,7 +71,7 @@ internal fun parseNamedParams(sql: String): ParsedSql {
                 var j = i + 1
                 while (j < sql.length && (sql[j].isLetterOrDigit() || sql[j] == '_')) j++
                 names.add(sql.substring(i + 1, j))
-                out.append('$').append(names.size) // $1, $2, ... (1-based)
+                out.append(marker(names.size - 1)) // 0-based index for binding
                 i = j
             }
             else -> {

@@ -65,6 +65,7 @@ allprojects {
 val publishableModules = setOf(
     "kormium-core",
     "kormium-postgres",
+    "kormium-mysql",
     "kormium-jdbc",
     "kormium-sqlite",
     "kormium-r2dbc",

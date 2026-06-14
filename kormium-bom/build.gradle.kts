@@ -9,6 +9,7 @@ dependencies {
         listOf(
             "kormium-core",
             "kormium-postgres",
+            "kormium-mysql",
             "kormium-jdbc",
             "kormium-sqlite",
             "kormium-migrate",

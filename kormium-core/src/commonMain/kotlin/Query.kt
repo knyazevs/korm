@@ -15,9 +15,8 @@ data class Query(
     fun toSql(builder: ParamBuilder): String {
         val whereStr = whereExpression?.let { "WHERE ${it.toSql(builder)} " } ?: ""
         val orderByStr = orderBy?.let { "ORDER BY ${prepareOrderBy(it, builder)} " } ?: ""
-        val limitStr = builder.dialect.renderLimit(limit)
-        val offsetStr = builder.dialect.renderOffset(offset)
-        return "$whereStr$orderByStr$limitStr$offsetStr"
+        val limitOffsetStr = builder.dialect.renderLimitOffset(limit, offset)
+        return "$whereStr$orderByStr$limitOffsetStr"
     }
 
     /**
